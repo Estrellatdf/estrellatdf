@@ -3,7 +3,7 @@ import {
   Plus, Trash2, User, BookOpen, Menu, X, ChevronRight, 
   GraduationCap, FileSpreadsheet, Lock, Eye, Calendar, 
   CheckCircle, XCircle, MessageSquare, LogOut, AlertTriangle, Bug, Download,
-  Bell, Megaphone, Clock, Settings, ShieldAlert
+  Bell, Megaphone, Clock, Settings, ShieldAlert, ChevronLeft, ChevronDown
 } from 'lucide-react';
 
 // Importaciones de Firebase
@@ -53,6 +53,8 @@ const generateStudentCode = () => {
   return result;
 };
 
+const getTodayString = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+
 const PALETTE = [
   'bg-blue-50 border-blue-100',
   'bg-green-50 border-green-100',
@@ -89,6 +91,7 @@ export default function EstrellaTDF() {
   const [currentSubjectId, setCurrentSubjectId] = useState(null);
   const [currentTrimester, setCurrentTrimester] = useState(1);
   const [activeTab, setActiveTab] = useState('grades');
+  const [selectedDate, setSelectedDate] = useState(getTodayString());
 
   // Formularios
   const [isAddingSubject, setIsAddingSubject] = useState(false);
@@ -106,14 +109,14 @@ export default function EstrellaTDF() {
   const [newAnnounceType, setNewAnnounceType] = useState('info');
   const [newAnnounceRecipient, setNewAnnounceRecipient] = useState('all'); 
 
-  // Estado para Cambiar Contraseña (SEGURO)
+  // Estado para Cambiar Contraseña
   const [isChangingPass, setIsChangingPass] = useState(false);
-  const [oldPassInput, setOldPassInput] = useState(''); // Para verificar la anterior
+  const [oldPassInput, setOldPassInput] = useState(''); 
   const [newPassInput, setNewPassInput] = useState('');
 
-  // Vista Estudiante
-  const [viewingStudent, setViewingStudent] = useState(null);
-  const [viewingSubject, setViewingSubject] = useState(null);
+  // Vista Estudiante (Multi-Asignatura)
+  const [studentMatches, setStudentMatches] = useState([]); 
+  const [selectedSubjectIndex, setSelectedSubjectIndex] = useState(0);
 
   // --- 1. AUTENTICACIÓN ---
   useEffect(() => {
@@ -180,7 +183,6 @@ export default function EstrellaTDF() {
   const deleteSubjectDB = async (id) => {
     const pwd = prompt("⚠️ ZONA DE PELIGRO ⚠️\n\nPara eliminar esta CLASE y todos sus datos, ingrese su contraseña:");
     if (pwd !== appSettings.teacherPassword) return alert("Contraseña incorrecta. No se borró nada.");
-    
     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subjects', id.toString()));
     if(currentSubjectId===id) setCurrentSubjectId(null);
   };
@@ -200,34 +202,29 @@ export default function EstrellaTDF() {
     }
   };
 
-  // CAMBIO DE CONTRASEÑA SEGURO
   const handleChangePassword = () => {
-    // 1. Verificar contraseña antigua
-    if (oldPassInput !== appSettings.teacherPassword) {
-        return alert("❌ Error: La contraseña ACTUAL no es correcta.");
-    }
-    // 2. Validar nueva contraseña
-    if(newPassInput.length < 4) {
-        return alert("❌ Error: La NUEVA contraseña es muy corta (mínimo 4 caracteres).");
-    }
-    
-    // 3. Guardar
+    if (oldPassInput !== appSettings.teacherPassword) return alert("❌ Error: La contraseña ACTUAL no es correcta.");
+    if(newPassInput.length < 4) return alert("❌ Error: La NUEVA contraseña es muy corta.");
     updateSettings({ teacherPassword: newPassInput });
     alert("✅ ¡Contraseña actualizada exitosamente!");
-    setIsChangingPass(false);
-    setOldPassInput('');
-    setNewPassInput('');
+    setIsChangingPass(false); setOldPassInput(''); setNewPassInput('');
   };
 
   const handleStudentLogin = () => {
     if (!studentCodeInput) return;
-    let foundStudent = null, foundSubject = null;
-    for (const sub of subjects) {
-      const s = sub.students.find(st => st.code === studentCodeInput.trim().toUpperCase());
-      if (s) { foundStudent = s; foundSubject = sub; break; }
+    const code = studentCodeInput.trim().toUpperCase();
+    const matches = [];
+    subjects.forEach(sub => {
+        const found = sub.students.find(s => s.code === code);
+        if (found) matches.push({ subject: sub, student: found });
+    });
+    if (matches.length > 0) {
+        setStudentMatches(matches);
+        setSelectedSubjectIndex(0);
+        setViewMode('student_view');
+    } else {
+        alert("Código no encontrado. Verifique e intente nuevamente.");
     }
-    if (foundStudent) { setViewingStudent(foundStudent); setViewingSubject(foundSubject); setViewMode('student_view'); }
-    else alert("Código no encontrado.");
   };
 
   // --- CRUD FUNCTIONS ---
@@ -236,14 +233,7 @@ export default function EstrellaTDF() {
   const addSubject = () => {
     if(!newSubjectName) return;
     const newSub = { 
-      id: Date.now(), 
-      name: newSubjectName, 
-      parallel: newParallel, 
-      students: [], 
-      activities: {1:[],2:[],3:[]}, 
-      grades: {1:{},2:{},3:{}}, 
-      attendance: {},
-      announcements: []
+      id: Date.now(), name: newSubjectName, parallel: newParallel, students: [], activities: {1:[],2:[],3:[]}, grades: {1:{},2:{},3:{}}, attendance: {}, announcements: []
     };
     saveSubject(newSub); setCurrentSubjectId(newSub.id); setIsAddingSubject(false); setNewSubjectName(''); setNewParallel('');
   };
@@ -251,8 +241,16 @@ export default function EstrellaTDF() {
   const addStudentsBulk = () => {
     if(!newStudentList || !currentSubject) return;
     const names = newStudentList.split('\n').map(n=>n.trim()).filter(n=>n.length);
-    const newStus = names.map(n => ({ id: "s_"+Date.now()+Math.random().toString(36).substr(2,5), name: n, code: generateStudentCode() }));
-    saveSubject({ ...currentSubject, students: [...currentSubject.students, ...newStus] }); setIsAddingStudent(false); setNewStudentList('');
+    const newStus = names.map(name => {
+        let existingCode = null;
+        for (const sub of subjects) {
+            const found = sub.students.find(s => s.name.toLowerCase() === name.toLowerCase());
+            if (found) { existingCode = found.code; break; }
+        }
+        return { id: "s_"+Date.now()+Math.random().toString(36).substr(2,5), name: name, code: existingCode || generateStudentCode() };
+    });
+    saveSubject({ ...currentSubject, students: [...currentSubject.students, ...newStus] }); 
+    setIsAddingStudent(false); setNewStudentList('');
   };
 
   const addActivity = () => {
@@ -263,45 +261,30 @@ export default function EstrellaTDF() {
   };
 
   const deleteActivity = (actId) => {
-    const pwd = prompt("⚠️ ZONA DE PELIGRO ⚠️\n\nPara eliminar esta ACTIVIDAD y sus notas, ingrese su contraseña:");
+    const pwd = prompt("⚠️ ZONA DE PELIGRO ⚠️\n\nPara eliminar esta ACTIVIDAD, ingrese su contraseña:");
     if (pwd !== appSettings.teacherPassword) return alert("Contraseña incorrecta. Cancelado.");
-
     const acts = currentSubject.activities[currentTrimester] || [];
     const newActs = acts.filter(a => a.id !== actId);
-    
     const newGrades = { ...currentSubject.grades };
     if (newGrades[currentTrimester]) {
         Object.keys(newGrades[currentTrimester]).forEach(studentId => {
-            if (newGrades[currentTrimester][studentId]) {
-                delete newGrades[currentTrimester][studentId][actId];
-            }
+            if (newGrades[currentTrimester][studentId]) delete newGrades[currentTrimester][studentId][actId];
         });
     }
-
-    saveSubject({ 
-        ...currentSubject, 
-        activities: { ...currentSubject.activities, [currentTrimester]: newActs },
-        grades: newGrades
-    });
+    saveSubject({ ...currentSubject, activities: { ...currentSubject.activities, [currentTrimester]: newActs }, grades: newGrades });
   };
 
   const addAnnouncement = () => {
     if(!newAnnounceTitle || !currentSubject) return;
-    
     let recipName = "Todos";
     if (newAnnounceRecipient !== 'all') {
         const s = currentSubject.students.find(st => st.id === newAnnounceRecipient);
         if (s) recipName = s.name;
     }
-
     const newAnn = {
       id: "msg_" + Date.now(),
-      title: newAnnounceTitle,
-      body: newAnnounceBody,
-      type: newAnnounceType,
-      recipient: newAnnounceRecipient,
-      recipientName: recipName,
-      date: new Date().toLocaleDateString()
+      title: newAnnounceTitle, body: newAnnounceBody, type: newAnnounceType,
+      recipient: newAnnounceRecipient, recipientName: recipName, date: new Date().toLocaleDateString()
     };
     const currentList = currentSubject.announcements || [];
     saveSubject({ ...currentSubject, announcements: [newAnn, ...currentList] });
@@ -334,7 +317,10 @@ export default function EstrellaTDF() {
     const avg = acts.length ? sum / acts.length : 0;
     const ex = gr['exam_final'] || 0;
     return {
-      wAct: (avg * 0.7).toFixed(2), wEx: (ex * 0.3).toFixed(2),
+      avgAct: avg.toFixed(2), 
+      wAct: (avg * 0.7).toFixed(2),
+      rawEx: ex, 
+      wEx: (ex * 0.3).toFixed(2),
       fin: ((avg * 0.7) + (ex * 0.3)).toFixed(2)
     };
   };
@@ -342,12 +328,18 @@ export default function EstrellaTDF() {
   // --- EXPORTAR ---
   const exportGradesCSV = () => {
     const acts = currentSubject.activities[currentTrimester] || [];
-    let csv = "Estudiante,Codigo," + acts.map(a=>`"${a.name}"`).join(",") + ",70%,30%,Final\n";
+    // TRUCO: "sep=," al inicio fuerza a Excel a usar comas como separador
+    let csv = "sep=,\nEstudiante,Codigo," + acts.map(a=>`"${a.name}"`).join(",") + ",Promedio Act.,70%,Nota Examen,30%,Final\n";
+    
     currentSubject.students.forEach(s => {
       const st = calculateStats(currentSubject, currentTrimester, s.id);
       const gr = currentSubject.grades[currentTrimester]?.[s.id] || {};
-      csv += `"${s.name}",${s.code},` + acts.map(a=>gr[a.id]||0).join(",") + `,${st.wAct},${st.wEx},${st.fin}\n`;
+      
+      csv += `"${s.name}",${s.code},` + 
+             acts.map(a=>gr[a.id]||0).join(",") + 
+             `,${st.avgAct},${st.wAct},${st.rawEx},${st.wEx},${st.fin}\n`;
     });
+    
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], {type:'text/csv'}));
     link.download = `Notas_${currentSubject.name}_T${currentTrimester}.csv`; link.click();
@@ -360,7 +352,10 @@ export default function EstrellaTDF() {
       Object.keys(studentDates).forEach(d => allDates.add(d));
     });
     const sortedDates = Array.from(allDates).sort();
-    let csv = "Estudiante,Codigo," + sortedDates.join(",") + ",% Asistencia\n";
+    
+    // TRUCO: "sep=," para compatibilidad Excel
+    let csv = "sep=,\nEstudiante,Codigo," + sortedDates.join(",") + ",% Asistencia\n";
+    
     currentSubject.students.forEach(s => {
       const studentAtt = currentSubject.attendance[s.id] || {};
       let presentCount = 0; let totalRecorded = 0;
@@ -378,6 +373,13 @@ export default function EstrellaTDF() {
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], {type:'text/csv'}));
     link.download = `Asistencia_Consolidada_${currentSubject.name}.csv`; link.click();
+  };
+
+  // --- NAVEGACIÓN FECHA ---
+  const changeDate = (days) => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + days);
+    setSelectedDate(d.toISOString().split('T')[0]);
   };
 
   // --- RENDERIZADO ---
@@ -423,33 +425,47 @@ export default function EstrellaTDF() {
   }
 
   // --- VISTA ESTUDIANTE / PADRES ---
-  if (viewMode === 'student_view' && viewingStudent) {
-    const st = calculateStats(viewingSubject, currentTrimester, viewingStudent.id);
+  if (viewMode === 'student_view' && studentMatches.length > 0) {
+    const currentMatch = studentMatches[selectedSubjectIndex];
+    const viewingSubject = currentMatch.subject;
+    const viewingStudent = currentMatch.student;
     
-    // Filtrar comunicados
+    const st = calculateStats(viewingSubject, currentTrimester, viewingStudent.id);
     const myAnnouncements = (viewingSubject.announcements || []).filter(ann => 
         !ann.recipient || ann.recipient === 'all' || ann.recipient === viewingStudent.id
     );
 
     return (
       <div className="min-h-screen bg-gray-50 font-sans text-gray-800 p-4">
-        <header className="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-           <div className="flex items-center gap-3">
+        <header className="flex flex-col md:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-200 gap-4">
+           <div className="flex items-center gap-3 w-full">
              <div className="bg-green-100 p-3 rounded-full text-green-700"><User size={24}/></div>
              <div>
                <h1 className="text-xl font-bold text-gray-800">{viewingStudent.name}</h1>
-               <p className="text-sm text-gray-500">{viewingSubject.name} - {viewingSubject.parallel}</p>
+               <p className="text-sm text-gray-500">Panel Estudiantil - Código: {viewingStudent.code}</p>
              </div>
            </div>
-           <button onClick={()=>setViewMode('portal')} className="flex items-center gap-1 text-gray-500 hover:text-red-500 transition"><LogOut size={18}/> Salir</button>
+           
+           <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+              {studentMatches.map((match, idx) => (
+                  <button 
+                    key={match.subject.id}
+                    onClick={() => setSelectedSubjectIndex(idx)}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition ${selectedSubjectIndex === idx ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  >
+                    {match.subject.name}
+                  </button>
+              ))}
+           </div>
+
+           <button onClick={()=>setViewMode('portal')} className="flex items-center gap-1 text-gray-500 hover:text-red-500 transition ml-4"><LogOut size={18}/> Salir</button>
         </header>
 
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-          
+        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-500">
           <div className="space-y-6">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-lg flex items-center gap-2"><FileSpreadsheet className="text-indigo-500"/> Calificaciones</h3>
+                <h3 className="font-bold text-lg flex items-center gap-2"><FileSpreadsheet className="text-indigo-500"/> Calificaciones: {viewingSubject.name}</h3>
                 <div className="flex gap-1">{[1,2,3].map(t=><button key={t} onClick={()=>setCurrentTrimester(t)} className={`px-2 py-1 text-xs rounded ${currentTrimester===t?'bg-indigo-600 text-white':'bg-gray-100'}`}>{t}º</button>)}</div>
               </div>
               <div className="bg-gray-50 rounded-lg p-4 mb-4 flex justify-between text-center">
@@ -511,15 +527,12 @@ export default function EstrellaTDF() {
                 </div>
              </div>
           </div>
-
         </div>
       </div>
     );
   }
 
   // --- VISTA DOCENTE ---
-  const today = new Date().toISOString().split('T')[0];
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-800">
       <header className="bg-indigo-700 text-white p-4 flex justify-between items-center sticky top-0 z-50 shadow-lg">
@@ -532,6 +545,7 @@ export default function EstrellaTDF() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
         <aside className={`${showMenu ? 'fixed inset-0 z-40 bg-white' : 'hidden'} md:block md:static md:w-72 bg-white shadow-xl flex-shrink-0 flex flex-col z-40 border-r border-gray-200`}>
           <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
             <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Mis Clases</h2>
@@ -550,6 +564,7 @@ export default function EstrellaTDF() {
           </div>
         </aside>
 
+        {/* Main Content */}
         <main className="flex-1 p-4 md:p-6 overflow-auto bg-gray-50 relative">
           {currentSubject ? (
             <div className="max-w-6xl mx-auto space-y-6">
@@ -634,14 +649,24 @@ export default function EstrellaTDF() {
 
               {activeTab === 'attendance' && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[calc(100vh-220px)]">
-                   <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center sticky top-0 z-20">
-                      <h3 className="font-bold flex items-center gap-2 text-gray-700"><Calendar className="text-indigo-600"/> Asistencia del Día: <span className="bg-white px-3 py-1 rounded border shadow-sm text-indigo-700">{today}</span></h3>
-                      <button onClick={exportAttendanceCSV} className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow transition"><Download size={16}/> Exportar Historial Completo</button>
+                   <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-center sticky top-0 z-20 gap-3">
+                      <div className="flex items-center gap-2 bg-gray-100 p-1.5 rounded-lg border">
+                        <button onClick={()=>changeDate(-1)} className="p-1 hover:bg-white rounded shadow-sm transition"><ChevronLeft size={20}/></button>
+                        <Calendar className="text-indigo-600"/> 
+                        <input 
+                          type="date" 
+                          className="bg-transparent border-none text-sm font-bold text-gray-700 outline-none"
+                          value={selectedDate} 
+                          onChange={(e) => setSelectedDate(e.target.value)}
+                        />
+                        <button onClick={()=>changeDate(1)} className="p-1 hover:bg-white rounded shadow-sm transition"><ChevronRight size={20}/></button>
+                      </div>
+                      <button onClick={exportAttendanceCSV} className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow transition w-full sm:w-auto justify-center"><Download size={16}/> Reporte Completo</button>
                    </div>
                    
                    <div className="flex-1 overflow-auto p-4 space-y-3">
                       {currentSubject.students.map((s,i)=>{
-                         const att = currentSubject.attendance[s.id]?.[today] || { status: 'P', note: '' };
+                         const att = currentSubject.attendance[s.id]?.[selectedDate] || { status: 'P', note: '' };
                          const rowClass = PALETTE[i % PALETTE.length];
                          return (
                            <div key={s.id} className={`flex flex-col md:flex-row md:items-center gap-3 p-4 rounded-xl border border-gray-200 shadow-sm ${rowClass} transition hover:shadow-md`}>
@@ -651,8 +676,8 @@ export default function EstrellaTDF() {
                               </div>
                               
                               <div className="flex items-center gap-2 bg-white/80 p-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                <button onClick={()=>updateAttendance(s.id,today,'status','P')} className={`px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${att.status === 'P' ? 'bg-green-600 text-white shadow' : 'text-gray-400 hover:bg-gray-100'}`}><CheckCircle size={16}/> Asistió</button>
-                                <button onClick={()=>updateAttendance(s.id,today,'status','A')} className={`px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${att.status === 'A' ? 'bg-red-600 text-white shadow' : 'text-gray-400 hover:bg-gray-100'}`}><XCircle size={16}/> Falta</button>
+                                <button onClick={()=>updateAttendance(s.id,selectedDate,'status','P')} className={`px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${att.status === 'P' ? 'bg-green-600 text-white shadow' : 'text-gray-400 hover:bg-gray-100'}`}><CheckCircle size={16}/> Asistió</button>
+                                <button onClick={()=>updateAttendance(s.id,selectedDate,'status','A')} className={`px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${att.status === 'A' ? 'bg-red-600 text-white shadow' : 'text-gray-400 hover:bg-gray-100'}`}><XCircle size={16}/> Falta</button>
                               </div>
 
                               <div className="flex-1 w-full md:w-auto relative">
@@ -661,7 +686,7 @@ export default function EstrellaTDF() {
                                      className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white/90 shadow-sm" 
                                      placeholder="Escribir observación (visible para el representante)..." 
                                      value={att.note || ''} 
-                                     onChange={(e) => updateAttendance(s.id, today, 'note', e.target.value)} 
+                                     onChange={(e) => updateAttendance(s.id, selectedDate, 'note', e.target.value)} 
                                    />
                               </div>
                            </div>
