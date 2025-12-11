@@ -65,7 +65,7 @@ const PALETTE = [
 ];
 
 export default function EstrellaTDF() {
-  // --- TRUCO DE DISEÑO AUTOMÁTICO ---
+  // --- TRUCO DE DISEÑO AUTOMÁTICO (CDN) ---
   useEffect(() => {
     const existingScript = document.getElementById('tailwindcss');
     if (!existingScript) {
@@ -325,22 +325,26 @@ export default function EstrellaTDF() {
     };
   };
 
-  // --- EXPORTAR ---
+  // --- EXPORTAR (CORREGIDO PARA ESPAÑOL: Usa punto y coma) ---
   const exportGradesCSV = () => {
     const acts = currentSubject.activities[currentTrimester] || [];
-    // TRUCO: "sep=," al inicio fuerza a Excel a usar comas como separador
-    let csv = "sep=,\nEstudiante,Codigo," + acts.map(a=>`"${a.name}"`).join(",") + ",Promedio Act.,70%,Nota Examen,30%,Final\n";
+    // Usamos ; como separador
+    let csv = "Estudiante;Codigo;" + acts.map(a=>`"${a.name}"`).join(";") + ";Promedio Act.;70%;Nota Examen;30%;Final\n";
     
     currentSubject.students.forEach(s => {
       const st = calculateStats(currentSubject, currentTrimester, s.id);
       const gr = currentSubject.grades[currentTrimester]?.[s.id] || {};
       
-      csv += `"${s.name}",${s.code},` + 
-             acts.map(a=>gr[a.id]||0).join(",") + 
-             `,${st.avgAct},${st.wAct},${st.rawEx},${st.wEx},${st.fin}\n`;
+      // Reemplazamos puntos por comas en las notas para Excel español (opcional, pero ayuda)
+      const fmt = (n) => n.toString().replace('.', ',');
+
+      csv += `"${s.name}";${s.code};` + 
+             acts.map(a=>fmt(gr[a.id]||0)).join(";") + 
+             `;${fmt(st.avgAct)};${fmt(st.wAct)};${fmt(st.rawEx)};${fmt(st.wEx)};${fmt(st.fin)}\n`;
     });
     
     const link = document.createElement("a");
+    // UTF-8 BOM para tildes
     link.href = URL.createObjectURL(new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], {type:'text/csv'}));
     link.download = `Notas_${currentSubject.name}_T${currentTrimester}.csv`; link.click();
   };
@@ -353,8 +357,8 @@ export default function EstrellaTDF() {
     });
     const sortedDates = Array.from(allDates).sort();
     
-    // TRUCO: "sep=," para compatibilidad Excel
-    let csv = "sep=,\nEstudiante,Codigo," + sortedDates.join(",") + ",% Asistencia\n";
+    // Separador ;
+    let csv = "Estudiante;Codigo;" + sortedDates.join(";") + ";% Asistencia\n";
     
     currentSubject.students.forEach(s => {
       const studentAtt = currentSubject.attendance[s.id] || {};
@@ -368,7 +372,7 @@ export default function EstrellaTDF() {
         return `"${cell}"`;
       });
       const percentage = totalRecorded > 0 ? Math.round((presentCount / totalRecorded) * 100) : 0;
-      csv += `"${s.name}",${s.code},` + rowData.join(",") + `,${percentage}%\n`;
+      csv += `"${s.name}";${s.code};` + rowData.join(";") + `;${percentage}%\n`;
     });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], {type:'text/csv'}));
