@@ -188,10 +188,11 @@ export default function EstrellaTDF() {
     const unsubSettings = onSnapshot(settingsDoc, (docSnap) => {
       if (docSnap.exists()) {
         const s = docSnap.data();
+        if (!s.availableYears) s.availableYears = [new Date().getFullYear().toString()];
         setAppSettings(s);
         if (s.activeYear) setCurrentYear(s.activeYear);
       }
-      else setAppSettings({ teacherPassword: null });
+      else setAppSettings({ teacherPassword: null, availableYears: [new Date().getFullYear().toString()] });
     });
 
     return () => { unsubSub(); unsubSettings(); };
@@ -698,13 +699,33 @@ export default function EstrellaTDF() {
             {showMenu && <button onClick={() => setShowMenu(false)}><X size={20} /></button>}
           </div>
           <div className="p-3 bg-indigo-900 border-b border-white/10">
-            <label className="text-[10px] text-indigo-300 uppercase font-bold mb-1 block">Año Lectivo Seleccionado</label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-[10px] text-indigo-300 uppercase font-bold block">Año Lectivo</label>
+              <button
+                onClick={() => {
+                  const y = prompt("Ingrese el nuevo año (ej: 2026):");
+                  if (y && !appSettings.availableYears?.includes(y)) {
+                    updateSettings({ ...appSettings, availableYears: [...(appSettings.availableYears || []), y].sort().reverse() });
+                  }
+                }}
+                className="text-[10px] bg-indigo-700 hover:bg-indigo-600 text-white px-1.5 py-0.5 rounded flex items-center gap-1 transition"
+              >
+                <Plus size={10} /> Nuevo Año
+              </button>
+            </div>
             <select
               className="w-full bg-indigo-800 text-white border-none rounded p-2 text-sm focus:ring-1 focus:ring-indigo-400 outline-none"
               value={selectedYearView}
               onChange={(e) => setSelectedYearView(e.target.value)}
             >
-              {[currentYear, "2024", "2023"].map(y => <option key={y} value={y}>{y}</option>)}
+              {[...new Set([
+                ...(appSettings.availableYears || []),
+                ...subjects.map(s => s.year),
+                new Date().getFullYear().toString(),
+                "2025"
+              ])].filter(Boolean).sort().reverse().map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
             </select>
           </div>
           <div className="p-3 space-y-2 overflow-y-auto flex-1">
