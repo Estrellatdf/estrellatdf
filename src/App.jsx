@@ -822,29 +822,29 @@ export default function UE19deAgosto() {
                               </div>
                             </th>
                           ))}
-                          <th className="p-0 text-center w-12 bg-indigo-50 border-b border-indigo-100 border-r relative h-40 align-bottom overflow-hidden">
-                            <div className="flex flex-col items-center justify-end h-full pb-4">
-                              <div className="font-bold text-xs whitespace-nowrap px-1 text-indigo-700" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>70% (D)</div>
+                          <th className="p-0 text-center w-8 bg-indigo-50 border-b border-indigo-100 border-r relative h-40 align-bottom">
+                            <div className="flex flex-col items-center justify-end h-full w-full pb-4">
+                              <span className="font-bold text-xs whitespace-nowrap px-1 text-indigo-700 writing-vertical" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>70% (D)</span>
                             </div>
                           </th>
-                          <th className="p-0 text-center w-12 bg-orange-50 border-b border-orange-100 border-r relative h-40 align-bottom overflow-hidden">
-                            <div className="flex flex-col items-center justify-end h-full pb-4">
-                              <div className="font-bold text-xs whitespace-nowrap px-1 text-orange-700" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>EXAMEN</div>
+                          <th className="p-0 text-center w-8 bg-orange-50 border-b border-orange-100 border-r relative h-40 align-bottom">
+                            <div className="flex flex-col items-center justify-end h-full w-full pb-4">
+                              <span className="font-bold text-xs whitespace-nowrap px-1 text-orange-700 writing-vertical" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>EXAMEN</span>
                             </div>
                           </th>
-                          <th className="p-0 text-center w-12 bg-green-50 border-b border-green-100 border-r relative h-40 align-bottom overflow-hidden">
-                            <div className="flex flex-col items-center justify-end h-full pb-4">
-                              <div className="font-bold text-xs whitespace-nowrap px-1 text-green-700" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>PROYECTO</div>
+                          <th className="p-0 text-center w-8 bg-green-50 border-b border-green-100 border-r relative h-40 align-bottom">
+                            <div className="flex flex-col items-center justify-end h-full w-full pb-4">
+                              <span className="font-bold text-xs whitespace-nowrap px-1 text-green-700 writing-vertical" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>PROYECTO</span>
                             </div>
                           </th>
-                          <th className="p-0 text-center w-12 bg-indigo-50 border-b border-indigo-100 border-r relative h-40 align-bottom overflow-hidden">
-                            <div className="flex flex-col items-center justify-end h-full pb-4">
-                              <div className="font-bold text-xs whitespace-nowrap px-1 text-indigo-700" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>30% (E)</div>
+                          <th className="p-0 text-center w-8 bg-indigo-50 border-b border-indigo-100 border-r relative h-40 align-bottom">
+                            <div className="flex flex-col items-center justify-end h-full w-full pb-4">
+                              <span className="font-bold text-xs whitespace-nowrap px-1 text-indigo-700 writing-vertical" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>30% (E)</span>
                             </div>
                           </th>
-                          <th className="p-0 text-center w-12 bg-gray-800 border-b border-gray-900 border-r relative h-40 align-bottom overflow-hidden">
-                            <div className="flex flex-col items-center justify-end h-full pb-4">
-                              <div className="font-bold text-xs whitespace-nowrap px-1 text-white" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>FINAL</div>
+                          <th className="p-0 text-center w-8 bg-gray-800 border-b border-gray-900 border-r relative h-40 align-bottom">
+                            <div className="flex flex-col items-center justify-end h-full w-full pb-4">
+                              <span className="font-bold text-xs whitespace-nowrap px-1 text-white writing-vertical" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>FINAL</span>
                             </div>
                           </th>
                         </tr>
