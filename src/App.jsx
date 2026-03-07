@@ -127,8 +127,12 @@ export default function UE19deAgosto() {
   // Vista Estudiante
   const [viewingStudent, setViewingStudent] = useState(null);
   const [viewingSubject, setViewingSubject] = useState(null);
+  const [studentSubjects, setStudentSubjects] = useState([]); // Todas las asignaturas del estudiante
   const [newSubjectTeacher, setNewSubjectTeacher] = useState('');
   const [viewingStudentDetails, setViewingStudentDetails] = useState(null); // Para modal de asistencia individual
+
+  // Navegación Sidebar
+  const [showOtherSubjects, setShowOtherSubjects] = useState(false);
 
   // --- 1. AUTENTICACIÓN ---
   useEffect(() => {
@@ -279,13 +283,20 @@ export default function UE19deAgosto() {
 
   const handleStudentLogin = () => {
     if (!studentCodeInput) return;
-    let foundStudent = null, foundSubject = null;
+    const code = studentCodeInput.trim().toUpperCase();
+    const foundMatches = [];
     for (const sub of subjects) {
-      const s = sub.students.find(st => st.code === studentCodeInput.trim().toUpperCase());
-      if (s) { foundStudent = s; foundSubject = sub; break; }
+      const s = sub.students.find(st => st.code === code);
+      if (s) foundMatches.push({ student: s, subject: sub });
     }
-    if (foundStudent) { setViewingStudent(foundStudent); setViewingSubject(foundSubject); setViewMode('student_view'); }
-    else alert("Código no encontrado.");
+    if (foundMatches.length > 0) {
+      setViewingStudent(foundMatches[0].student);
+      setViewingSubject(foundMatches[0].subject);
+      setStudentSubjects(foundMatches);
+      setViewMode('student_view');
+    } else {
+      alert("Código no encontrado.");
+    }
   };
 
   // --- CRUD FUNCTIONS ---
@@ -630,7 +641,28 @@ export default function UE19deAgosto() {
               <p className="text-sm text-gray-500">{viewingSubject.name} - {viewingSubject.parallel}</p>
             </div>
           </div>
-          <button onClick={() => setViewMode('portal')} className="flex items-center gap-1 text-gray-500 hover:text-red-500 transition"><LogOut size={18} /> Salir</button>
+          <div className="flex items-center gap-2">
+            {studentSubjects.length > 1 && (
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-gray-400 hidden sm:block">Asignatura:</span>
+                <select
+                  value={viewingSubject.id}
+                  onChange={e => {
+                    const match = studentSubjects.find(m => String(m.subject.id) === e.target.value);
+                    if (match) { setViewingSubject(match.subject); setViewingStudent(match.student); setCurrentTrimester(1); }
+                  }}
+                  className="text-sm border border-indigo-300 rounded-lg px-2 py-1.5 bg-indigo-50 text-indigo-700 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer"
+                >
+                  {studentSubjects.map(m => (
+                    <option key={m.subject.id} value={String(m.subject.id)}>
+                      {m.subject.name} ({m.subject.parallel})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <button onClick={() => { setViewMode('portal'); setStudentSubjects([]); }} className="flex items-center gap-1 text-gray-500 hover:text-red-500 transition"><LogOut size={18} /> Salir</button>
+          </div>
         </header>
 
         <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -762,23 +794,61 @@ export default function UE19deAgosto() {
                 </button>
               </div>
             )}
-            <div className="px-2 mb-2">
-              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Mis Asignaturas</h3>
-            </div>
-            {visibleSubjects.map(s => (
-              <button key={s.id} onClick={() => { setCurrentSubjectId(s.id); setShowMenu(false); }} className={`w-full text-left p-4 rounded-2xl flex justify-between items-center transition-all duration-300 ${currentSubjectId === s.id ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 translate-x-1' : 'hover:bg-slate-50 text-slate-600 hover:translate-x-1'}`}>
-                <div className="flex-1 min-w-0 pr-3">
-                  <div className="font-bold text-base truncate">{s.name}</div>
-                  <div className={`text-xs ${currentSubjectId === s.id ? 'text-indigo-200' : 'text-slate-400'} font-medium`}>
-                    {s.parallel} {s.teacherName ? `• ${s.teacherName}` : ''}
+            {(() => {
+              const mySubjects = visibleSubjects.filter(s => s.teacherId === currentUser?.id);
+              const otherSubjects = visibleSubjects.filter(s => s.teacherId !== currentUser?.id);
+              
+              return (
+                <>
+                  <div className="px-2 mb-2">
+                    <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Mis Asignaturas</h3>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {currentUser?.tutoringCourse === s.parallel && currentUser?.id !== s.teacherId && <Eye size={14} className="opacity-60" />}
-                  {currentSubjectId === s.id && <ChevronRight size={18} />}
-                </div>
-              </button>
-            ))}
+                  {mySubjects.map(s => (
+                    <button key={s.id} onClick={() => { setCurrentSubjectId(s.id); setShowMenu(false); }} className={`w-full text-left p-4 rounded-2xl flex justify-between items-center transition-all duration-300 ${currentSubjectId === s.id ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 translate-x-1' : 'hover:bg-slate-50 text-slate-600 hover:translate-x-1'}`}>
+                      <div className="flex-1 min-w-0 pr-3">
+                        <div className="font-bold text-base truncate">{s.name}</div>
+                        <div className={`text-xs ${currentSubjectId === s.id ? 'text-indigo-200' : 'text-slate-400'} font-medium`}>
+                          {s.parallel} {s.teacherName ? `• ${s.teacherName}` : ''}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {currentSubjectId === s.id && <ChevronRight size={18} />}
+                      </div>
+                    </button>
+                  ))}
+                  {mySubjects.length === 0 && <div className="text-xs text-slate-400 px-3 py-2 italic">No tienes materias asignadas o creadas.</div>}
+
+                  {otherSubjects.length > 0 && (
+                    <div className="mt-6 border-t border-gray-100 pt-4">
+                      <button onClick={() => setShowOtherSubjects(!showOtherSubjects)} className="w-full flex justify-between items-center px-2 mb-2 group">
+                        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1 group-hover:text-indigo-600 transition-colors">
+                          {currentUser?.role === 'Docente' ? 'Materias de Tutoría' : 'Otras Materias'}
+                        </h3>
+                        <span className="text-xs text-slate-400 font-bold group-hover:text-indigo-600 px-2 py-0.5 bg-gray-100 rounded-md">{showOtherSubjects ? 'Ocultar ▲' : 'Ver Todas ▼'}</span>
+                      </button>
+                      
+                      {showOtherSubjects && (
+                        <div className="space-y-1 mt-3">
+                          {otherSubjects.map(s => (
+                            <button key={s.id} onClick={() => { setCurrentSubjectId(s.id); setShowMenu(false); }} className={`w-full text-left p-3 rounded-xl flex justify-between items-center transition-all duration-300 ${currentSubjectId === s.id ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100 translate-x-1' : 'hover:bg-slate-50 text-slate-500 hover:translate-x-1 border border-transparent'}`}>
+                              <div className="flex-1 min-w-0 pr-2">
+                                <div className="font-bold text-sm truncate">{s.name}</div>
+                                <div className={`text-[10px] ${currentSubjectId === s.id ? 'text-indigo-400' : 'text-slate-400'} font-medium`}>
+                                  {s.parallel} {s.teacherName ? `• ${s.teacherName}` : ''}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Eye size={14} className={currentSubjectId === s.id ? 'text-indigo-500' : 'text-gray-400'} />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </aside>
 
