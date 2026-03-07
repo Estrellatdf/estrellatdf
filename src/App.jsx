@@ -398,6 +398,35 @@ export default function UE19deAgosto() {
     });
   };
 
+  const deleteStudent = (studentId, studentName) => {
+    const pwd = prompt(`⚠️ ZONA DE PELIGRO ⚠️\n\nEstá a punto de ELIMINAR al estudiante "${studentName}" y todas sus calificaciones/asistencias.\nIngrese su contraseña para confirmar:`);
+    if (pwd !== appSettings.teacherPassword) return alert("Contraseña incorrecta. Cancelado.");
+
+    // Remove student from roster
+    const newStudents = currentSubject.students.filter(s => s.id !== studentId);
+    
+    // Remove grades for this student across all trimesters
+    const newGrades = { ...currentSubject.grades };
+    [1, 2, 3].forEach(tri => {
+      if (newGrades[tri] && newGrades[tri][studentId]) {
+        delete newGrades[tri][studentId];
+      }
+    });
+
+    // Remove attendance for this student
+    const newAttendance = { ...currentSubject.attendance };
+    if (newAttendance[studentId]) {
+      delete newAttendance[studentId];
+    }
+
+    saveSubject({
+      ...currentSubject,
+      students: newStudents,
+      grades: newGrades,
+      attendance: newAttendance
+    });
+  };
+
   const addAnnouncement = () => {
     if (!newAnnounceTitle || !currentSubject) return;
 
@@ -863,6 +892,7 @@ export default function UE19deAgosto() {
                                   return acc;
                                 }, []).map((line, i) => <div key={i}>{line.join(' ')}</div>)}
                                 <div className="text-[10px] text-gray-400 font-mono">CÓD: {s.code}</div>
+                                <button onClick={() => deleteStudent(s.id, s.name)} className="absolute top-2 right-2 text-red-300 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 p-1 rounded-md shadow-sm" title="Eliminar Estudiante"><Trash2 size={12} /></button>
                               </td>
                               {(currentSubject.activities[currentTrimester] || []).map(a => (
                                 <td key={a.id} className="p-1 border-r border-gray-200/50 text-center">
