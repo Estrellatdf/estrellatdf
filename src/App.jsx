@@ -3,7 +3,7 @@ import {
   Plus, Trash2, User, BookOpen, Menu, X, ChevronRight,
   GraduationCap, FileSpreadsheet, Lock, Eye, Calendar,
   CheckCircle, XCircle, MessageSquare, LogOut, AlertTriangle, Bug, Download, BarChart2,
-  Bell, Megaphone, Clock, Settings, ShieldAlert
+  Bell, Megaphone, Clock, Settings, ShieldAlert, RefreshCw, ClipboardList, Phone, MapPin, UserCheck
 } from 'lucide-react';
 
 // Importaciones de Firebase
@@ -112,6 +112,23 @@ export default function UE19deAgosto() {
   const [newStaffPass, setNewStaffPass] = useState('');
   const [officialParallelsInput, setOfficialParallelsInput] = useState('');
 
+  // Estados de Cursos y Paralelos
+  const [isManagingCourses, setIsManagingCourses] = useState(false);
+  const [newCourseName, setNewCourseName] = useState('');
+  const [newParallelName, setNewParallelName] = useState('');
+  const [selectedCourseForParallel, setSelectedCourseForParallel] = useState('');
+
+  // Estado Modal de Seguridad (Doble Factor)
+  const [securityModal, setSecurityModal] = useState({ isOpen: false, onConfirm: null, message: '', requiresKey: false });
+  const [securityKeyInput, setSecurityKeyInput] = useState('');
+
+  // Estados Asignatura Curso Seleccionable
+  const [newSubjectCourse, setNewSubjectCourse] = useState('');
+
+  // Estados Auth Administrativo
+  const [newStaffAuth, setNewStaffAuth] = useState(false);
+  const [newStaffSecKey, setNewStaffSecKey] = useState('');
+
   // Estados para Comunicados
   const [isAddingAnnouncement, setIsAddingAnnouncement] = useState(false);
   const [newAnnounceTitle, setNewAnnounceTitle] = useState('');
@@ -133,6 +150,22 @@ export default function UE19deAgosto() {
 
   // Navegación Sidebar
   const [showOtherSubjects, setShowOtherSubjects] = useState(false);
+
+  // Nuevo Año Lectivo
+  const [showNewYearModal, setShowNewYearModal] = useState(false);
+  const [newYearInput, setNewYearInput] = useState('');
+  const [newYearConfirm, setNewYearConfirm] = useState(false);
+
+  // Perfil Padre de Familia
+  const [parentProfiles, setParentProfiles] = useState({});
+  const [showParentForm, setShowParentForm] = useState(false);
+  const [isEditingParent, setIsEditingParent] = useState(false);
+  const [viewingParentProfile, setViewingParentProfile] = useState(null);
+  const [parentFormData, setParentFormData] = useState({
+    representanteName: '', relation: 'Madre', cedula: '',
+    phone: '', emergencyPhone: '', email: '',
+    address: '', fatherName: '', motherName: ''
+  });
 
   // --- 1. AUTENTICACIÓN ---
   useEffect(() => {
@@ -183,8 +216,13 @@ export default function UE19deAgosto() {
 
     const settingsDoc = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general');
     const unsubSettings = onSnapshot(settingsDoc, (docSnap) => {
-      if (docSnap.exists()) setAppSettings(docSnap.data());
-      else setAppSettings({ teacherPassword: null });
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (!data.courses) data.courses = {};
+        setAppSettings(data);
+      } else {
+        setAppSettings({ teacherPassword: null, courses: {} });
+      }
     });
 
     const staffCol = collection(db, 'artifacts', appId, 'public', 'data', 'staff');
@@ -193,25 +231,132 @@ export default function UE19deAgosto() {
       setStaff(data);
     });
 
-    return () => { unsubSub(); unsubSettings(); unsubStaff(); };
+    const parentCol = collection(db, 'artifacts', appId, 'public', 'data', 'parentProfiles');
+    const unsubParent = onSnapshot(parentCol, (snapshot) => {
+      const map = {};
+      snapshot.docs.forEach(d => { map[d.id] = d.data(); });
+      setParentProfiles(map);
+    });
+
+    return () => { unsubSub(); unsubSettings(); unsubStaff(); unsubParent(); };
   }, [user]);
 
   // --- HELPERS DB ---
+  const logAudit = async (action, target, details) => {
+    try {
+      const id = "log_" + Date.now();
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'audit_logs', id), {
+        id,
+        user: currentUser?.name || 'Desconocido',
+        role: currentUser?.role || 'Desconocido',
+        action,
+        target,
+        details,
+        timestamp: new Date().toISOString()
+      });
+    } catch (e) { console.error("Audit error", e); }
+  };
+
+  const runSecureAction = (message, onConfirmFn) => {
+    if (currentUser?.role === 'Rector') {
+      setSecurityModal({ isOpen: true, message, onConfirm: onConfirmFn, requiresKey: false });
+    } else if (currentUser?.role === 'Administrativo') {
+      if (!currentUser.isAuthorized) {
+        alert("Acceso denegado. No tienes autorización del Rector para modificar datos.");
+        return;
+      }
+      setSecurityModal({ isOpen: true, message, onConfirm: onConfirmFn, requiresKey: true });
+    } else {
+      // Docente
+      if (confirm(message)) onConfirmFn();
+    }
+  };
+
+  const confirmSecureAction = () => {
+    if (securityModal.requiresKey && securityKeyInput !== currentUser?.securityKey) {
+      alert("Clave de seguridad incorrecta. Acción cancelada.");
+      return;
+    }
+    setSecurityModal({ isOpen: false, onConfirm: null, message: '', requiresKey: false });
+    setSecurityKeyInput('');
+    if (securityModal.onConfirm) securityModal.onConfirm();
+  };
+
   const saveSubject = async (data) => {
     if (!user) return;
     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subjects', data.id.toString()), data);
   };
 
   const deleteSubjectDB = async (id) => {
-    const pwd = prompt("⚠️ ZONA DE PELIGRO ⚠️\n\nPara eliminar esta CLASE y todos sus datos, ingrese su contraseña:");
-    if (pwd !== appSettings.teacherPassword) return alert("Contraseña incorrecta. No se borró nada.");
-
-    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subjects', id.toString()));
-    if (currentSubjectId === id) setCurrentSubjectId(null);
+    runSecureAction("Está a punto de modificar/eliminar información que afectará registros históricos. ¿Desea continuar?", async () => {
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subjects', id.toString()));
+      if (currentSubjectId === id) setCurrentSubjectId(null);
+      logAudit("DELETE_SUBJECT", id, "Asignatura eliminada");
+    });
   };
 
   const updateSettings = async (data) => {
     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general'), data);
+  };
+
+  // --- NUEVO AÑO LECTIVO ---
+  const startNewSchoolYear = async () => {
+    if (!newYearInput.trim()) return alert('Escribe el nombre del nuevo año lectivo.');
+    if (!newYearConfirm) return alert('Debes marcar la casilla de confirmación.');
+
+    // Iterar todas las materias y limpiar notas/asistencia/actividades, mantener estudiantes
+    for (const sub of subjects) {
+      const cleanedSub = {
+        ...sub,
+        activities: { 1: [], 2: [], 3: [] },
+        grades: { 1: {}, 2: {}, 3: {} },
+        attendance: {},
+        announcements: [],
+        // Estudiantes se mantienen con nombre y código
+        students: sub.students.map(s => ({ id: s.id, name: s.name, code: s.code }))
+      };
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subjects', sub.id.toString()), cleanedSub);
+    }
+
+    // Actualizar el año lectivo en settings
+    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general'), {
+      ...appSettings,
+      schoolYear: newYearInput.trim()
+    });
+
+    setShowNewYearModal(false);
+    setNewYearInput('');
+    setNewYearConfirm(false);
+    setCurrentSubjectId(null);
+    alert(`✅ ¡Nuevo año lectivo "${newYearInput.trim()}" iniciado! Los estudiantes y el personal se mantienen. Notas, asistencia y actividades han sido reiniciadas.`);
+  };
+
+  // --- PERFIL DEL REPRESENTANTE ---
+  const saveParentProfile = async () => {
+    if (!viewingStudent?.code) return;
+    if (!parentFormData.representanteName?.trim()) return alert('El nombre del representante es obligatorio.');
+    if (!parentFormData.phone?.trim()) return alert('El teléfono de contacto es obligatorio.');
+
+    const profileRef = doc(db, 'artifacts', appId, 'public', 'data', 'parentProfiles', viewingStudent.code);
+    await setDoc(profileRef, {
+      ...parentFormData,
+      studentName: viewingStudent.name,
+      studentCode: viewingStudent.code,
+      updatedAt: new Date().toLocaleDateString()
+    });
+
+    setShowParentForm(false);
+    setIsEditingParent(false);
+    alert('✅ ¡Información del representante guardada correctamente!');
+  };
+
+  const canViewParentProfile = (sub) => {
+    if (!currentUser || !sub) return false;
+    if (currentUser.role === 'Rector' || currentUser.role === 'Administrativo') return true;
+    // Tutor del paralelo
+    const tutorCourse = (currentUser.tutoringCourse || '').trim().toLowerCase();
+    const subParallel = (sub.parallel || '').trim().toLowerCase();
+    return tutorCourse && subParallel && tutorCourse === subParallel;
   };
 
   // --- LOGICA ---
@@ -284,15 +429,49 @@ export default function UE19deAgosto() {
   const handleStudentLogin = () => {
     if (!studentCodeInput) return;
     const code = studentCodeInput.trim().toUpperCase();
-    const foundMatches = [];
+    
+    let studentName = null;
     for (const sub of subjects) {
       const s = sub.students.find(st => st.code === code);
+      if (s) { studentName = s.name; break; }
+    }
+
+    if (!studentName) return alert("Código no encontrado.");
+
+    const foundMatches = [];
+    for (const sub of subjects) {
+      const s = sub.students.find(st => st.name?.trim().toLowerCase() === studentName?.trim().toLowerCase());
       if (s) foundMatches.push({ student: s, subject: sub });
     }
+
     if (foundMatches.length > 0) {
-      setViewingStudent(foundMatches[0].student);
+      const theStudent = { ...foundMatches[0].student, code: code };
+      setViewingStudent(theStudent);
       setViewingSubject(foundMatches[0].subject);
       setStudentSubjects(foundMatches);
+
+      // Verificar si ya existe perfil del padre
+      const existingProfile = parentProfiles[code];
+      if (existingProfile) {
+        // Cargar datos en el form por si desea editar
+        setParentFormData({
+          representanteName: existingProfile.representanteName || '',
+          relation: existingProfile.relation || 'Madre',
+          cedula: existingProfile.cedula || '',
+          phone: existingProfile.phone || '',
+          emergencyPhone: existingProfile.emergencyPhone || '',
+          email: existingProfile.email || '',
+          address: existingProfile.address || '',
+          fatherName: existingProfile.fatherName || '',
+          motherName: existingProfile.motherName || ''
+        });
+        setShowParentForm(false);
+      } else {
+        // Primera vez: mostrar formulario de registro
+        setParentFormData({ representanteName: '', relation: 'Madre', cedula: '', phone: '', emergencyPhone: '', email: '', address: '', fatherName: '', motherName: '' });
+        setShowParentForm(true);
+      }
+
       setViewMode('student_view');
     } else {
       alert("Código no encontrado.");
@@ -334,7 +513,9 @@ export default function UE19deAgosto() {
     const newSub = {
       id: Date.now(),
       name: newSubjectName,
-      parallel: newParallel,
+      parallel: newSubjectCourse + " " + newParallel,
+      courseName: newSubjectCourse,
+      parallelName: newParallel,
       teacherId: teacherId,
       teacherName: selectedDoc?.name || (currentUser.role === 'Docente' ? currentUser.name : ''),
       students: [],
@@ -343,7 +524,7 @@ export default function UE19deAgosto() {
       attendance: {},
       announcements: []
     };
-    saveSubject(newSub); setCurrentSubjectId(newSub.id); setIsAddingSubject(false); setNewSubjectName(''); setNewParallel(''); setNewSubjectTeacher('');
+    saveSubject(newSub); setCurrentSubjectId(newSub.id); setIsAddingSubject(false); setNewSubjectName(''); setNewParallel(''); setNewSubjectCourse(''); setNewSubjectTeacher('');
   };
 
   const updateSubjectInfo = () => {
@@ -367,16 +548,51 @@ export default function UE19deAgosto() {
     if (!newStaffName || !newStaffPass) return;
     const id = "staff_" + Date.now();
     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', id), {
-      id, name: newStaffName, role: newStaffRole, password: newStaffPass, tutoringCourse: newStaffTutoring
+      id, name: newStaffName, role: newStaffRole, password: newStaffPass, tutoringCourse: newStaffTutoring,
+      isAuthorized: newStaffRole === 'Administrativo' ? newStaffAuth : true,
+      securityKey: newStaffRole === 'Administrativo' ? newStaffSecKey : null
     });
-    setNewStaffName(''); setNewStaffPass(''); setNewStaffTutoring('');
+    setNewStaffName(''); setNewStaffPass(''); setNewStaffTutoring(''); setNewStaffAuth(false); setNewStaffSecKey('');
   };
 
   const addStudentsBulk = () => {
     if (!newStudentList || !currentSubject) return;
     const names = newStudentList.split('\n').map(n => n.trim()).filter(n => n.length);
-    const newStus = names.map(n => ({ id: "s_" + Date.now() + Math.random().toString(36).substr(2, 5), name: n, code: generateStudentCode() }));
-    saveSubject({ ...currentSubject, students: [...currentSubject.students, ...newStus] }); setIsAddingStudent(false); setNewStudentList('');
+    
+    // Buscar si el estudiante ya existe en OTRA materia para no generar un código/id nuevo
+    const existingStudentsMap = new Map();
+    subjects.forEach(sub => {
+      (sub.students || []).forEach(st => {
+        const normalizedName = st.name.trim().toLowerCase();
+        if (!existingStudentsMap.has(normalizedName)) {
+           existingStudentsMap.set(normalizedName, st);
+        }
+      });
+    });
+
+    const newStus = names.map(n => {
+       const normalizedName = n.trim().toLowerCase();
+       if (existingStudentsMap.has(normalizedName)) {
+          // Reutilizar el ID y Código del estudiante que ya existe en el sistema
+          const existingSt = existingStudentsMap.get(normalizedName);
+          return { id: existingSt.id, name: existingSt.name, code: existingSt.code };
+       } else {
+          // Es un estudiante totalmente nuevo en la institución
+          return { id: "s_" + Date.now() + Math.random().toString(36).substr(2, 5), name: n, code: generateStudentCode() };
+       }
+    });
+
+    // Filtramos para evitar meter dos veces al mismo estudiante en ESTA materia
+    const currentSubjectStudentIds = new Set(currentSubject.students.map(s => s.id));
+    const filteredNewStus = newStus.filter(s => !currentSubjectStudentIds.has(s.id));
+
+    if (filteredNewStus.length === 0) {
+       alert("Los estudiantes seleccionados ya estaban en la materia.");
+    }
+
+    saveSubject({ ...currentSubject, students: [...currentSubject.students, ...filteredNewStus] }); 
+    setIsAddingStudent(false); 
+    setNewStudentList('');
   };
 
   const addActivity = () => {
@@ -387,54 +603,54 @@ export default function UE19deAgosto() {
   };
 
   const deleteActivity = (actId) => {
-    const pwd = prompt("⚠️ ZONA DE PELIGRO ⚠️\n\nPara eliminar esta ACTIVIDAD y sus notas, ingrese su contraseña:");
-    if (pwd !== appSettings.teacherPassword) return alert("Contraseña incorrecta. Cancelado.");
+    runSecureAction("Está a punto de modificar/eliminar información que afectará registros históricos. ¿Desea continuar?", () => {
+      const acts = currentSubject.activities[currentTrimester] || [];
+      const newActs = acts.filter(a => a.id !== actId);
 
-    const acts = currentSubject.activities[currentTrimester] || [];
-    const newActs = acts.filter(a => a.id !== actId);
+      const newGrades = { ...currentSubject.grades };
+      if (newGrades[currentTrimester]) {
+        Object.keys(newGrades[currentTrimester]).forEach(studentId => {
+          if (newGrades[currentTrimester][studentId]) {
+            delete newGrades[currentTrimester][studentId][actId];
+          }
+        });
+      }
 
-    const newGrades = { ...currentSubject.grades };
-    if (newGrades[currentTrimester]) {
-      Object.keys(newGrades[currentTrimester]).forEach(studentId => {
-        if (newGrades[currentTrimester][studentId]) {
-          delete newGrades[currentTrimester][studentId][actId];
-        }
+      saveSubject({
+        ...currentSubject,
+        activities: { ...currentSubject.activities, [currentTrimester]: newActs },
+        grades: newGrades
       });
-    }
-
-    saveSubject({
-      ...currentSubject,
-      activities: { ...currentSubject.activities, [currentTrimester]: newActs },
-      grades: newGrades
+      logAudit("DELETE_ACTIVITY", actId, "Actividad de " + currentSubject.name);
     });
   };
 
   const deleteStudent = (studentId, studentName) => {
-    const pwd = prompt(`⚠️ ZONA DE PELIGRO ⚠️\n\nEstá a punto de ELIMINAR al estudiante "${studentName}" y todas sus calificaciones/asistencias.\nIngrese su contraseña para confirmar:`);
-    if (pwd !== appSettings.teacherPassword) return alert("Contraseña incorrecta. Cancelado.");
+    runSecureAction(`Está a punto de ELIMINAR al estudiante "${studentName}" y todas sus calificaciones. ¿Desea continuar?`, () => {
+      // Remove student from roster
+      const newStudents = currentSubject.students.filter(s => s.id !== studentId);
+      
+      // Remove grades for this student across all trimesters
+      const newGrades = { ...currentSubject.grades };
+      [1, 2, 3].forEach(tri => {
+        if (newGrades[tri] && newGrades[tri][studentId]) {
+          delete newGrades[tri][studentId];
+        }
+      });
 
-    // Remove student from roster
-    const newStudents = currentSubject.students.filter(s => s.id !== studentId);
-    
-    // Remove grades for this student across all trimesters
-    const newGrades = { ...currentSubject.grades };
-    [1, 2, 3].forEach(tri => {
-      if (newGrades[tri] && newGrades[tri][studentId]) {
-        delete newGrades[tri][studentId];
+      // Remove attendance for this student
+      const newAttendance = { ...currentSubject.attendance };
+      if (newAttendance[studentId]) {
+        delete newAttendance[studentId];
       }
-    });
 
-    // Remove attendance for this student
-    const newAttendance = { ...currentSubject.attendance };
-    if (newAttendance[studentId]) {
-      delete newAttendance[studentId];
-    }
-
-    saveSubject({
-      ...currentSubject,
-      students: newStudents,
-      grades: newGrades,
-      attendance: newAttendance
+      saveSubject({
+        ...currentSubject,
+        students: newStudents,
+        grades: newGrades,
+        attendance: newAttendance
+      });
+      logAudit("DELETE_STUDENT", studentId, "Estudiante " + studentName + " de " + currentSubject.name);
     });
   };
 
@@ -460,7 +676,7 @@ export default function UE19deAgosto() {
       isGlobal: isGlobal, // Marcar si es global
       date: new Date().toLocaleDateString()
     };
-    const currentList = currentSubject.announcements || [];
+    const currentList = Array.isArray(currentSubject.announcements) ? currentSubject.announcements : [];
     saveSubject({ ...currentSubject, announcements: [newAnn, ...currentList] });
     setIsAddingAnnouncement(false); setNewAnnounceTitle(''); setNewAnnounceBody(''); setNewAnnounceRecipient('all');
   };
@@ -671,28 +887,61 @@ export default function UE19deAgosto() {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-lg flex items-center gap-2"><FileSpreadsheet className="text-indigo-500" /> Calificaciones</h3>
-                <div className="flex gap-1">{[1, 2, 3].map(t => <button key={t} onClick={() => setCurrentTrimester(t)} className={`px-2 py-1 text-xs rounded ${currentTrimester === t ? 'bg-indigo-600 text-white' : 'bg-gray-100'}`}>{t}º</button>)}</div>
+                <div className="flex gap-1">{[1, 2, 3, 'Anual'].map(t => <button key={t} onClick={() => setCurrentTrimester(t)} className={`px-3 py-1 text-xs font-bold rounded transition ${currentTrimester === t ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{t === 'Anual' ? 'Anual' : `${t}º`}</button>)}</div>
               </div>
-              <div className="bg-gray-50 rounded-lg p-4 mb-4 flex justify-between text-center overflow-x-auto gap-4">
-                <div><div className="text-xs text-gray-500">Actividades (70%)</div><div className="font-bold text-indigo-700 text-lg">{st.wAct}</div></div>
-                <div><div className="text-xs text-gray-500">Examen</div><div className="font-bold text-orange-600 text-lg">{viewingSubject.grades[currentTrimester]?.[viewingStudent.id]?.['exam_final'] || 0}</div></div>
-                {viewingSubject.grades[currentTrimester]?.[viewingStudent.id]?.['project_final'] && (
-                  <div><div className="text-xs text-gray-500">Proyecto</div><div className="font-bold text-green-600 text-lg">{viewingSubject.grades[currentTrimester]?.[viewingStudent.id]?.['project_final']}</div></div>
-                )}
-                <div><div className="text-xs text-gray-500">Suma (30%)</div><div className="font-bold text-orange-700 text-lg">{st.wEx}</div></div>
-                <div><div className="text-xs text-gray-500">FINAL</div><div className={`font-bold text-xl ${parseFloat(st.fin) < 7 ? 'text-red-600' : 'text-green-600'}`}>{st.fin}</div></div>
-              </div>
-              <ul className="space-y-2 text-sm">
-                {(viewingSubject.activities[currentTrimester] || []).map(act => {
-                  const grade = viewingSubject.grades[currentTrimester]?.[viewingStudent.id]?.[act.id];
+              {currentTrimester === 'Anual' ? (() => {
+                  const st1 = calculateStats(viewingSubject, 1, viewingStudent.id);
+                  const st2 = calculateStats(viewingSubject, 2, viewingStudent.id);
+                  const st3 = calculateStats(viewingSubject, 3, viewingStudent.id);
+                  const sum = (parseFloat(st1.fin) || 0) + (parseFloat(st2.fin) || 0) + (parseFloat(st3.fin) || 0);
+                  const isPassing = sum >= 21;
                   return (
-                    <li key={act.id} className="flex justify-between border-b pb-2">
-                      <span>{act.name}</span>
-                      <span className={`font-mono font-bold ${grade < 7 ? 'text-red-500' : 'text-gray-700'}`}>{grade !== undefined ? grade : '-'}</span>
-                    </li>
-                  )
-                })}
-              </ul>
+                    <div className="space-y-4 animate-in fade-in duration-300">
+                      <div className="grid grid-cols-3 gap-3 text-center items-center">
+                        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm"><div className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">1º Trim</div><div className="font-black text-2xl text-indigo-600">{st1.fin}</div></div>
+                        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm"><div className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">2º Trim</div><div className="font-black text-2xl text-indigo-600">{st2.fin}</div></div>
+                        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm"><div className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">3º Trim</div><div className="font-black text-2xl text-indigo-600">{st3.fin}</div></div>
+                      </div>
+                      <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 p-6 rounded-2xl border border-indigo-100 flex justify-between items-center shadow-inner">
+                        <div>
+                          <p className="text-xs text-indigo-500 font-bold uppercase tracking-widest mb-1">Suma Final Anual</p>
+                          <p className="text-5xl font-black text-indigo-900 leading-none drop-shadow-sm">{sum.toFixed(2)}</p>
+                        </div>
+                        <div className="text-right">
+                          {isPassing ? (
+                            <div className="inline-block bg-gradient-to-r from-green-400 to-green-500 text-white px-5 py-3 rounded-xl font-black shadow-lg shadow-green-500/30 uppercase tracking-widest text-sm border border-green-400">Aprobado</div>
+                          ) : (
+                            <div className="inline-block bg-gradient-to-r from-red-400 to-red-500 text-white px-5 py-3 rounded-xl font-black shadow-lg shadow-red-500/30 uppercase tracking-widest text-sm border border-red-400">Supletorio</div>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-center text-gray-400 italic mt-2">* Para aprobar, la suma final de los 3 trimestres debe ser igual o mayor a 21.</p>
+                    </div>
+                  );
+              })() : (
+                <div className="animate-in fade-in duration-300">
+                  <div className="bg-gray-50 rounded-lg p-4 mb-4 flex justify-between text-center overflow-x-auto gap-4">
+                    <div><div className="text-xs text-gray-500">Actividades (70%)</div><div className="font-bold text-indigo-700 text-lg">{st.wAct}</div></div>
+                    <div><div className="text-xs text-gray-500">Examen</div><div className="font-bold text-orange-600 text-lg">{viewingSubject.grades[currentTrimester]?.[viewingStudent.id]?.['exam_final'] || 0}</div></div>
+                    {viewingSubject.grades[currentTrimester]?.[viewingStudent.id]?.['project_final'] && (
+                      <div><div className="text-xs text-gray-500">Proyecto</div><div className="font-bold text-green-600 text-lg">{viewingSubject.grades[currentTrimester]?.[viewingStudent.id]?.['project_final']}</div></div>
+                    )}
+                    <div><div className="text-xs text-gray-500">Suma (30%)</div><div className="font-bold text-orange-700 text-lg">{st.wEx}</div></div>
+                    <div><div className="text-xs text-gray-500">FINAL</div><div className={`font-bold text-xl ${parseFloat(st.fin) < 7 ? 'text-red-600' : 'text-green-600'}`}>{st.fin}</div></div>
+                  </div>
+                  <ul className="space-y-2 text-sm">
+                    {(viewingSubject.activities[currentTrimester] || []).map(act => {
+                      const grade = viewingSubject.grades[currentTrimester]?.[viewingStudent.id]?.[act.id];
+                      return (
+                        <li key={act.id} className="flex justify-between border-b pb-2">
+                          <span>{act.name}</span>
+                          <span className={`font-mono font-bold ${grade < 7 ? 'text-red-500' : 'text-gray-700'}`}>{grade !== undefined ? grade : '-'}</span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -753,8 +1002,11 @@ export default function UE19deAgosto() {
           <div className="bg-white/10 p-2 rounded-xl backdrop-blur-md border border-white/20 shadow-inner">
             <GraduationCap className="text-emerald-400" size={28} />
           </div>
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">U.E. 19 de Agosto [VERSIÓN NUEVA]</span>
-          <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold border border-emerald-500/30 ml-2 animate-pulse uppercase tracking-widest">v2.0 Premium</span>
+          <div className="flex flex-col">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">U.E. 19 de Agosto</span>
+            {appSettings.schoolYear && <span className="text-[10px] text-indigo-300 font-medium leading-none">{appSettings.schoolYear}</span>}
+          </div>
+          <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold border border-emerald-500/30 ml-2 animate-pulse uppercase tracking-widest hidden sm:inline">v2.0</span>
         </h1>
         <div className="flex items-center gap-2">
           <div className="flex flex-col items-end mr-2">
@@ -783,6 +1035,9 @@ export default function UE19deAgosto() {
                   <>
                     <button onClick={() => { setIsManagingStaff(true); setShowMenu(false); }} className="w-full bg-emerald-600 text-white py-4 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 font-bold active:scale-95">
                       <User size={20} /> Personal
+                    </button>
+                    <button onClick={() => { setIsManagingCourses(true); setShowMenu(false); }} className="w-full bg-orange-600 text-white py-4 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-orange-700 transition-all shadow-lg shadow-orange-600/20 font-bold active:scale-95">
+                      <BookOpen size={20} /> Cursos y Paralelos
                     </button>
                     <button onClick={() => { setOfficialParallelsInput(appSettings.officialParallels || ''); setIsManagingSettings(true); setShowMenu(false); }} className="w-full bg-slate-800 text-white py-4 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-black transition-all shadow-lg shadow-slate-900/20 font-bold active:scale-95">
                       <Settings size={20} /> Estándares
@@ -885,25 +1140,84 @@ export default function UE19deAgosto() {
               {activeTab === 'grades' && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[calc(100vh-220px)]">
                   <div className="p-3 border-b border-gray-200 bg-gray-50 flex flex-wrap gap-2 items-center justify-between">
-                    <div className="flex items-center gap-1 bg-white border border-gray-200 px-1 py-1 rounded-lg shadow-sm">
-                      {[1, 2, 3].map(t => <button key={t} onClick={() => setCurrentTrimester(t)} className={`px-4 py-1.5 text-sm rounded-md transition font-medium ${currentTrimester === t ? 'bg-indigo-600 text-white shadow' : 'text-gray-500 hover:bg-gray-100'}`}>{t}º Trimestre</button>)}
+                    <div className="flex flex-wrap items-center gap-1 bg-white border border-gray-200 px-1 py-1 rounded-lg shadow-sm">
+                      {[1, 2, 3, 'Anual'].map(t => <button key={t} onClick={() => setCurrentTrimester(t)} className={`px-4 py-1.5 text-sm rounded-md transition font-bold ${currentTrimester === t ? 'bg-indigo-600 text-white shadow' : 'text-gray-500 hover:bg-gray-100'}`}>{t === 'Anual' ? 'Resumen Anual' : `${t}º Trimestre`}</button>)}
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={exportGradesCSV} className="text-sm bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition"><Download size={16} /> Excel</button>
-                      <button onClick={() => setIsAddingActivity(true)} className="text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition"><Plus size={16} /> Actividad</button>
-                      <button onClick={() => setIsAddingStudent(true)} className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition"><User size={16} /> Estudiante</button>
+                      {currentTrimester !== 'Anual' && (
+                        <>
+                          <button onClick={exportGradesCSV} className="text-sm bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition"><Download size={16} /> Excel</button>
+                          <button onClick={() => setIsAddingActivity(true)} className="text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition"><Plus size={16} /> Actividad</button>
+                          <button onClick={() => setIsAddingStudent(true)} className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition"><User size={16} /> Estudiante</button>
+                        </>
+                      )}
                       <button onClick={() => deleteSubjectDB(currentSubject.id)} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition" title="Borrar Clase (Con Contraseña)"><Trash2 size={18} /></button>
                     </div>
                   </div>
 
                   <div className="flex-1 overflow-auto">
-                    <table className="w-full text-sm text-left border-collapse">
+                    {currentTrimester === 'Anual' ? (() => {
+                      const annualStudents = currentSubject.students.map(s => {
+                        const st1 = calculateStats(currentSubject, 1, s.id);
+                        const st2 = calculateStats(currentSubject, 2, s.id);
+                        const st3 = calculateStats(currentSubject, 3, s.id);
+                        const sum = (parseFloat(st1.fin) || 0) + (parseFloat(st2.fin) || 0) + (parseFloat(st3.fin) || 0);
+                        return { s, st1, st2, st3, sum };
+                      }).sort((a, b) => b.sum - a.sum);
+
+                      const sortedSums = [...new Set(annualStudents.map(x => x.sum))].sort((a,b)=>b-a);
+                      
+                      return (
+                        <table className="w-full text-sm text-left border-collapse">
+                          <thead className="bg-gray-100 text-gray-600 sticky top-0 z-10 shadow-sm">
+                            <tr>
+                              <th className="p-4 w-10 text-center font-bold border-b border-gray-300">#</th>
+                              <th className="p-4 min-w-[250px] font-bold border-b border-gray-300 border-r">Estudiante</th>
+                              <th className="p-4 text-center font-bold border-b border-gray-300 border-r w-24">1º Trim</th>
+                              <th className="p-4 text-center font-bold border-b border-gray-300 border-r w-24">2º Trim</th>
+                              <th className="p-4 text-center font-bold border-b border-gray-300 border-r w-24">3º Trim</th>
+                              <th className="p-4 text-center font-bold border-b border-gray-300 border-r w-32 bg-indigo-50 text-indigo-900">Suma Final</th>
+                              <th className="p-4 text-center font-bold border-b border-gray-300">Estado</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {annualStudents.map((data, i) => {
+                              const rank = sortedSums.indexOf(data.sum);
+                              const medal = rank === 0 ? '🥇' : rank === 1 ? '🥈' : rank === 2 ? '🥉' : '';
+                              const isPassing = data.sum >= 21;
+                              const rowClass = PALETTE[i % PALETTE.length];
+                              return (
+                                <tr key={data.s.id} className={`border-b border-gray-100 ${rowClass} transition hover:brightness-95`}>
+                                  <td className="p-4 text-center text-gray-400 font-mono text-xs">{i + 1}</td>
+                                  <td className="p-4 font-bold text-gray-800 border-r border-gray-200/50 flex items-center gap-2">
+                                    {medal && <span className="text-xl" title={`Top ${rank + 1} de la Clase`}>{medal}</span>}
+                                    {data.s.name}
+                                  </td>
+                                  <td className="p-4 border-r border-gray-200/50 text-center font-bold text-gray-700">{data.st1.fin}</td>
+                                  <td className="p-4 border-r border-gray-200/50 text-center font-bold text-gray-700">{data.st2.fin}</td>
+                                  <td className="p-4 border-r border-gray-200/50 text-center font-bold text-gray-700">{data.st3.fin}</td>
+                                  <td className="p-4 border-r border-gray-200/50 text-center font-black text-2xl bg-indigo-50/50 text-indigo-700">{data.sum.toFixed(2)}</td>
+                                  <td className="p-4 text-center font-bold">
+                                    {isPassing ? (
+                                      <span className="bg-green-100 text-green-700 px-4 py-2 rounded-full text-xs uppercase tracking-wider font-black border border-green-200">Aprobado</span>
+                                    ) : (
+                                      <span className="bg-red-100 text-red-700 px-4 py-2 rounded-full text-xs uppercase tracking-wider font-black border border-red-200">Supletorio</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      );
+                    })() : (
+                      <table className="w-full text-sm text-left border-collapse">
                       <thead className="bg-gray-100 text-gray-600 sticky top-0 z-10 shadow-sm">
                         <tr>
                           <th className="p-3 w-10 text-center font-bold border-b border-gray-300">#</th>
                           <th className="p-3 min-w-[250px] font-bold border-b border-gray-300 border-r">Estudiante</th>
                           {(currentSubject.activities[currentTrimester] || []).map((a, i) => (
-                            <th key={a.id} className="p-0 text-center w-12 border-b border-gray-300 border-r bg-gray-50 relative group h-40 align-bottom overflow-hidden">
+                            <th key={a.id} className="p-0 text-center min-w-[80px] w-20 border-b border-gray-300 border-r bg-gray-50 relative group h-40 align-bottom overflow-hidden">
                               <div className="flex flex-col items-center justify-end h-full pb-4">
                                 <span className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Act {i + 1}</span>
                                 <div className="font-bold text-xs whitespace-nowrap mb-2 px-1 text-gray-700"
@@ -921,27 +1235,27 @@ export default function UE19deAgosto() {
                               </div>
                             </th>
                           ))}
-                          <th className="p-0 text-center w-8 bg-indigo-50 border-b border-indigo-100 border-r relative h-40 align-bottom">
+                          <th className="p-0 text-center min-w-[64px] bg-indigo-50 border-b border-indigo-100 border-r relative h-40 align-bottom">
                             <div className="flex flex-col items-center justify-end h-full w-full pb-4">
                               <span className="font-bold text-xs whitespace-nowrap px-1 text-indigo-700 writing-vertical" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>70% (D)</span>
                             </div>
                           </th>
-                          <th className="p-0 text-center w-8 bg-orange-50 border-b border-orange-100 border-r relative h-40 align-bottom">
+                          <th className="p-0 text-center min-w-[64px] bg-orange-50 border-b border-orange-100 border-r relative h-40 align-bottom">
                             <div className="flex flex-col items-center justify-end h-full w-full pb-4">
                               <span className="font-bold text-xs whitespace-nowrap px-1 text-orange-700 writing-vertical" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>EXAMEN</span>
                             </div>
                           </th>
-                          <th className="p-0 text-center w-8 bg-green-50 border-b border-green-100 border-r relative h-40 align-bottom">
+                          <th className="p-0 text-center min-w-[64px] bg-green-50 border-b border-green-100 border-r relative h-40 align-bottom">
                             <div className="flex flex-col items-center justify-end h-full w-full pb-4">
                               <span className="font-bold text-xs whitespace-nowrap px-1 text-green-700 writing-vertical" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>PROYECTO</span>
                             </div>
                           </th>
-                          <th className="p-0 text-center w-8 bg-indigo-50 border-b border-indigo-100 border-r relative h-40 align-bottom">
+                          <th className="p-0 text-center min-w-[64px] bg-indigo-50 border-b border-indigo-100 border-r relative h-40 align-bottom">
                             <div className="flex flex-col items-center justify-end h-full w-full pb-4">
                               <span className="font-bold text-xs whitespace-nowrap px-1 text-indigo-700 writing-vertical" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>30% (E)</span>
                             </div>
                           </th>
-                          <th className="p-0 text-center w-8 bg-gray-800 border-b border-gray-900 border-r relative h-40 align-bottom">
+                          <th className="p-0 text-center min-w-[64px] bg-gray-800 border-b border-gray-900 border-r relative h-40 align-bottom">
                             <div className="flex flex-col items-center justify-end h-full w-full pb-4">
                               <span className="font-bold text-xs whitespace-nowrap px-1 text-white writing-vertical" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>FINAL</span>
                             </div>
@@ -969,7 +1283,7 @@ export default function UE19deAgosto() {
                                   <input
                                     type="number"
                                     disabled={!canEditGrades(currentSubject)}
-                                    className={`w-14 text-center p-1 rounded border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white/70 shadow-sm ${!canEditGrades(currentSubject) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`w-16 min-w-[64px] text-center p-2 text-base font-bold rounded border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white/70 shadow-sm ${!canEditGrades(currentSubject) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     value={currentSubject.grades[currentTrimester]?.[s.id]?.[a.id] ?? ''}
                                     onChange={e => updateGrade(s.id, a.id, e.target.value)}
                                   />
@@ -980,7 +1294,7 @@ export default function UE19deAgosto() {
                                 <input
                                   type="number"
                                   disabled={!canEditGrades(currentSubject)}
-                                  className={`w-14 text-center p-1 rounded border border-orange-200 focus:ring-2 focus:ring-orange-500 focus:outline-none bg-white shadow-sm ${!canEditGrades(currentSubject) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  className={`w-16 min-w-[64px] text-center p-2 text-base font-bold rounded border border-orange-200 focus:ring-2 focus:ring-orange-500 focus:outline-none bg-white shadow-sm ${!canEditGrades(currentSubject) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                   value={currentSubject.grades[currentTrimester]?.[s.id]?.['exam_final'] ?? ''}
                                   onChange={e => updateGrade(s.id, 'exam_final', e.target.value)}
                                 />
@@ -989,7 +1303,7 @@ export default function UE19deAgosto() {
                                 <input
                                   type="number"
                                   disabled={!canEditGrades(currentSubject)}
-                                  className={`w-14 text-center p-1 rounded border border-green-200 focus:ring-2 focus:ring-green-500 focus:outline-none bg-white shadow-sm ${!canEditGrades(currentSubject) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  className={`w-16 min-w-[64px] text-center p-2 text-base font-bold rounded border border-green-200 focus:ring-2 focus:ring-green-500 focus:outline-none bg-white shadow-sm ${!canEditGrades(currentSubject) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                   value={currentSubject.grades[currentTrimester]?.[s.id]?.['project_final'] ?? ''}
                                   onChange={e => updateGrade(s.id, 'project_final', e.target.value)}
                                   placeholder="-"
@@ -1002,6 +1316,7 @@ export default function UE19deAgosto() {
                         })}
                       </tbody>
                     </table>
+                    )}
                     {(currentSubject?.students || []).length === 0 && <div className="text-center p-10 text-gray-400 italic">No hay estudiantes. Agrega una lista para comenzar.</div>}
                   </div>
                 </div>
@@ -1168,17 +1483,17 @@ export default function UE19deAgosto() {
       {isAddingSubject && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in duration-200"><h3 className="text-xl font-bold mb-4 text-gray-800">Gestionar Asignatura</h3>
         <input className="border border-gray-300 w-full p-3 rounded-lg mb-3 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Nombre (ej. Matemáticas)" value={newSubjectName} onChange={e => setNewSubjectName(e.target.value)} autoFocus />
 
-        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Paralelo / Curso (Estándar)</label>
-        <select
-          className="w-full border border-gray-300 rounded-lg p-3 mb-4 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-          value={newParallel}
-          onChange={e => setNewParallel(e.target.value)}
-        >
-          <option value="">-- Seleccionar Curso --</option>
-          {(appSettings.officialParallels || '').split('\n').filter(p => p.trim()).map(p => (
-            <option key={p} value={p.trim()}>{p.trim()}</option>
-          ))}
-        </select>
+        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Curso y Paralelo</label>
+        <div className="flex gap-2 mb-4">
+          <select className="w-1/2 border border-gray-300 rounded-lg p-3 outline-none" value={newSubjectCourse} onChange={e => {setNewSubjectCourse(e.target.value); setNewParallel('');}}>
+            <option value="">-- Curso --</option>
+            {Object.keys(appSettings.courses || {}).map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select className="w-1/2 border border-gray-300 rounded-lg p-3 outline-none" value={newParallel} onChange={e => setNewParallel(e.target.value)} disabled={!newSubjectCourse}>
+            <option value="">-- Paralelo --</option>
+            {(newSubjectCourse && appSettings.courses?.[newSubjectCourse] ? appSettings.courses[newSubjectCourse] : []).map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
 
         {(currentUser.role === 'Rector' || currentUser.role === 'Administrativo') && (
           <>
@@ -1346,6 +1661,114 @@ export default function UE19deAgosto() {
                 Guardar Estándares
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECURITY MODAL */}
+      {securityModal.isOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[90] p-4">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm animate-in fade-in zoom-in duration-200 border-t-4 border-red-500">
+            <div className="flex items-center gap-3 text-red-600 mb-4"><AlertTriangle size={32} /><h3 className="font-bold text-xl">Advertencia</h3></div>
+            <p className="text-gray-700 font-medium mb-6">{securityModal.message}</p>
+            {securityModal.requiresKey && (
+              <div className="mb-6">
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tu Clave de Seguridad (Administrativo)</label>
+                <input type="password" value={securityKeyInput} onChange={e=>setSecurityKeyInput(e.target.value)} className="w-full border-2 border-red-200 focus:border-red-500 p-3 rounded-lg outline-none font-mono" placeholder="••••" autoFocus />
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <button onClick={() => {setSecurityModal({isOpen:false}); setSecurityKeyInput('');}} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-bold">Cancelar</button>
+              <button onClick={confirmSecureAction} className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-bold shadow">Sí, Continuar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CURSOS Y PARALELOS MODAL */}
+      {isManagingCourses && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-3xl animate-in fade-in zoom-in h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold flex items-center gap-2"><BookOpen className="text-orange-500"/> Gestionar Cursos y Paralelos</h3>
+              <button onClick={() => setIsManagingCourses(false)}><X /></button>
+            </div>
+            {currentUser?.role !== 'Administrativo' && currentUser?.role !== 'Rector' ? (
+              <div className="p-4 text-center text-red-500 font-bold">Acceso Denegado</div>
+            ) : (
+              <div className="flex-1 overflow-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                  <h4 className="font-bold mb-3">1. Crear Curso</h4>
+                  <div className="flex gap-2 mb-4">
+                    <input className="flex-1 p-2 rounded border focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="Ej. Octavo Básico" value={newCourseName} onChange={e=>setNewCourseName(e.target.value)} />
+                    <button className="bg-orange-600 text-white px-4 rounded font-bold hover:bg-orange-700" onClick={() => {
+                      if(!newCourseName) return;
+                      const tree = {...(appSettings.courses||{})};
+                      if(!tree[newCourseName]) tree[newCourseName] = [];
+                      updateSettings({...appSettings, courses: tree});
+                      setNewCourseName('');
+                      logAudit("CREATE_COURSE", newCourseName, "Curso creado");
+                    }}>Añadir</button>
+                  </div>
+                  <ul className="space-y-2">
+                    {Object.keys(appSettings.courses||{}).map(c => (
+                      <li key={c} className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-100 shadow-sm cursor-pointer hover:border-orange-300 transition" onClick={()=>setSelectedCourseForParallel(c)}>
+                        <span className="font-bold text-gray-700">{c}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500 font-bold">{appSettings.courses[c].length} Paralelos</span>
+                          <button onClick={(e) => {
+                            e.stopPropagation();
+                            runSecureAction("Está a punto de modificar/eliminar información que afectará registros históricos. ¿Desea continuar?", () => {
+                               const tree = {...(appSettings.courses||{})};
+                               delete tree[c];
+                               updateSettings({...appSettings, courses: tree});
+                               logAudit("DELETE_COURSE", c, "Curso eliminado");
+                               if(selectedCourseForParallel===c) setSelectedCourseForParallel('');
+                            });
+                          }} className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                  <h4 className="font-bold mb-3">2. Paralelos en: {selectedCourseForParallel || 'Ninguno'}</h4>
+                  {selectedCourseForParallel ? (
+                    <>
+                      <div className="flex gap-2 mb-4">
+                        <input className="w-20 p-2 rounded border text-center font-bold text-xl uppercase focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="A" value={newParallelName} onChange={e=>setNewParallelName(e.target.value.toUpperCase())} maxLength={3} />
+                        <button className="bg-orange-600 hover:bg-orange-700 text-white px-4 rounded font-bold flex-1" onClick={() => {
+                          if(!newParallelName) return;
+                          const tree = {...(appSettings.courses||{})};
+                          if(!tree[selectedCourseForParallel].includes(newParallelName)) {
+                            tree[selectedCourseForParallel] = [...tree[selectedCourseForParallel], newParallelName].sort();
+                            updateSettings({...appSettings, courses: tree});
+                            logAudit("CREATE_PARALLEL", newParallelName, "En " + selectedCourseForParallel);
+                          }
+                          setNewParallelName('');
+                        }}>Añadir Paralelo</button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {(appSettings.courses[selectedCourseForParallel]||[]).map(p => (
+                          <div key={p} className="bg-white border-2 border-orange-200 px-4 py-2 rounded-xl text-lg font-black text-orange-800 flex items-center gap-3 shadow-sm">
+                            {p}
+                            <button onClick={()=> {
+                               runSecureAction("Está a punto de modificar/eliminar información que afectará registros históricos. ¿Desea continuar?", () => {
+                                 const tree = {...(appSettings.courses||{})};
+                                 tree[selectedCourseForParallel] = tree[selectedCourseForParallel].filter(x => x !== p);
+                                 updateSettings({...appSettings, courses: tree});
+                                 logAudit("DELETE_PARALLEL", p, "De " + selectedCourseForParallel);
+                               });
+                            }} className="text-red-400 hover:text-red-600 bg-red-50 p-1.5 rounded-lg"><Trash2 size={16}/></button>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : <div className="text-center text-gray-400 mt-10">Haz clic en un curso a la izquierda</div>}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
