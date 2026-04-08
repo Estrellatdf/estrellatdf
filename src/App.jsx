@@ -1660,7 +1660,7 @@ export default function UE19deAgosto() {
 
             <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Lista de Paralelos Oficiales</label>
             <textarea
-              className="w-full border border-gray-300 rounded-xl p-4 h-64 focus:ring-2 focus:ring-slate-900 outline-none font-mono text-sm mb-6 resize-none"
+              className="w-full border border-gray-600 bg-slate-900 text-white placeholder-slate-400 rounded-xl p-4 h-64 focus:ring-2 focus:ring-slate-400 outline-none font-mono text-sm mb-6 resize-none"
               placeholder={"10mo A\n10mo B\n1ero BGU A"}
               value={officialParallelsInput}
               onChange={e => setOfficialParallelsInput(e.target.value)}
