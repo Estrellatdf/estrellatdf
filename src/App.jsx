@@ -1044,9 +1044,11 @@ export default function UE19deAgosto() {
                     </button>
                   </>
                 )}
-                <button onClick={() => { setIsAddingSubject(true); setShowMenu(false); }} className="w-full bg-indigo-600 text-white py-4 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 font-bold active:scale-95">
-                  <Plus size={20} /> Nueva Materia
-                </button>
+                {(currentUser?.role === 'Rector' || currentUser?.role === 'Docente') && (
+                  <button onClick={() => { setIsAddingSubject(true); setShowMenu(false); }} className="w-full bg-indigo-600 text-white py-4 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 font-bold active:scale-95">
+                    <Plus size={20} /> Nueva Materia
+                  </button>
+                )}
               </div>
             )}
             {(() => {
@@ -1531,15 +1533,27 @@ export default function UE19deAgosto() {
             </div>
 
             <div className="bg-gray-50 p-4 rounded-xl mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <input className="border p-2 rounded text-sm" placeholder="Nombre completo" value={newStaffName} onChange={e => setNewStaffName(e.target.value)} />
-              <input className="border p-2 rounded text-sm" placeholder="Contraseña de acceso" value={newStaffPass} onChange={e => setNewStaffPass(e.target.value)} />
-              <select className="border p-2 rounded text-sm" value={newStaffRole} onChange={e => setNewStaffRole(e.target.value)}>
+              <input className="border p-2 rounded text-sm bg-slate-900 text-white placeholder-slate-400" placeholder="Nombre completo" value={newStaffName} onChange={e => setNewStaffName(e.target.value)} />
+              <input className="border p-2 rounded text-sm bg-slate-900 text-white placeholder-slate-400" placeholder="Contraseña de acceso" value={newStaffPass} onChange={e => setNewStaffPass(e.target.value)} />
+              <select className="border p-2 rounded text-sm bg-slate-900 text-white" value={newStaffRole} onChange={e => setNewStaffRole(e.target.value)}>
                 <option value="Docente">Docente</option>
                 <option value="Rector">Rector</option>
                 <option value="Administrativo">Administrativo</option>
               </select>
-              <input className="border p-2 rounded text-sm" placeholder="Paralelo de Tutoría (Opcional)" value={newStaffTutoring} onChange={e => setNewStaffTutoring(e.target.value)} />
-              <button onClick={addStaffMember} className="bg-indigo-600 text-white py-2 rounded font-bold md:col-span-2">Añadir al Sistema</button>
+              <input className="border p-2 rounded text-sm bg-slate-900 text-white placeholder-slate-400" placeholder="Paralelo de Tutoría (Opcional)" value={newStaffTutoring} onChange={e => setNewStaffTutoring(e.target.value)} />
+              
+              {newStaffRole === 'Administrativo' && (
+                <div className="md:col-span-2 flex flex-col gap-2 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-inner">
+                  <label className="flex items-center gap-2 font-bold text-sm text-emerald-400 cursor-pointer">
+                    <input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={newStaffAuth} onChange={e=>setNewStaffAuth(e.target.checked)} /> 
+                    Administrativo Autorizado por Rector
+                  </label>
+                  <input className="border border-slate-600 p-3 rounded-lg text-sm w-full font-mono outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-900 text-white placeholder-slate-500" placeholder="Clave de Seguridad Obligatoria (Ej: 1234)" value={newStaffSecKey} onChange={e=>setNewStaffSecKey(e.target.value)} />
+                  <p className="text-xs text-slate-400 italic">Esta clave se le pedirá al Administrativo cada vez que intente borrar un registro del sistema.</p>
+                </div>
+              )}
+              
+              <button onClick={addStaffMember} className="bg-indigo-600 text-white py-2 rounded-lg font-bold md:col-span-2 hover:bg-indigo-500 transition">Añadir al Sistema</button>
             </div>
 
             <div className="flex-1 overflow-auto">
@@ -1700,7 +1714,7 @@ export default function UE19deAgosto() {
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                   <h4 className="font-bold mb-3">1. Crear Curso</h4>
                   <div className="flex gap-2 mb-4">
-                    <input className="flex-1 p-2 rounded border focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="Ej. Octavo Básico" value={newCourseName} onChange={e=>setNewCourseName(e.target.value)} />
+                    <input className="flex-1 p-2 rounded border focus:outline-none focus:ring-2 focus:ring-orange-400 bg-slate-900 text-white placeholder-slate-400" placeholder="Ej. Octavo Básico" value={newCourseName} onChange={e=>setNewCourseName(e.target.value)} />
                     <button className="bg-orange-600 text-white px-4 rounded font-bold hover:bg-orange-700" onClick={() => {
                       if(!newCourseName) return;
                       const tree = {...(appSettings.courses||{})};
@@ -1737,7 +1751,7 @@ export default function UE19deAgosto() {
                   {selectedCourseForParallel ? (
                     <>
                       <div className="flex gap-2 mb-4">
-                        <input className="w-20 p-2 rounded border text-center font-bold text-xl uppercase focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="A" value={newParallelName} onChange={e=>setNewParallelName(e.target.value.toUpperCase())} maxLength={3} />
+                        <input className="w-20 p-2 rounded border text-center font-bold text-xl uppercase focus:outline-none focus:ring-2 focus:ring-orange-400 bg-slate-900 text-white placeholder-slate-400" placeholder="A" value={newParallelName} onChange={e=>setNewParallelName(e.target.value.toUpperCase())} maxLength={3} />
                         <button className="bg-orange-600 hover:bg-orange-700 text-white px-4 rounded font-bold flex-1" onClick={() => {
                           if(!newParallelName) return;
                           const tree = {...(appSettings.courses||{})};
