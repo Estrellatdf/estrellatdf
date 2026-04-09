@@ -1003,7 +1003,7 @@ export default function UE19deAgosto() {
             <GraduationCap className="text-emerald-400" size={28} />
           </div>
           <div className="flex flex-col">
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">U.E. 19 de Agosto</span>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">U.E. 19 de Agosto [NUEVO DEPLOY]</span>
             {appSettings.schoolYear && <span className="text-[10px] text-indigo-300 font-medium leading-none">{appSettings.schoolYear}</span>}
           </div>
           <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold border border-emerald-500/30 ml-2 animate-pulse uppercase tracking-widest hidden sm:inline">v2.0</span>
