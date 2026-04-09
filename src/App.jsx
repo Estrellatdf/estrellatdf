@@ -55,6 +55,16 @@ const generateStudentCode = () => {
   return result;
 };
 
+const normalizeText = (text) => {
+  if (!text) return "";
+  return text.toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+};
+
 const PALETTE = [
   'bg-blue-50 border-blue-100',
   'bg-green-50 border-green-100',
@@ -563,18 +573,18 @@ export default function UE19deAgosto() {
     const existingStudentsMap = new Map();
     subjects.forEach(sub => {
       (sub.students || []).forEach(st => {
-        const normalizedName = st.name.trim().toLowerCase();
-        if (!existingStudentsMap.has(normalizedName)) {
-           existingStudentsMap.set(normalizedName, st);
+        const norm = normalizeText(st.name);
+        if (!existingStudentsMap.has(norm)) {
+           existingStudentsMap.set(norm, st);
         }
       });
     });
 
     const newStus = names.map(n => {
-       const normalizedName = n.trim().toLowerCase();
-       if (existingStudentsMap.has(normalizedName)) {
+       const norm = normalizeText(n);
+       if (existingStudentsMap.has(norm)) {
           // Reutilizar el ID y Código del estudiante que ya existe en el sistema
-          const existingSt = existingStudentsMap.get(normalizedName);
+          const existingSt = existingStudentsMap.get(norm);
           return { id: existingSt.id, name: existingSt.name, code: existingSt.code };
        } else {
           // Es un estudiante totalmente nuevo en la institución
@@ -737,11 +747,12 @@ export default function UE19deAgosto() {
   // --- EXPORTAR ---
   const exportGradesCSV = () => {
     const acts = currentSubject.activities[currentTrimester] || [];
-    let csv = "Estudiante,Codigo," + acts.map(a => `"${a.name}"`).join(",") + ",70%,Examen,Proyecto,30%,Final\n";
+    // Usamos punto y coma (;) para compatibilidad total con Excel en español
+    let csv = "Estudiante;Codigo;" + acts.map(a => `"${a.name}"`).join(";") + ";70%;Examen;Proyecto;30%;Final\n";
     currentSubject.students.forEach(s => {
       const st = calculateStats(currentSubject, currentTrimester, s.id);
       const gr = currentSubject.grades[currentTrimester]?.[s.id] || {};
-      csv += `"${s.name}",${s.code},` + acts.map(a => gr[a.id] || 0).join(",") + `,${st.wAct},${gr['exam_final'] || 0},${gr['project_final'] || ''},${st.wEx},${st.fin}\n`;
+      csv += `"${s.name}";"${s.code}";` + acts.map(a => (gr[a.id] || 0)).join(";") + `;"${st.wAct}";"${gr['exam_final'] || 0}";"${gr['project_final'] || ''}";"${st.wEx}";"${st.fin}"\n`;
     });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: 'text/csv' }));
@@ -756,7 +767,7 @@ export default function UE19deAgosto() {
       Object.keys(studentDates).forEach(d => allDates.add(d));
     });
     const sortedDates = Array.from(allDates).sort();
-    let csv = "Estudiante,Codigo," + sortedDates.join(",") + ",% Asistencia\n";
+    let csv = "Estudiante;Codigo;" + sortedDates.join(";") + ";% Asistencia\n";
     currentSubject.students.forEach(s => {
       const studentAtt = (currentSubject?.attendance?.[s.id]) || {};
       let presentCount = 0; let totalRecorded = 0;
@@ -765,11 +776,11 @@ export default function UE19deAgosto() {
         if (!record) return "-";
         totalRecorded++; if (record.status === 'P') presentCount++;
         let cell = record.status === 'P' ? 'P' : 'F';
-        if (record.note) cell += ` (${record.note})`;
+        if (record.note) cell += ` (${record.note.replace(/"/g, "'")})`;
         return `"${cell}"`;
       });
       const percentage = totalRecorded > 0 ? Math.round((presentCount / totalRecorded) * 100) : 0;
-      csv += `"${s.name}",${s.code},` + rowData.join(",") + `,${percentage}%\n`;
+      csv += `"${s.name}";"${s.code}";` + rowData.join(";") + `;"${percentage}%"\n`;
     });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: 'text/csv' }));
@@ -808,13 +819,11 @@ export default function UE19deAgosto() {
                 <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)} className="flex-1 bg-white/10 border border-white/20 rounded px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Contraseña" />
                 <button onClick={handleTeacherLogin} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded font-medium transition">Entrar</button>
               </div>
-              <button onClick={handleEmergencyRector} className="mt-2 text-[10px] text-indigo-400 hover:text-indigo-200 underline opacity-30 hover:opacity-100 transition">Acceso de Emergencia (Rector)</button>
             </div>
             <div className="bg-black/30 p-5 rounded-xl text-left border border-white/10">
               <label className="text-xs uppercase font-bold text-green-300 block mb-2 flex items-center gap-2"><Eye size={14} /> Acceso Padres</label>
               <div className="flex gap-2">
                 <input value={studentCodeInput} onChange={e => setStudentCodeInput(e.target.value)} className="flex-1 bg-white/10 border border-white/20 rounded px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400 uppercase" placeholder="Código (ej. ABC123)" />
-                <button onClick={handleStudentLogin} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-medium transition">Ver</button>
               </div>
             </div>
           </div>
@@ -825,168 +834,168 @@ export default function UE19deAgosto() {
 
   // --- VISTA ESTUDIANTE / PADRES ---
   if (viewMode === 'student_view' && viewingStudent) {
-    const st = calculateStats(viewingSubject, currentTrimester, viewingStudent.id);
+    const st = calculateStats(viewingSubject, currentTrimester === 'Anual' ? 1 : currentTrimester, viewingStudent.id);
 
     // --- FILTRADO DE COMUNICADOS (VISTA ESTUDIANTE) ---
-    // 1. Obtener TODOS los comunicados de TODAS las materias
     const allAnnouncements = subjects.flatMap(sub => (sub.announcements || []).map(ann => ({ ...ann, sourceSubject: sub.name })));
-
-    // 2. Filtrar: los Globales (de cualquier materia) + los específicos de ESTA materia para ESTE estudiante
     const filteredAnnouncements = allAnnouncements.filter(ann => {
-      // Globales para todos
       if (ann.isGlobal) return true;
-      // Si no es global, solo los de la materia que estamos viendo
       if (ann.sourceSubject === viewingSubject.name) {
         return !ann.recipient || ann.recipient === 'all' || ann.recipient === viewingStudent.id;
       }
       return false;
     });
-
-    // 3. Eliminar duplicados por ID y ordenar (más recientes primero)
     const uniqueAnnouncements = Array.from(new Map(filteredAnnouncements.map(ann => [ann.id, ann])).values())
       .sort((a, b) => b.id.localeCompare(a.id));
 
-
     return (
-      <div className="min-h-screen bg-gray-50 font-sans text-gray-800 p-4">
-        <header className="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="bg-green-100 p-3 rounded-full text-green-700"><User size={24} /></div>
+      <div className="min-h-screen bg-slate-50 font-sans text-gray-800 flex flex-col">
+        {/* HEADER ESTUDIANTE */}
+        <header className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+          <div className="flex items-center gap-4">
+            <div className="bg-emerald-500 p-2.5 rounded-2xl text-white shadow-lg shadow-emerald-500/20"><User size={28} /></div>
             <div>
-              <h1 className="text-xl font-bold text-gray-800">{viewingStudent.name}</h1>
-              <p className="text-sm text-gray-500">{viewingSubject.name} - {viewingSubject.parallel}</p>
+              <h1 className="text-xl font-black text-gray-900 leading-tight uppercase tracking-tight">{viewingStudent.name}</h1>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-bold uppercase tracking-widest">Código: {viewingStudent.code}</span>
+                <span className="text-[10px] bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded font-bold uppercase tracking-widest">Reporte Consolidado</span>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {studentSubjects.length > 1 && (
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-400 hidden sm:block">Asignatura:</span>
-                <select
-                  value={viewingSubject.id}
-                  onChange={e => {
-                    const match = studentSubjects.find(m => String(m.subject.id) === e.target.value);
-                    if (match) { setViewingSubject(match.subject); setViewingStudent(match.student); setCurrentTrimester(1); }
-                  }}
-                  className="text-sm border border-indigo-300 rounded-lg px-2 py-1.5 bg-indigo-50 text-indigo-700 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer"
-                >
-                  {studentSubjects.map(m => (
-                    <option key={m.subject.id} value={String(m.subject.id)}>
-                      {m.subject.name} ({m.subject.parallel})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <button onClick={() => { setViewMode('portal'); setStudentSubjects([]); }} className="flex items-center gap-1 text-gray-500 hover:text-red-500 transition"><LogOut size={18} /> Salir</button>
-          </div>
+          <button onClick={() => { setViewMode('portal'); setStudentSubjects([]); }} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2 rounded-xl font-bold text-sm hover:scale-105 transition active:scale-95 shadow-lg shadow-slate-900/20">
+            <LogOut size={18} /> Salir del Portal
+          </button>
         </header>
 
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="flex-1 max-w-6xl mx-auto w-full p-6 space-y-8">
+          
+          {/* SECCIÓN 1: BOLETA CONSOLIDADA (LA MISMA HOJA) */}
+          <section className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+            <div className="p-6 border-b border-slate-50 bg-gradient-to-r from-slate-50 to-white flex justify-between items-center">
+              <h2 className="text-lg font-black text-slate-800 flex items-center gap-2"><FileSpreadsheet className="text-emerald-500" /> Cuadro General de Calificaciones</h2>
+              <span className="text-xs font-bold text-slate-400">Año Lectivo {appSettings.schoolYear || 'Oficial'}</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/50 text-slate-400 text-[10px] uppercase font-black tracking-widest border-b border-slate-100">
+                    <th className="px-6 py-4">Asignatura</th>
+                    <th className="px-4 py-4 text-center">1º Trim</th>
+                    <th className="px-4 py-4 text-center">2º Trim</th>
+                    <th className="px-4 py-4 text-center">3º Trim</th>
+                    <th className="px-4 py-4 text-center bg-indigo-50/30">Suma Final</th>
+                    <th className="px-6 py-4 text-right">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {studentSubjects.map(m => {
+                    const st1 = calculateStats(m.subject, 1, m.student.id);
+                    const st2 = calculateStats(m.subject, 2, m.student.id);
+                    const st3 = calculateStats(m.subject, 3, m.student.id);
+                    const totalSum = (parseFloat(st1.fin) || 0) + (parseFloat(st2.fin) || 0) + (parseFloat(st3.fin) || 0);
+                    const isPassing = totalSum >= 21;
+                    return (
+                      <tr key={m.subject.id} className="hover:bg-slate-50/80 transition-colors group cursor-pointer" onClick={() => { setViewingSubject(m.subject); setViewingStudent(m.student); }}>
+                        <td className="px-6 py-5">
+                          <div className="font-bold text-slate-700 group-hover:text-indigo-600 transition-colors">{m.subject.name}</div>
+                          <div className="text-[10px] text-slate-400 font-bold uppercase">{m.subject.parallel} • {m.subject.teacherName || 'Docente'}</div>
+                        </td>
+                        <td className="px-4 py-5 text-center font-mono font-bold text-slate-600">{st1.fin}</td>
+                        <td className="px-4 py-5 text-center font-mono font-bold text-slate-600">{st2.fin}</td>
+                        <td className="px-4 py-5 text-center font-mono font-bold text-slate-600">{st3.fin}</td>
+                        <td className="px-4 py-5 text-center bg-indigo-50/30"><span className={`text-lg font-black ${isPassing ? 'text-indigo-600' : 'text-red-500'}`}>{totalSum.toFixed(2)}</span></td>
+                        <td className="px-6 py-5 text-right">
+                          <span className={`text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-tighter shadow-sm ${isPassing ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                            {isPassing ? 'Aprobado' : 'Supletorio'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-4 bg-slate-50 flex justify-center border-t border-slate-100">
+              <p className="text-[10px] text-slate-400 font-bold uppercase italic">* Haz clic en una materia para ver el detalle de actividades y asistencia.</p>
+            </div>
+          </section>
 
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-lg flex items-center gap-2"><FileSpreadsheet className="text-indigo-500" /> Calificaciones</h3>
-                <div className="flex gap-1">{[1, 2, 3, 'Anual'].map(t => <button key={t} onClick={() => setCurrentTrimester(t)} className={`px-3 py-1 text-xs font-bold rounded transition ${currentTrimester === t ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{t === 'Anual' ? 'Anual' : `${t}º`}</button>)}</div>
-              </div>
-              {currentTrimester === 'Anual' ? (() => {
-                  const st1 = calculateStats(viewingSubject, 1, viewingStudent.id);
-                  const st2 = calculateStats(viewingSubject, 2, viewingStudent.id);
-                  const st3 = calculateStats(viewingSubject, 3, viewingStudent.id);
-                  const sum = (parseFloat(st1.fin) || 0) + (parseFloat(st2.fin) || 0) + (parseFloat(st3.fin) || 0);
-                  const isPassing = sum >= 21;
-                  return (
-                    <div className="space-y-4 animate-in fade-in duration-300">
-                      <div className="grid grid-cols-3 gap-3 text-center items-center">
-                        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm"><div className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">1º Trim</div><div className="font-black text-2xl text-indigo-600">{st1.fin}</div></div>
-                        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm"><div className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">2º Trim</div><div className="font-black text-2xl text-indigo-600">{st2.fin}</div></div>
-                        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm"><div className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">3º Trim</div><div className="font-black text-2xl text-indigo-600">{st3.fin}</div></div>
-                      </div>
-                      <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 p-6 rounded-2xl border border-indigo-100 flex justify-between items-center shadow-inner">
-                        <div>
-                          <p className="text-xs text-indigo-500 font-bold uppercase tracking-widest mb-1">Suma Final Anual</p>
-                          <p className="text-5xl font-black text-indigo-900 leading-none drop-shadow-sm">{sum.toFixed(2)}</p>
-                        </div>
-                        <div className="text-right">
-                          {isPassing ? (
-                            <div className="inline-block bg-gradient-to-r from-green-400 to-green-500 text-white px-5 py-3 rounded-xl font-black shadow-lg shadow-green-500/30 uppercase tracking-widest text-sm border border-green-400">Aprobado</div>
-                          ) : (
-                            <div className="inline-block bg-gradient-to-r from-red-400 to-red-500 text-white px-5 py-3 rounded-xl font-black shadow-lg shadow-red-500/30 uppercase tracking-widest text-sm border border-red-400">Supletorio</div>
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-xs text-center text-gray-400 italic mt-2">* Para aprobar, la suma final de los 3 trimestres debe ser igual o mayor a 21.</p>
-                    </div>
-                  );
-              })() : (
-                <div className="animate-in fade-in duration-300">
-                  <div className="bg-gray-50 rounded-lg p-4 mb-4 flex justify-between text-center overflow-x-auto gap-4">
-                    <div><div className="text-xs text-gray-500">Actividades (70%)</div><div className="font-bold text-indigo-700 text-lg">{st.wAct}</div></div>
-                    <div><div className="text-xs text-gray-500">Examen</div><div className="font-bold text-orange-600 text-lg">{viewingSubject.grades[currentTrimester]?.[viewingStudent.id]?.['exam_final'] || 0}</div></div>
-                    {viewingSubject.grades[currentTrimester]?.[viewingStudent.id]?.['project_final'] && (
-                      <div><div className="text-xs text-gray-500">Proyecto</div><div className="font-bold text-green-600 text-lg">{viewingSubject.grades[currentTrimester]?.[viewingStudent.id]?.['project_final']}</div></div>
-                    )}
-                    <div><div className="text-xs text-gray-500">Suma (30%)</div><div className="font-bold text-orange-700 text-lg">{st.wEx}</div></div>
-                    <div><div className="text-xs text-gray-500">FINAL</div><div className={`font-bold text-xl ${parseFloat(st.fin) < 7 ? 'text-red-600' : 'text-green-600'}`}>{st.fin}</div></div>
-                  </div>
-                  <ul className="space-y-2 text-sm">
-                    {(viewingSubject.activities[currentTrimester] || []).map(act => {
-                      const grade = viewingSubject.grades[currentTrimester]?.[viewingStudent.id]?.[act.id];
-                      return (
-                        <li key={act.id} className="flex justify-between border-b pb-2">
-                          <span>{act.name}</span>
-                          <span className={`font-mono font-bold ${grade < 7 ? 'text-red-500' : 'text-gray-700'}`}>{grade !== undefined ? grade : '-'}</span>
-                        </li>
-                      )
-                    })}
-                  </ul>
+          {/* DETALLE DE MATERIA SELECCIONADA */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-5 duration-500">
+            
+            {/* COLUMNA IZQUIERDA: ACTIVIDADES Y ASISTENCIA */}
+            <div className="space-y-8">
+              <div className="bg-white rounded-[2rem] shadow-lg border border-slate-100 p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="font-bold text-slate-800 flex items-center gap-2"><LayoutList className="text-indigo-500" /> Detalle: {viewingSubject.name}</h3>
+                  <div className="flex gap-1">{[1, 2, 3].map(t => <button key={t} onClick={() => setCurrentTrimester(t)} className={`px-4 py-1.5 text-xs font-black rounded-lg transition ${currentTrimester === t ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>{t}º Trim</button>)}</div>
                 </div>
-              )}
-            </div>
+                
+                <div className="bg-slate-50 rounded-2xl p-5 mb-6 grid grid-cols-3 gap-2 text-center border border-slate-100">
+                  <div><div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Actividades</div><div className="font-black text-indigo-600 text-xl">{st.wAct}</div></div>
+                  <div><div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Examen/Proy</div><div className="font-black text-orange-500 text-xl">{st.wEx}</div></div>
+                  <div><div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Promedio</div><div className="font-black text-gray-900 text-xl">{st.fin}</div></div>
+                </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-              <h3 className="font-bold text-lg flex items-center gap-2 mb-4"><Calendar className="text-indigo-500" /> Historial de Asistencia</h3>
-              <div className="max-h-64 overflow-y-auto space-y-2">
-                {Object.entries(viewingSubject?.attendance?.[viewingStudent.id] || {}).sort().reverse().map(([d, v]) => (
-                  <div key={d} className="flex flex-col border-b pb-2 last:border-0">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-gray-700">{d}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded ${v.status === 'P' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{v.status === 'P' ? 'ASISTIÓ' : 'FALTA'}</span>
+                <ul className="space-y-3">
+                  {(viewingSubject.activities[currentTrimester] || []).map(act => {
+                    const grade = viewingSubject.grades[currentTrimester]?.[viewingStudent.id]?.[act.id];
+                    return (
+                      <li key={act.id} className="flex justify-between items-center p-3 rounded-xl border border-slate-50 bg-slate-50/30">
+                        <span className="text-sm font-bold text-slate-600">{act.name}</span>
+                        <span className={`font-mono font-black text-base ${grade < 7 ? 'text-red-500' : 'text-slate-800'}`}>{grade !== undefined ? grade : '-'}</span>
+                      </li>
+                    )
+                  })}
+                  {(viewingSubject.activities[currentTrimester] || []).length === 0 && <li className="text-center py-6 text-slate-400 italic text-sm">No hay actividades en este periodo.</li>}
+                </ul>
+              </div>
+
+              <div className="bg-white rounded-[2rem] shadow-lg border border-slate-100 p-6">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6"><Calendar className="text-emerald-500" /> Control de Asistencia</h3>
+                <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                  {Object.entries(viewingSubject?.attendance?.[viewingStudent.id] || {}).sort().reverse().map(([d, v]) => (
+                    <div key={d} className="flex justify-between items-center p-3 rounded-xl border border-slate-50">
+                      <div>
+                        <div className="font-bold text-slate-700 text-sm">{d}</div>
+                        {v.note && <div className="text-[10px] text-slate-400 italic">Nota: {v.note}</div>}
+                      </div>
+                      <span className={`text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-tighter ${v.status === 'P' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>{v.status === 'P' ? 'Presente' : 'Falta'}</span>
                     </div>
-                    {v.note && <p className="text-xs text-gray-500 mt-1 italic bg-yellow-50 p-1 rounded">"{v.note}"</p>}
-                  </div>
-                ))}
-                {Object.keys(viewingSubject.attendance[viewingStudent.id] || {}).length === 0 && <p className="text-gray-400 text-sm text-center">No hay registros aún.</p>}
+                  ))}
+                  {Object.keys(viewingSubject.attendance[viewingStudent.id] || {}).length === 0 && <p className="text-slate-400 text-sm text-center py-10">Sin registros de asistencia.</p>}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 h-full">
-              <h3 className="font-bold text-lg flex items-center gap-2 mb-4"><Megaphone className="text-orange-500" /> Comunicados y Avisos</h3>
-              <div className="space-y-4">
+            {/* COLUMNA DERECHA: COMUNICADOS */}
+            <div className="bg-white rounded-[2rem] shadow-lg border border-slate-100 p-6 h-full flex flex-col">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6"><Megaphone className="text-orange-500" /> Avisos y Eventos</h3>
+              <div className="space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar">
                 {uniqueAnnouncements.length === 0 ? (
-                  <div className="text-center py-10 bg-gray-50 rounded-lg text-gray-400">
-                    <Bell size={40} className="mx-auto mb-2 opacity-20" />
-                    <p>No hay comunicados recientes.</p>
+                  <div className="text-center py-20 text-slate-300">
+                    <Bell size={60} className="mx-auto mb-4 opacity-10" />
+                    <p className="font-bold uppercase tracking-widest text-xs">No hay avisos recientes</p>
                   </div>
                 ) : (
                   uniqueAnnouncements.map(ann => (
-                    <div key={ann.id} className={`p-4 rounded-lg border-l-4 ${ann.type === 'urgent' ? 'bg-red-50 border-red-500' : ann.type === 'event' ? 'bg-blue-50 border-blue-500' : 'bg-gray-50 border-gray-400'}`}>
-                      <div className="flex justify-between items-start mb-1">
-                        <h4 className="font-bold text-gray-800">{ann.title}</h4>
-                        <span className="text-[10px] text-gray-400">{ann.date}</span>
+                    <div key={ann.id} className={`p-5 rounded-3xl border shadow-sm relative overflow-hidden ${ann.type === 'urgent' ? 'bg-red-50/50 border-red-100' : ann.type === 'event' ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-slate-200'}`}>
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-black text-slate-800 leading-tight pr-4">{ann.title}</h4>
+                        <span className="text-[9px] font-black text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-100">{ann.date}</span>
                       </div>
-                      {ann.recipient !== 'all' && <div className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded inline-block mb-2 font-bold">Mensaje Personal</div>}
-                      {ann.isGlobal && <div className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded inline-block mb-2 font-bold">Comunicado Global</div>}
-                      <p className="text-sm text-gray-600 whitespace-pre-line">{ann.body}</p>
+                      <p className="text-sm text-slate-600 whitespace-pre-line mb-3 font-medium">{ann.body}</p>
+                      <div className="flex gap-2">
+                        {ann.recipient !== 'all' && <span className="text-[8px] bg-orange-500 text-white px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Personal</span>}
+                        {ann.isGlobal && <span className="text-[8px] bg-indigo-500 text-white px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Global</span>}
+                      </div>
                     </div>
                   ))
                 )}
               </div>
             </div>
-          </div>
 
+          </div>
         </div>
       </div>
     );
@@ -1003,7 +1012,7 @@ export default function UE19deAgosto() {
             <GraduationCap className="text-emerald-400" size={28} />
           </div>
           <div className="flex flex-col">
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">U.E. 19 de Agosto [NUEVO DEPLOY]</span>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">U.E. 19 de Agosto [VERSIÓN FINAL + FIXES]</span>
             {appSettings.schoolYear && <span className="text-[10px] text-indigo-300 font-medium leading-none">{appSettings.schoolYear}</span>}
           </div>
           <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold border border-emerald-500/30 ml-2 animate-pulse uppercase tracking-widest hidden sm:inline">v2.0</span>
