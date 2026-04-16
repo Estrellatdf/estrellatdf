@@ -455,20 +455,20 @@ export default function UE19deAgosto() {
     }
 
     if (foundMatches.length > 0) {
+      const existingProfile = parentProfiles[code];
       const theStudent = { ...foundMatches[0].student, code: code };
       setViewingStudent(theStudent);
       setViewingSubject(foundMatches[0].subject);
       setStudentSubjects(foundMatches);
 
-      // Verificar si ya existe perfil del padre
-      const existingProfile = parentProfiles[code];
       if (existingProfile) {
         setParentFormData(existingProfile.formData || {
-          representante1: { name: existingProfile.representanteName || '', relation: existingProfile.relation || 'Madre', cedula: existingProfile.cedula || '', phone: existingProfile.phone || '', email: existingProfile.email || '', occupation: '' },
-          representante2: { name: '', relation: 'Padre', cedula: '', phone: '', email: '', occupation: '' },
-          studentAddress: existingProfile.address || '', studentPhone: '', studentNotes: ''
+           representante1: { name: '', relation: 'Madre', cedula: '', phone: '', email: '', occupation: '' },
+           representante2: { name: '', relation: 'Padre', cedula: '', phone: '', email: '', occupation: '' },
+           studentAddress: '', studentPhone: '', studentNotes: ''
         });
         setShowParentForm(false);
+        setViewMode('student_view');
       } else {
         setParentFormData({
           representante1: { name: '', relation: 'Madre', cedula: '', phone: '', email: '', occupation: '' },
@@ -477,10 +477,8 @@ export default function UE19deAgosto() {
         });
         setShowParentForm(true);
       }
-
-      setViewMode('student_view');
     } else {
-      alert("Código no encontrado.");
+      alert("El código es válido pero el estudiante aún no tiene materias asignadas.");
     }
   };
 
@@ -830,7 +828,7 @@ export default function UE19deAgosto() {
   }
 
   // --- VISTA ESTUDIANTE / PADRES ---
-  if (viewMode === 'student_view' && viewingStudent) {
+  if (viewMode === 'student_view' && viewingStudent && viewingSubject) {
     const st = calculateStats(viewingSubject, currentTrimester === 'Anual' ? 1 : currentTrimester, viewingStudent.id);
 
     // --- FILTRADO DE COMUNICADOS (VISTA ESTUDIANTE) ---
@@ -969,26 +967,26 @@ export default function UE19deAgosto() {
             <div className="bg-white rounded-[2rem] shadow-lg border border-slate-100 p-6 h-full flex flex-col">
               <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6"><Megaphone className="text-orange-500" /> Avisos y Eventos</h3>
               <div className="space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                {uniqueAnnouncements.length === 0 ? (
-                  <div className="text-center py-20 text-slate-300">
-                    <Bell size={60} className="mx-auto mb-4 opacity-10" />
-                    <p className="font-bold uppercase tracking-widest text-xs">No hay avisos recientes</p>
-                  </div>
-                ) : (
-                  uniqueAnnouncements.map(ann => (
-                    <div key={ann.id} className={`p-5 rounded-3xl border shadow-sm relative overflow-hidden ${ann.type === 'urgent' ? 'bg-red-50/50 border-red-100' : ann.type === 'event' ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-slate-200'}`}>
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-black text-slate-800 leading-tight pr-4">{ann.title}</h4>
-                        <span className="text-[9px] font-black text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-100">{ann.date}</span>
-                      </div>
-                      <p className="text-sm text-slate-600 whitespace-pre-line mb-3 font-medium">{ann.body}</p>
-                      <div className="flex gap-2">
-                        {ann.recipient !== 'all' && <span className="text-[8px] bg-orange-500 text-white px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Personal</span>}
-                        {ann.isGlobal && <span className="text-[8px] bg-indigo-500 text-white px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Global</span>}
-                      </div>
+                  {uniqueAnnouncements.length === 0 ? (
+                    <div className="text-center py-20 text-slate-300">
+                      <Bell size={60} className="mx-auto mb-4 opacity-10" />
+                      <p className="font-bold uppercase tracking-widest text-xs">No hay avisos recientes</p>
                     </div>
-                  ))
-                )}
+                  ) : (
+                    uniqueAnnouncements.map(ann => (
+                      <div key={ann.id} className={`p-5 rounded-3xl border shadow-sm relative overflow-hidden ${ann.type === 'urgent' ? 'bg-red-50/50 border-red-100' : ann.type === 'event' ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-black text-slate-800 leading-tight pr-4">{ann.title}</h4>
+                          <span className="text-[9px] font-black text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-100">{ann.date}</span>
+                        </div>
+                        <p className="text-sm text-slate-600 whitespace-pre-line mb-3 font-medium">{ann.body}</p>
+                        <div className="flex gap-2">
+                          {ann.recipient !== 'all' && <span className="text-[8px] bg-orange-500 text-white px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Personal</span>}
+                          {ann.isGlobal && <span className="text-[8px] bg-indigo-500 text-white px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Global</span>}
+                        </div>
+                      </div>
+                    ))
+                  )}
               </div>
             </div>
 
@@ -1797,6 +1795,7 @@ export default function UE19deAgosto() {
                   setParentProfiles(newProfiles);
                   await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'parent_profiles', code), { formData: parentFormData });
                   setShowParentForm(false);
+                  setViewMode('student_view');
                   alert("🎉 Perfil registrado con éxito. Bienvenido al portal.");
                 }}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-indigo-600/30 transition-all active:scale-95"
