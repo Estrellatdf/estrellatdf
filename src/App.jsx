@@ -437,48 +437,52 @@ export default function UE19deAgosto() {
   };
 
   const handleStudentLogin = () => {
-    if (!studentCodeInput) return;
-    const code = studentCodeInput.trim().toUpperCase();
-    
-    let studentName = null;
-    for (const sub of subjects) {
-      const s = sub.students.find(st => st.code === code);
-      if (s) { studentName = s.name; break; }
-    }
-
-    if (!studentName) return alert("Código no encontrado.");
-
-    const foundMatches = [];
-    for (const sub of subjects) {
-      const s = sub.students.find(st => st.name?.trim().toLowerCase() === studentName?.trim().toLowerCase());
-      if (s) foundMatches.push({ student: s, subject: sub });
-    }
-
-    if (foundMatches.length > 0) {
-      const existingProfile = parentProfiles[code];
-      const theStudent = { ...foundMatches[0].student, code: code };
-      setStudentSubjects(foundMatches);
-      setViewingStudent(theStudent);
-      setViewingSubject(foundMatches[0].subject);
-
-      if (existingProfile) {
-        setParentFormData(existingProfile.formData || {
-           representante1: { name: '', relation: 'Madre', cedula: '', phone: '', email: '', occupation: '' },
-           representante2: { name: '', relation: 'Padre', cedula: '', phone: '', email: '', occupation: '' },
-           studentAddress: '', studentPhone: '', studentNotes: ''
-        });
-        setShowParentForm(false);
-        setViewMode('student_view');
-      } else {
-        setParentFormData({
-          representante1: { name: '', relation: 'Madre', cedula: '', phone: '', email: '', occupation: '' },
-          representante2: { name: '', relation: 'Padre', cedula: '', phone: '', email: '', occupation: '' },
-          studentAddress: '', studentPhone: '', studentNotes: ''
-        });
-        setShowParentForm(true);
+    try {
+      if (!studentCodeInput) return;
+      const code = studentCodeInput.trim().toUpperCase();
+      
+      let studentName = null;
+      for (const sub of subjects) {
+        const s = (sub.students || []).find(st => st.code === code);
+        if (s) { studentName = s.name; break; }
       }
-    } else {
-      alert("El código es válido pero el estudiante aún no tiene materias visibles.");
+
+      if (!studentName) return alert("Código no encontrado. Verifique que el docente ya lo registró en su materia.");
+
+      const foundMatches = [];
+      for (const sub of subjects) {
+        const s = (sub.students || []).find(st => st.name?.trim().toLowerCase() === studentName?.trim().toLowerCase());
+        if (s) foundMatches.push({ student: s, subject: sub });
+      }
+
+      if (foundMatches.length > 0) {
+        const existingProfile = parentProfiles[code];
+        const theStudent = { ...foundMatches[0].student, code: code };
+        setStudentSubjects(foundMatches);
+        setViewingStudent(theStudent);
+        setViewingSubject(foundMatches[0].subject);
+
+        if (existingProfile) {
+          setParentFormData(existingProfile.formData || {
+             representante1: { name: '', relation: 'Madre', cedula: '', phone: '', email: '', occupation: '' },
+             representante2: { name: '', relation: 'Padre', cedula: '', phone: '', email: '', occupation: '' },
+             studentAddress: '', studentPhone: '', studentNotes: ''
+          });
+          setShowParentForm(false);
+          setViewMode('student_view');
+        } else {
+          setParentFormData({
+            representante1: { name: '', relation: 'Madre', cedula: '', phone: '', email: '', occupation: '' },
+            representante2: { name: '', relation: 'Padre', cedula: '', phone: '', email: '', occupation: '' },
+            studentAddress: '', studentPhone: '', studentNotes: ''
+          });
+          setShowParentForm(true);
+        }
+      } else {
+        alert("El código es válido pero el estudiante aún no tiene materias visibles.");
+      }
+    } catch (err) {
+      alert("Error crítico en el login: " + err.message);
     }
   };
 
@@ -708,9 +712,12 @@ export default function UE19deAgosto() {
   };
 
   const saveSettings = async (newSet) => {
-    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'settings'), newSet);
-    setAppSettings(newSet);
-    setIsManagingSettings(false);
+    try {
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general'), newSet);
+      setAppSettings(newSet);
+    } catch (e) {
+      alert("Error al guardar: " + e.message);
+    }
   };
 
   const calculateStats = (sub, tri, sId) => {
@@ -1835,7 +1842,7 @@ export default function UE19deAgosto() {
               <h3 className="text-xl font-bold flex items-center gap-2 text-slate-800"><BookOpen className="text-orange-500"/> Gestión Académica: Cursos y Materias</h3>
               <div className="flex items-center gap-4">
                 <button onClick={() => saveSettings(appSettings)} className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">Guardar Todo</button>
-                <button onClick={() => setIsManagingCourses(false)} className="p-2 hover:bg-slate-100 rounded-full"><X /></button>
+                <button onClick={() => setIsManagingCourses(false)} className="p-2 hover:bg-slate-100 rounded-full font-bold text-slate-500">Cerrar</button>
               </div>
             </div>
             {currentUser?.role !== 'Administrativo' && currentUser?.role !== 'Rector' ? (
