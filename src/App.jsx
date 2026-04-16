@@ -1525,22 +1525,32 @@ export default function UE19deAgosto() {
           className="w-full border border-gray-300 rounded-lg p-3 mb-3 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
           value={newSubjectName}
           onChange={e => setNewSubjectName(e.target.value)}
+          disabled={!newSubjectCourse}
         >
-          <option value="">-- Seleccionar Materia --</option>
-          {(appSettings.officialSubjects || '').split('\n').filter(s => s.trim()).map(s => (
-            <option key={s} value={s.trim()}>{s.trim()}</option>
-          ))}
+          <option value="">{newSubjectCourse ? "-- Seleccionar Materia --" : "-- Primero selecciona un curso --"}</option>
+          {(() => {
+            const courseData = appSettings.courses?.[newSubjectCourse];
+            const subjects = Array.isArray(courseData?.subjects) ? courseData.subjects : 
+                            (typeof appSettings.officialSubjects === 'string' ? appSettings.officialSubjects.split('\n') : []);
+            return subjects.filter(s => s.trim()).map(s => (
+              <option key={s} value={s.trim()}>{s.trim()}</option>
+            ));
+          })()}
         </select>
 
         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Curso y Paralelo</label>
         <div className="flex gap-2 mb-4">
-          <select className="w-1/2 border border-gray-300 rounded-lg p-3 outline-none" value={newSubjectCourse} onChange={e => {setNewSubjectCourse(e.target.value); setNewParallel('');}}>
+          <select className="w-1/2 border border-gray-300 rounded-lg p-3 outline-none" value={newSubjectCourse} onChange={e => {setNewSubjectCourse(e.target.value); setNewParallel(''); setNewSubjectName('');}}>
             <option value="">-- Curso --</option>
             {Object.keys(appSettings.courses || {}).map(c => <option key={c} value={c}>{c}</option>)}
           </select>
           <select className="w-1/2 border border-gray-300 rounded-lg p-3 outline-none" value={newParallel} onChange={e => setNewParallel(e.target.value)} disabled={!newSubjectCourse}>
             <option value="">-- Paralelo --</option>
-            {(newSubjectCourse && appSettings.courses?.[newSubjectCourse] ? appSettings.courses[newSubjectCourse] : []).map(p => <option key={p} value={p}>{p}</option>)}
+            {(() => {
+               const cData = appSettings.courses?.[newSubjectCourse];
+               const parallels = Array.isArray(cData) ? cData : (cData?.parallels || []);
+               return parallels.map(p => <option key={p} value={p}>{p}</option>);
+            })()}
           </select>
         </div>
 
@@ -1776,45 +1786,74 @@ export default function UE19deAgosto() {
                         <button className="bg-orange-600 hover:bg-orange-700 text-white px-4 rounded font-bold flex-1" onClick={() => {
                           if(!newParallelName) return;
                           const tree = {...(appSettings.courses||{})};
-                          if(!tree[selectedCourseForParallel].includes(newParallelName)) {
-                            tree[selectedCourseForParallel] = [...tree[selectedCourseForParallel], newParallelName].sort();
-                            updateSettings({...appSettings, courses: tree});
-                            logAudit("CREATE_PARALLEL", newParallelName, "En " + selectedCourseForParallel);
+                          const currentData = tree[selectedCourseForParallel];
+                          if (Array.isArray(currentData)) {
+                            if(!currentData.includes(newParallelName)) tree[selectedCourseForParallel] = [...currentData, newParallelName].sort();
+                          } else {
+                            const parallels = currentData?.parallels || [];
+                            if(!parallels.includes(newParallelName)) tree[selectedCourseForParallel] = { ...currentData, parallels: [...parallels, newParallelName].sort() };
                           }
-                          setNewParallelName('');
+                          updateSettings({...appSettings, courses: tree});
+                          logAudit("CREATE_PARALLEL", newParallelName, "En " + selectedCourseForParallel);
                         }}>Añadir Paralelo</button>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {(appSettings.courses[selectedCourseForParallel]||[]).map(p => (
-                          <div key={p} className="bg-white border-2 border-orange-200 px-4 py-2 rounded-xl text-lg font-black text-orange-800 flex items-center gap-3 shadow-sm">
-                            {p}
-                            <button onClick={()=> {
-                               runSecureAction("Está a punto de modificar/eliminar información que afectará registros históricos. ¿Desea continuar?", () => {
-                                 const tree = {...(appSettings.courses||{})};
-                                 tree[selectedCourseForParallel] = tree[selectedCourseForParallel].filter(x => x !== p);
-                                 updateSettings({...appSettings, courses: tree});
-                                 logAudit("DELETE_PARALLEL", p, "De " + selectedCourseForParallel);
-                               });
-                            }} className="text-red-400 hover:text-red-600 bg-red-50 p-1.5 rounded-lg"><Trash2 size={16}/></button>
-                          </div>
-                        ))}
+                        {(() => {
+                           const cData = appSettings.courses?.[selectedCourseForParallel];
+                           const parallels = Array.isArray(cData) ? cData : (cData?.parallels || []);
+                           return parallels.map(p => (
+                            <div key={p} className="bg-white border-2 border-orange-200 px-4 py-2 rounded-xl text-lg font-black text-orange-800 flex items-center gap-3 shadow-sm">
+                              {p}
+                              <button onClick={()=> {
+                                 runSecureAction("Está a punto de modificar/eliminar información que afectará registros históricos. ¿Desea continuar?", () => {
+                                   const tree = {...(appSettings.courses||{})};
+                                   const currentData = tree[selectedCourseForParallel];
+                                   if (Array.isArray(currentData)) {
+                                     tree[selectedCourseForParallel] = currentData.filter(x => x !== p);
+                                   } else {
+                                     tree[selectedCourseForParallel] = { ...currentData, parallels: (currentData?.parallels || []).filter(x => x !== p) };
+                                   }
+                                   updateSettings({...appSettings, courses: tree});
+                                   logAudit("DELETE_PARALLEL", p, "De " + selectedCourseForParallel);
+                                 });
+                              }} className="text-red-400 hover:text-red-600 bg-red-50 p-1.5 rounded-lg"><Trash2 size={16}/></button>
+                            </div>
+                           ));
+                        })()}
                       </div>
                     </>
                   ) : <div className="text-center text-gray-400 mt-10 p-6 bg-white rounded-xl border border-dashed">Haz clic en un curso a la izquierda para gestionar sus paralelos</div>}
                 </div>
 
-                {/* COLUMNA 3: MATERIAS OFICIALES */}
+                {/* COLUMNA 3: MATERIAS ESPECÍFICAS POR CURSO */}
                 <div className="bg-slate-100 p-5 rounded-2xl border border-slate-200 flex flex-col h-full">
-                  <h4 className="font-black text-slate-800 mb-1 flex items-center gap-2"><Settings size={18} className="text-indigo-500"/> 3. Materias del Plantel</h4>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase mb-4 tracking-tighter">Define los nombres oficiales de las materias (una por línea)</p>
-                  <textarea
-                    className="flex-1 w-full border border-slate-300 rounded-2xl p-4 bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm resize-none shadow-inner"
-                    placeholder={"Matemáticas\nLengua y Literatura\nEducación Física"}
-                    value={appSettings.officialSubjects || ''}
-                    onChange={e => setAppSettings({ ...appSettings, officialSubjects: e.target.value })}
-                  />
+                  <h4 className="font-black text-slate-800 mb-1 flex items-center gap-2"><Settings size={18} className="text-indigo-500"/> 3. Materias del Curso</h4>
+                  {selectedCourseForParallel ? (
+                    <>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase mb-4 tracking-tighter">Define las materias para {selectedCourseForParallel} (una por línea)</p>
+                      <textarea
+                        className="flex-1 w-full border border-slate-300 rounded-2xl p-4 bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm resize-none shadow-inner"
+                        placeholder={"Matemáticas\nLenguaje..."}
+                        value={(() => {
+                           const cData = appSettings.courses?.[selectedCourseForParallel];
+                           return Array.isArray(cData?.subjects) ? cData.subjects.join('\n') : '';
+                        })()}
+                        onChange={e => {
+                          const subjects = e.target.value.split('\n');
+                          const tree = {...(appSettings.courses||{})};
+                          const currentData = tree[selectedCourseForParallel];
+                          if (Array.isArray(currentData)) {
+                            tree[selectedCourseForParallel] = { parallels: currentData, subjects };
+                          } else {
+                            tree[selectedCourseForParallel] = { ...(currentData || {parallels:[]}), subjects };
+                          }
+                          setAppSettings({ ...appSettings, courses: tree });
+                        }}
+                      />
+                    </>
+                  ) : <div className="text-center text-gray-400 mt-10 p-6 bg-white rounded-xl border border-dashed">Selecciona un curso para gestionar sus materias</div>}
                   <div className="mt-4 p-3 bg-white rounded-xl border border-slate-200">
-                    <p className="text-[10px] text-slate-400 font-medium italic">Estas materias aparecerán en el desplegable al crear una nueva asignatura para cualquier curso.</p>
+                    <p className="text-[10px] text-slate-400 font-medium italic">Estas materias aparecerán en el desplegable al crear una nueva asignatura para este nivel.</p>
                   </div>
                 </div>
               </div>
