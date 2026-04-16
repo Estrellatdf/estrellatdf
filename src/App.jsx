@@ -1012,7 +1012,7 @@ export default function UE19deAgosto() {
             <GraduationCap className="text-emerald-400" size={28} />
           </div>
           <div className="flex flex-col">
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">U.E. 19 de Agosto [VERSIÓN FINAL + FIXES]</span>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">U.E. 19 de Agosto</span>
             {appSettings.schoolYear && <span className="text-[10px] text-indigo-300 font-medium leading-none">{appSettings.schoolYear}</span>}
           </div>
           <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold border border-emerald-500/30 ml-2 animate-pulse uppercase tracking-widest hidden sm:inline">v2.0</span>
@@ -1038,9 +1038,9 @@ export default function UE19deAgosto() {
             {showMenu && <button onClick={() => setShowMenu(false)} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20} /></button>}
           </div>
           <div className="p-4 space-y-3 overflow-y-auto flex-1 custom-scrollbar">
-            {(currentUser?.role === 'Rector' || currentUser?.role === 'Administrativo' || currentUser?.role === 'Docente') && (
+            {(currentUser?.role === 'Administrativo' || currentUser?.role === 'Docente') && (
               <div className="space-y-3 mb-6">
-                {(currentUser?.role === 'Rector' || currentUser?.role === 'Administrativo') && (
+                {(currentUser?.role === 'Administrativo') && (
                   <>
                     <button onClick={() => { setIsManagingStaff(true); setShowMenu(false); }} className="w-full bg-emerald-600 text-white py-4 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 font-bold active:scale-95">
                       <User size={20} /> Personal
@@ -1061,6 +1061,29 @@ export default function UE19deAgosto() {
               </div>
             )}
             {(() => {
+              if (currentUser?.role === 'Rector') {
+                const parallels = [...new Set(visibleSubjects.map(s => s.parallel))].sort();
+                return (
+                  <div className="space-y-6">
+                    {parallels.map(p => (
+                      <div key={p} className="space-y-2">
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2 border-l-2 border-indigo-500 mb-2">{p || 'Sin Paralelo'}</h3>
+                        {visibleSubjects.filter(s => s.parallel === p).map(s => (
+                          <button key={s.id} onClick={() => { setCurrentSubjectId(s.id); setShowMenu(false); }} className={`w-full text-left p-3 rounded-xl flex justify-between items-center transition-all ${currentSubjectId === s.id ? 'bg-indigo-600 text-white shadow-lg translate-x-1' : 'hover:bg-slate-50 text-slate-600 hover:translate-x-1'}`}>
+                            <div className="flex-1 min-w-0 pr-2">
+                              <div className="font-bold text-sm truncate">{s.name}</div>
+                              <div className={`text-[10px] ${currentSubjectId === s.id ? 'text-indigo-200' : 'text-slate-400'}`}>{s.teacherName}</div>
+                            </div>
+                            <Eye size={14} className={currentSubjectId === s.id ? 'text-white' : 'text-slate-300'} />
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                    {visibleSubjects.length === 0 && <div className="text-xs text-slate-400 px-3 py-2 italic font-medium">No hay materias registradas.</div>}
+                  </div>
+                );
+              }
+
               const mySubjects = visibleSubjects.filter(s => s.teacherId === currentUser?.id);
               const otherSubjects = visibleSubjects.filter(s => s.teacherId !== currentUser?.id);
               
@@ -1492,7 +1515,17 @@ export default function UE19deAgosto() {
 
       {/* MODALES BONITOS */}
       {isAddingSubject && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in duration-200"><h3 className="text-xl font-bold mb-4 text-gray-800">Gestionar Asignatura</h3>
-        <input className="border border-gray-300 w-full p-3 rounded-lg mb-3 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Nombre (ej. Matemáticas)" value={newSubjectName} onChange={e => setNewSubjectName(e.target.value)} autoFocus />
+        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre de la Materia (Oficial)</label>
+        <select
+          className="w-full border border-gray-300 rounded-lg p-3 mb-3 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+          value={newSubjectName}
+          onChange={e => setNewSubjectName(e.target.value)}
+        >
+          <option value="">-- Seleccionar Materia --</option>
+          {(appSettings.officialSubjects || '').split('\n').filter(s => s.trim()).map(s => (
+            <option key={s} value={s.trim()}>{s.trim()}</option>
+          ))}
+        </select>
 
         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Curso y Paralelo</label>
         <div className="flex gap-2 mb-4">
@@ -1506,7 +1539,7 @@ export default function UE19deAgosto() {
           </select>
         </div>
 
-        {(currentUser.role === 'Rector' || currentUser.role === 'Administrativo') && (
+        {(currentUser.role === 'Administrativo') && (
           <>
             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Docente Asignado</label>
             <select
@@ -1675,10 +1708,18 @@ export default function UE19deAgosto() {
               onChange={e => setOfficialParallelsInput(e.target.value)}
             />
 
+            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Lista de Materias Oficiales</label>
+            <textarea
+              className="w-full border border-gray-300 rounded-xl p-4 h-32 focus:ring-2 focus:ring-slate-900 outline-none font-mono text-sm mb-6 resize-none"
+              placeholder={"Matemáticas\nLenguaje\nHistoria"}
+              value={appSettings.officialSubjects || ''}
+              onChange={e => setAppSettings({ ...appSettings, officialSubjects: e.target.value })}
+            />
+
             <div className="flex justify-end gap-2">
               <button onClick={() => setIsManagingSettings(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">Cancelar</button>
               <button
-                onClick={() => saveSettings({ ...appSettings, officialParallels: officialParallelsInput })}
+                onClick={() => saveSettings({ ...appSettings, officialParallels: officialParallelsInput, officialSubjects: appSettings.officialSubjects })}
                 className="bg-slate-900 hover:bg-black text-white px-6 py-2 rounded-lg font-bold shadow transition"
               >
                 Guardar Estándares
