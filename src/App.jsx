@@ -457,9 +457,9 @@ export default function UE19deAgosto() {
     if (foundMatches.length > 0) {
       const existingProfile = parentProfiles[code];
       const theStudent = { ...foundMatches[0].student, code: code };
+      setStudentSubjects(foundMatches);
       setViewingStudent(theStudent);
       setViewingSubject(foundMatches[0].subject);
-      setStudentSubjects(foundMatches);
 
       if (existingProfile) {
         setParentFormData(existingProfile.formData || {
@@ -478,7 +478,7 @@ export default function UE19deAgosto() {
         setShowParentForm(true);
       }
     } else {
-      alert("El código es válido pero el estudiante aún no tiene materias asignadas.");
+      alert("El código es válido pero el estudiante aún no tiene materias visibles.");
     }
   };
 
@@ -1793,7 +1793,7 @@ export default function UE19deAgosto() {
                   const code = studentCodeInput.trim().toUpperCase();
                   const newProfiles = {...parentProfiles, [code]: { formData: parentFormData, isRegistered: true }};
                   setParentProfiles(newProfiles);
-                  await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'parent_profiles', code), { formData: parentFormData });
+                  await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'parentProfiles', code), { formData: parentFormData });
                   setShowParentForm(false);
                   setViewMode('student_view');
                   alert("🎉 Perfil registrado con éxito. Bienvenido al portal.");
