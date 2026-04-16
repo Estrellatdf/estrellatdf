@@ -825,7 +825,13 @@ export default function UE19deAgosto() {
               <label className="text-xs uppercase font-bold text-green-300 block mb-2 flex items-center gap-2"><Eye size={14} /> Acceso Padres</label>
               <div className="flex gap-2">
                 <input value={studentCodeInput} onChange={e => setStudentCodeInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleStudentLogin()} className="flex-1 bg-white/10 border border-white/20 rounded px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400 uppercase" placeholder="Código (ej. ABC123)" />
-                <button onClick={handleStudentLogin} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-medium transition">Entrar</button>
+                <button 
+                  id="boton-padres-oficial"
+                  onClick={handleStudentLogin} 
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-emerald-600/20 active:scale-95 transition-all uppercase tracking-tighter"
+                >
+                  INGRESAR AHORA
+                </button>
               </div>
             </div>
           </div>
