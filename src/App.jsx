@@ -106,6 +106,7 @@ export default function UE19deAgosto() {
 
   // Formularios
   const [isAddingSubject, setIsAddingSubject] = useState(false);
+  const [isEditingSubject, setIsEditingSubject] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newParallel, setNewParallel] = useState('');
   const [isAddingStudent, setIsAddingStudent] = useState(false);
@@ -1054,7 +1055,14 @@ export default function UE19deAgosto() {
                   </>
                 )}
                 {(currentUser?.role === 'Rector' || currentUser?.role === 'Docente') && (
-                  <button onClick={() => { setIsAddingSubject(true); setShowMenu(false); }} className="w-full bg-indigo-600 text-white py-4 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 font-bold active:scale-95">
+                  <button onClick={() => { 
+                    setNewSubjectName(''); 
+                    setNewParallel(''); 
+                    setNewSubjectTeacher(''); 
+                    setIsEditingSubject(false); 
+                    setIsAddingSubject(true); 
+                    setShowMenu(false); 
+                  }} className="w-full bg-indigo-600 text-white py-4 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 font-bold active:scale-95">
                     <Plus size={20} /> Nueva Materia
                   </button>
                 )}
@@ -1156,7 +1164,8 @@ export default function UE19deAgosto() {
                       <button onClick={() => {
                         setNewSubjectName(currentSubject.name);
                         setNewParallel(currentSubject.parallel);
-                        setNewSubjectTeacher(currentSubject.teacherId);
+                        setNewSubjectTeacher(currentSubject.teacherId || '');
+                        setIsEditingSubject(true);
                         setIsAddingSubject(true);
                       }} className="text-[10px] bg-slate-800 text-white px-3 py-1 rounded-full font-bold hover:bg-black transition uppercase tracking-widest shadow-sm">
                         Reasignar Docente / Editar
@@ -1555,8 +1564,8 @@ export default function UE19deAgosto() {
           </>
         )}
 
-        <div className="flex justify-end gap-2"><button onClick={() => { setIsAddingSubject(false); setNewSubjectName(''); setNewParallel(''); setNewSubjectTeacher(''); }} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition font-bold">Cerrar</button>
-          {currentSubject ? (
+        <div className="flex justify-end gap-2"><button onClick={() => { setIsAddingSubject(false); setIsEditingSubject(false); setNewSubjectName(''); setNewParallel(''); setNewSubjectTeacher(''); }} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition font-bold">Cerrar</button>
+          {isEditingSubject ? (
             <button onClick={updateSubjectInfo} className="bg-slate-900 hover:bg-black text-white px-6 py-2 rounded-lg font-bold shadow transition">Guardar Cambios</button>
           ) : (
             <button onClick={addSubject} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-bold shadow transition">Crear Materia</button>
