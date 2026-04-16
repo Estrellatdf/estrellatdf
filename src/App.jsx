@@ -172,9 +172,9 @@ export default function UE19deAgosto() {
   const [isEditingParent, setIsEditingParent] = useState(false);
   const [viewingParentProfile, setViewingParentProfile] = useState(null);
   const [parentFormData, setParentFormData] = useState({
-    representanteName: '', relation: 'Madre', cedula: '',
-    phone: '', emergencyPhone: '', email: '',
-    address: '', fatherName: '', motherName: ''
+    representante1: { name: '', relation: 'Madre', cedula: '', phone: '', email: '', occupation: '' },
+    representante2: { name: '', relation: 'Padre', cedula: '', phone: '', email: '', occupation: '' },
+    studentAddress: '', studentPhone: '', studentNotes: ''
   });
 
   // --- 1. AUTENTICACIÓN ---
@@ -463,22 +463,18 @@ export default function UE19deAgosto() {
       // Verificar si ya existe perfil del padre
       const existingProfile = parentProfiles[code];
       if (existingProfile) {
-        // Cargar datos en el form por si desea editar
-        setParentFormData({
-          representanteName: existingProfile.representanteName || '',
-          relation: existingProfile.relation || 'Madre',
-          cedula: existingProfile.cedula || '',
-          phone: existingProfile.phone || '',
-          emergencyPhone: existingProfile.emergencyPhone || '',
-          email: existingProfile.email || '',
-          address: existingProfile.address || '',
-          fatherName: existingProfile.fatherName || '',
-          motherName: existingProfile.motherName || ''
+        setParentFormData(existingProfile.formData || {
+          representante1: { name: existingProfile.representanteName || '', relation: existingProfile.relation || 'Madre', cedula: existingProfile.cedula || '', phone: existingProfile.phone || '', email: existingProfile.email || '', occupation: '' },
+          representante2: { name: '', relation: 'Padre', cedula: '', phone: '', email: '', occupation: '' },
+          studentAddress: existingProfile.address || '', studentPhone: '', studentNotes: ''
         });
         setShowParentForm(false);
       } else {
-        // Primera vez: mostrar formulario de registro
-        setParentFormData({ representanteName: '', relation: 'Madre', cedula: '', phone: '', emergencyPhone: '', email: '', address: '', fatherName: '', motherName: '' });
+        setParentFormData({
+          representante1: { name: '', relation: 'Madre', cedula: '', phone: '', email: '', occupation: '' },
+          representante2: { name: '', relation: 'Padre', cedula: '', phone: '', email: '', occupation: '' },
+          studentAddress: '', studentPhone: '', studentNotes: ''
+        });
         setShowParentForm(true);
       }
 
@@ -823,7 +819,8 @@ export default function UE19deAgosto() {
             <div className="bg-black/30 p-5 rounded-xl text-left border border-white/10">
               <label className="text-xs uppercase font-bold text-green-300 block mb-2 flex items-center gap-2"><Eye size={14} /> Acceso Padres</label>
               <div className="flex gap-2">
-                <input value={studentCodeInput} onChange={e => setStudentCodeInput(e.target.value)} className="flex-1 bg-white/10 border border-white/20 rounded px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400 uppercase" placeholder="Código (ej. ABC123)" />
+                <input value={studentCodeInput} onChange={e => setStudentCodeInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleStudentLogin()} className="flex-1 bg-white/10 border border-white/20 rounded px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400 uppercase" placeholder="Código (ej. ABC123)" />
+                <button onClick={handleStudentLogin} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-medium transition">Entrar</button>
               </div>
             </div>
           </div>
@@ -1597,7 +1594,26 @@ export default function UE19deAgosto() {
                 <option value="Rector">Rector</option>
                 <option value="Administrativo">Administrativo</option>
               </select>
-              <input className="border p-2 rounded text-sm bg-slate-900 text-white placeholder-slate-400" placeholder="Paralelo de Tutoría (Opcional)" value={newStaffTutoring} onChange={e => setNewStaffTutoring(e.target.value)} />
+              <select 
+                className="border p-2 rounded text-sm bg-slate-900 text-white" 
+                value={newStaffTutoring} 
+                onChange={e => setNewStaffTutoring(e.target.value)}
+              >
+                <option value="">-- Sin Tutoría --</option>
+                {Object.keys(appSettings.courses || {}).flatMap(c => {
+                  const cData = appSettings.courses[c];
+                  const parallels = Array.isArray(cData) ? cData : (cData?.parallels || []);
+                  return parallels.map(p => {
+                    const tutorLabel = `${c} ${p}`;
+                    const alreadyAssigned = staff.find(s => s.tutoringCourse === tutorLabel);
+                    return (
+                      <option key={tutorLabel} value={tutorLabel} disabled={alreadyAssigned}>
+                        {tutorLabel} {alreadyAssigned ? `(Asignado a ${alreadyAssigned.name})` : ''}
+                      </option>
+                    );
+                  });
+                })}
+              </select>
               
               {newStaffRole === 'Administrativo' && (
                 <div className="md:col-span-2 flex flex-col gap-2 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-inner">
@@ -1705,7 +1721,92 @@ export default function UE19deAgosto() {
         </div>
       )}
 
-      {/* SECCIÓN ELIMINADA: MODAL ESTÁNDARES */}
+      {/* FORMULARIO DE REGISTRO PARA PADRES (PRIMERA VEZ) */}
+      {showParentForm && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center z-[100] p-4 overflow-y-auto">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl p-8 my-auto animate-in fade-in zoom-in duration-300">
+            <div className="flex justify-between items-start mb-8">
+              <div>
+                <h2 className="text-3xl font-black text-slate-900 leading-tight">Registro de Representante</h2>
+                <p className="text-slate-500 font-medium">Por favor, completa la información oficial para habilitar el acceso al portal.</p>
+              </div>
+              <div className="bg-emerald-500/10 text-emerald-600 px-4 py-2 rounded-2xl font-black text-xs uppercase tracking-widest border border-emerald-500/20">Paso Obligatorio</div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+              {/* SECCIÓN 1: DATOS DEL ESTUDIANTE */}
+              <div className="space-y-6">
+                <h3 className="text-sm font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
+                  <User size={18}/> 1. Datos del Estudiante
+                </h3>
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Dirección Domiciliaria</label>
+                    <input className="w-full border-2 border-slate-100 rounded-xl p-3 focus:border-indigo-500 outline-none transition" value={parentFormData.studentAddress} onChange={e => setParentFormData({...parentFormData, studentAddress: e.target.value})} placeholder="Ej. Calle Principal y Av. Central" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Teléfono de Contacto</label>
+                    <input className="w-full border-2 border-slate-100 rounded-xl p-3 focus:border-indigo-500 outline-none transition" value={parentFormData.studentPhone} onChange={e => setParentFormData({...parentFormData, studentPhone: e.target.value})} placeholder="Ej. 0998877665" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Observaciones / Datos Médicos</label>
+                    <textarea className="w-full border-2 border-slate-100 rounded-xl p-3 h-24 focus:border-indigo-500 outline-none transition resize-none" value={parentFormData.studentNotes} onChange={e => setParentFormData({...parentFormData, studentNotes: e.target.value})} placeholder="Alergias, condiciones especiales, etc." />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECCIÓN 2: REPRESENTANTES */}
+              <div className="space-y-8">
+                <h3 className="text-sm font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
+                  <ShieldCheck size={18}/> 2. Representantes Legales (Máx 2)
+                </h3>
+                
+                {/* REPRESENTANTE 1 */}
+                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 space-y-4">
+                  <div className="flex justify-between items-center"><span className="text-[10px] bg-slate-900 text-white px-3 py-1 rounded-full font-black uppercase tracking-widest">Primario</span></div>
+                  <input className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Nombre completo" value={parentFormData.representante1.name} onChange={e=>setParentFormData({...parentFormData, representante1: {...parentFormData.representante1, name: e.target.value}})} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input className="bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none" placeholder="Cédula" value={parentFormData.representante1.cedula} onChange={e=>setParentFormData({...parentFormData, representante1: {...parentFormData.representante1, cedula: e.target.value}})} />
+                    <select className="bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none" value={parentFormData.representante1.relation} onChange={e=>setParentFormData({...parentFormData, representante1: {...parentFormData.representante1, relation: e.target.value}})}>
+                      <option value="Madre">Madre</option><option value="Padre">Padre</option><option value="Abuelo/a">Abuelo/a</option><option value="Tío/a">Tío/a</option><option value="Otro">Otro</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* REPRESENTANTE 2 */}
+                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 space-y-4 opacity-80 focus-within:opacity-100 transition-opacity">
+                  <div className="flex justify-between items-center"><span className="text-[10px] bg-slate-400 text-white px-3 py-1 rounded-full font-black uppercase tracking-widest">Secundario (Opcional)</span></div>
+                  <input className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Nombre completo" value={parentFormData.representante2.name} onChange={e=>setParentFormData({...parentFormData, representante2: {...parentFormData.representante2, name: e.target.value}})} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input className="bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none" placeholder="Cédula" value={parentFormData.representante2.cedula} onChange={e=>setParentFormData({...parentFormData, representante2: {...parentFormData.representante2, cedula: e.target.value}})} />
+                    <select className="bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none" value={parentFormData.representante2.relation} onChange={e=>setParentFormData({...parentFormData, representante2: {...parentFormData.representante2, relation: e.target.value}})}>
+                      <option value="Padre">Padre</option><option value="Madre">Madre</option><option value="Tío/a">Tío/a</option><option value="Abuelo/a">Abuelo/a</option><option value="Otro">Otro</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-10 flex flex-col sm:flex-row justify-end gap-4 border-t pt-8">
+              <button onClick={() => setViewMode('portal')} className="px-8 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-2xl transition">Cerrar</button>
+              <button 
+                onClick={async () => {
+                  if(!parentFormData.representante1.name || !parentFormData.representante1.cedula) return alert("El Representante 1 es obligatorio");
+                  const code = studentCodeInput.trim().toUpperCase();
+                  const newProfiles = {...parentProfiles, [code]: { formData: parentFormData, isRegistered: true }};
+                  setParentProfiles(newProfiles);
+                  await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'parent_profiles', code), { formData: parentFormData });
+                  setShowParentForm(false);
+                  alert("🎉 Perfil registrado con éxito. Bienvenido al portal.");
+                }}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-indigo-600/30 transition-all active:scale-95"
+              >
+                Guardar y Finalizar Registro
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SECURITY MODAL */}
       {securityModal.isOpen && (
