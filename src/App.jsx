@@ -116,7 +116,6 @@ export default function UE19deAgosto() {
 
   // Estados de Personal (Management)
   const [isManagingStaff, setIsManagingStaff] = useState(false);
-  const [isManagingSettings, setIsManagingSettings] = useState(false); // Nuevo modal para estándares
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffRole, setNewStaffRole] = useState('Docente');
   const [newStaffTutoring, setNewStaffTutoring] = useState('');
@@ -1047,10 +1046,7 @@ export default function UE19deAgosto() {
                       <User size={20} /> Personal
                     </button>
                     <button onClick={() => { setIsManagingCourses(true); setShowMenu(false); }} className="w-full bg-orange-600 text-white py-4 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-orange-700 transition-all shadow-lg shadow-orange-600/20 font-bold active:scale-95">
-                      <BookOpen size={20} /> Cursos y Paralelos
-                    </button>
-                    <button onClick={() => { setOfficialParallelsInput(appSettings.officialParallels || ''); setIsManagingSettings(true); setShowMenu(false); }} className="w-full bg-slate-800 text-white py-4 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-black transition-all shadow-lg shadow-slate-900/20 font-bold active:scale-95">
-                      <Settings size={20} /> Estándares
+                      <BookOpen size={20} /> Cursos y Materias
                     </button>
                   </>
                 )}
@@ -1699,44 +1695,7 @@ export default function UE19deAgosto() {
         </div>
       )}
 
-      {/* MODAL CONFIGURACIÓN ESTÁNDARES (Rector Only) */}
-      {isManagingSettings && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center gap-2 mb-4 text-slate-800">
-              <Settings size={24} />
-              <h3 className="text-xl font-bold">Estándares del Plantel</h3>
-            </div>
-            <p className="text-sm text-gray-500 mb-4">Define la lista oficial de cursos/paralelos. Escribe uno por línea.</p>
-
-            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Lista de Paralelos Oficiales</label>
-            <textarea
-              className="w-full border border-gray-600 bg-slate-900 text-white placeholder-slate-400 rounded-xl p-4 h-64 focus:ring-2 focus:ring-slate-400 outline-none font-mono text-sm mb-6 resize-none"
-              placeholder={"10mo A\n10mo B\n1ero BGU A"}
-              value={officialParallelsInput}
-              onChange={e => setOfficialParallelsInput(e.target.value)}
-            />
-
-            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Lista de Materias Oficiales</label>
-            <textarea
-              className="w-full border border-gray-300 rounded-xl p-4 h-32 focus:ring-2 focus:ring-slate-900 outline-none font-mono text-sm mb-6 resize-none"
-              placeholder={"Matemáticas\nLenguaje\nHistoria"}
-              value={appSettings.officialSubjects || ''}
-              onChange={e => setAppSettings({ ...appSettings, officialSubjects: e.target.value })}
-            />
-
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setIsManagingSettings(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">Cancelar</button>
-              <button
-                onClick={() => saveSettings({ ...appSettings, officialParallels: officialParallelsInput, officialSubjects: appSettings.officialSubjects })}
-                className="bg-slate-900 hover:bg-black text-white px-6 py-2 rounded-lg font-bold shadow transition"
-              >
-                Guardar Estándares
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* SECCIÓN ELIMINADA: MODAL ESTÁNDARES */}
 
       {/* SECURITY MODAL */}
       {securityModal.isOpen && (
@@ -1761,15 +1720,18 @@ export default function UE19deAgosto() {
       {/* CURSOS Y PARALELOS MODAL */}
       {isManagingCourses && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-3xl animate-in fade-in zoom-in h-[80vh] flex flex-col">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold flex items-center gap-2"><BookOpen className="text-orange-500"/> Gestionar Cursos y Paralelos</h3>
-              <button onClick={() => setIsManagingCourses(false)}><X /></button>
+          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-6xl animate-in fade-in zoom-in h-[85vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4 border-b pb-4">
+              <h3 className="text-xl font-bold flex items-center gap-2 text-slate-800"><BookOpen className="text-orange-500"/> Gestión Académica: Cursos y Materias</h3>
+              <div className="flex items-center gap-4">
+                <button onClick={() => saveSettings(appSettings)} className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">Guardar Todo</button>
+                <button onClick={() => setIsManagingCourses(false)} className="p-2 hover:bg-slate-100 rounded-full"><X /></button>
+              </div>
             </div>
             {currentUser?.role !== 'Administrativo' && currentUser?.role !== 'Rector' ? (
               <div className="p-4 text-center text-red-500 font-bold">Acceso Denegado</div>
             ) : (
-              <div className="flex-1 overflow-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex-1 overflow-auto grid grid-cols-1 md:grid-cols-3 gap-6 p-1">
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                   <h4 className="font-bold mb-3">1. Crear Curso</h4>
                   <div className="flex gap-2 mb-4">
@@ -1838,7 +1800,22 @@ export default function UE19deAgosto() {
                         ))}
                       </div>
                     </>
-                  ) : <div className="text-center text-gray-400 mt-10">Haz clic en un curso a la izquierda</div>}
+                  ) : <div className="text-center text-gray-400 mt-10 p-6 bg-white rounded-xl border border-dashed">Haz clic en un curso a la izquierda para gestionar sus paralelos</div>}
+                </div>
+
+                {/* COLUMNA 3: MATERIAS OFICIALES */}
+                <div className="bg-slate-100 p-5 rounded-2xl border border-slate-200 flex flex-col h-full">
+                  <h4 className="font-black text-slate-800 mb-1 flex items-center gap-2"><Settings size={18} className="text-indigo-500"/> 3. Materias del Plantel</h4>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase mb-4 tracking-tighter">Define los nombres oficiales de las materias (una por línea)</p>
+                  <textarea
+                    className="flex-1 w-full border border-slate-300 rounded-2xl p-4 bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm resize-none shadow-inner"
+                    placeholder={"Matemáticas\nLengua y Literatura\nEducación Física"}
+                    value={appSettings.officialSubjects || ''}
+                    onChange={e => setAppSettings({ ...appSettings, officialSubjects: e.target.value })}
+                  />
+                  <div className="mt-4 p-3 bg-white rounded-xl border border-slate-200">
+                    <p className="text-[10px] text-slate-400 font-medium italic">Estas materias aparecerán en el desplegable al crear una nueva asignatura para cualquier curso.</p>
+                  </div>
                 </div>
               </div>
             )}
