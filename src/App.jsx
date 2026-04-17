@@ -1078,9 +1078,14 @@ export default function UE19deAgosto() {
                         <option>Madre</option><option>Padre</option><option>Abuelo/a</option><option>Tío/a</option><option>Otro</option>
                       </select>
                     </div>
-                    <input className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none"
-                      placeholder="Teléfono" value={parentFormData.representante1.phone || ''}
-                      onChange={e => setParentFormData({ ...parentFormData, representante1: { ...parentFormData.representante1, phone: e.target.value } })} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <input className="bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none"
+                        placeholder="Teléfono" value={parentFormData.representante1.phone || ''}
+                        onChange={e => setParentFormData({ ...parentFormData, representante1: { ...parentFormData.representante1, phone: e.target.value } })} />
+                      <input className="bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none"
+                        placeholder="Correo (opcional)" value={parentFormData.representante1.email || ''}
+                        onChange={e => setParentFormData({ ...parentFormData, representante1: { ...parentFormData.representante1, email: e.target.value } })} />
+                    </div>
                   </div>
                   {/* Representante 2 */}
                   <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 space-y-4 opacity-80 focus-within:opacity-100 transition-opacity">
@@ -1100,9 +1105,14 @@ export default function UE19deAgosto() {
                         <option>Padre</option><option>Madre</option><option>Tío/a</option><option>Abuelo/a</option><option>Otro</option>
                       </select>
                     </div>
-                    <input className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none"
-                      placeholder="Teléfono" value={parentFormData.representante2.phone || ''}
-                      onChange={e => setParentFormData({ ...parentFormData, representante2: { ...parentFormData.representante2, phone: e.target.value } })} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <input className="bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none"
+                        placeholder="Teléfono" value={parentFormData.representante2.phone || ''}
+                        onChange={e => setParentFormData({ ...parentFormData, representante2: { ...parentFormData.representante2, phone: e.target.value } })} />
+                      <input className="bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none"
+                        placeholder="Correo (opcional)" value={parentFormData.representante2.email || ''}
+                        onChange={e => setParentFormData({ ...parentFormData, representante2: { ...parentFormData.representante2, email: e.target.value } })} />
+                    </div>
                   </div>
                 </div>
               </div>
