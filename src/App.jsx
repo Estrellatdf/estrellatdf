@@ -362,16 +362,9 @@ export default function UE19deAgosto() {
       subjects: snapshot
     });
 
-    // Limpiar notas/asistencia/actividades/comunicados de cada materia, mantener estudiantes
+    // Eliminar todas las materias del año actual para empezar en blanco
     for (const sub of subjects) {
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subjects', sub.id.toString()), {
-        ...sub,
-        activities: { 1: [], 2: [], 3: [] },
-        grades: { 1: {}, 2: {}, 3: {} },
-        attendance: {},
-        announcements: [],
-        students: sub.students.map(s => ({ id: s.id, name: s.name, code: s.code }))
-      });
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subjects', sub.id.toString()));
     }
 
     // Actualizar nombre del año lectivo activo
@@ -759,8 +752,8 @@ export default function UE19deAgosto() {
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-600/20 rounded-full blur-[120px]" />
 
       <div className="bg-slate-900/40 backdrop-blur-xl p-10 rounded-3xl shadow-2xl w-full max-w-lg border border-white/10 text-center relative z-10">
-        <div className="bg-gradient-to-tr from-indigo-500 to-emerald-500 p-5 rounded-2xl inline-block mb-6 shadow-xl">
-          <img src="/vite.svg" width="56" height="56" alt="Logo" className="drop-shadow-lg" />
+        <div className="bg-gradient-to-tr from-indigo-500 to-emerald-500 p-2 rounded-2xl inline-block mb-6 shadow-xl">
+          <img src="/vite.svg" width="112" height="112" alt="Logo" className="drop-shadow-lg" />
         </div>
         <h1 className="text-5xl font-black mb-3 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">U.E. 19 de Agosto</h1>
         <p className="text-slate-400 mb-10 text-lg font-medium">Gestión Académica de Vanguardia</p>
@@ -1947,7 +1940,7 @@ export default function UE19deAgosto() {
               </h4>
               <p className="text-xs text-violet-600 mb-4">
                 El año actual (<strong>{appSettings.schoolYear || 'sin nombre'}</strong>) será archivado con todas sus notas y asistencia.
-                Los estudiantes se mantienen. Las actividades, notas y asistencia se resetean.
+                El nuevo año iniciará en blanco, sin materias ni estudiantes.
               </p>
               <input
                 className="w-full border-2 border-violet-200 rounded-xl p-3 mb-3 focus:border-violet-500 outline-none font-bold text-slate-800 bg-white"
@@ -1958,8 +1951,7 @@ export default function UE19deAgosto() {
                 <input type="checkbox" className="mt-0.5 w-5 h-5 accent-violet-600 flex-shrink-0"
                   checked={newYearConfirm} onChange={e => setNewYearConfirm(e.target.checked)} />
                 <span className="text-sm text-slate-700 font-medium">
-                  Entiendo que esto archivará el año actual y reiniciará notas, asistencia y actividades.
-                  Los estudiantes y el personal se conservan.
+                  Entiendo que esto archivará el año actual y eliminará todas las asignaturas activas. El nuevo año iniciará completamente en blanco. El personal se conserva.
                 </span>
               </label>
               <button
