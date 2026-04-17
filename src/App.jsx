@@ -39,9 +39,18 @@ try {
     firebaseApp = getApps()[0];
   }
   auth = getAuth(firebaseApp);
-  db = initializeFirestore(firebaseApp, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-  });
+  // persistentMultipleTabManager usa BroadcastChannel que NO existe en Safari/iOS < 15.4
+  // Se usa solo si el navegador lo soporta, sino fallback a caché simple
+  try {
+    db = initializeFirestore(firebaseApp, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    });
+  } catch (cacheErr) {
+    // Fallback para Safari / iOS: sin multipleTabManager
+    db = initializeFirestore(firebaseApp, {
+      localCache: persistentLocalCache()
+    });
+  }
 } catch (e) {
   console.error("Error inicialización:", e);
   initError = e.message;
@@ -74,6 +83,22 @@ const PALETTE = [
   'bg-pink-50 border-pink-100',
   'bg-orange-50 border-orange-100',
 ];
+
+// ── VITE LOGO (reemplaza el ícono de birrete) ─────────────────────────────
+const ViteLogo = ({ size = 40 }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 410 404" fill="none">
+    <path d="M399.641 59.525L215.643 388.545C211.844 395.338 202.084 395.378 198.228 388.618L10.582 59.525C6.381 52.148 12.68 43.225 21.028 44.778L205.223 78.212C206.398 78.434 207.601 78.434 208.776 78.212L389.487 44.778C397.82 43.225 404.12 52.125 399.641 59.525Z" fill="url(#vg0)" />
+    <path d="M292.965 1.574L156.801 28.255C154.563 28.694 152.906 30.59 152.771 32.866L144.395 174.33C144.198 177.662 147.258 180.248 150.51 179.498L188.42 170.749C191.967 169.931 195.172 172.945 194.687 176.554L183.028 260.664C182.425 265.054 187.997 267.496 190.71 263.895L199.001 252.05L302.094 148.032C304.36 145.481 302.569 141.385 299.219 141.217L259.685 139.538C256.106 139.372 253.807 135.6 255.251 132.323L293.655 7.628C294.853 4.447 291.716 1.083 292.965 1.574Z" fill="url(#vg1)" />
+    <defs>
+      <linearGradient id="vg0" x1="6" y1="33" x2="235" y2="344" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#41D1FF" /><stop offset="1" stopColor="#BD34FE" />
+      </linearGradient>
+      <linearGradient id="vg1" x1="194.651" y1="8.818" x2="236.076" y2="292.989" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#FF3232" /><stop offset="1" stopColor="#FF9832" />
+      </linearGradient>
+    </defs>
+  </svg>
+);
 
 export default function UE19deAgosto() {
   useEffect(() => {
@@ -164,11 +189,18 @@ export default function UE19deAgosto() {
   // Perfil representante
   const [parentProfiles, setParentProfiles] = useState({});
   const [showParentForm, setShowParentForm] = useState(false);
+  const [isEditingParentForm, setIsEditingParentForm] = useState(false);
   const [parentFormData, setParentFormData] = useState({
     representante1: { name: '', relation: 'Madre', cedula: '', phone: '', email: '', occupation: '' },
     representante2: { name: '', relation: 'Padre', cedula: '', phone: '', email: '', occupation: '' },
     studentAddress: '', studentPhone: '', studentNotes: ''
   });
+
+  // Años Lectivos
+  const [showYearManager, setShowYearManager] = useState(false);
+  const [newYearName, setNewYearName] = useState('');
+  const [newYearConfirm, setNewYearConfirm] = useState(false);
+  const [schoolYears, setSchoolYears] = useState([]);
 
   // ── AUTH ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -241,7 +273,16 @@ export default function UE19deAgosto() {
       }
     );
 
-    return () => { unsubSub(); unsubSettings(); unsubStaff(); unsubParent(); };
+    const unsubYears = onSnapshot(
+      collection(db, 'artifacts', appId, 'public', 'data', 'schoolYears'),
+      (snapshot) => {
+        const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        setSchoolYears(data);
+      }
+    );
+
+    return () => { unsubSub(); unsubSettings(); unsubStaff(); unsubParent(); unsubYears(); };
   }, [user]);
 
   // ── DB HELPERS ────────────────────────────────────────────────────────────
@@ -302,6 +343,49 @@ export default function UE19deAgosto() {
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general'), newSet);
       setAppSettings(newSet);
     } catch (e) { alert("Error al guardar: " + e.message); }
+  };
+
+  // ── AÑOS LECTIVOS ─────────────────────────────────────────────────────────
+  // Crea un nuevo año lectivo: archiva datos del actual y limpia para el nuevo.
+  const createNewSchoolYear = async () => {
+    if (!newYearName.trim()) return alert('Escribe el nombre del nuevo año lectivo.');
+    if (!newYearConfirm) return alert('Debes marcar la casilla de confirmación.');
+
+    const archiveId = 'year_' + Date.now();
+    // Archivar materias actuales (con sus notas/asistencia)
+    const snapshot = subjects.map(sub => ({
+      ...sub,
+      archivedAt: new Date().toISOString(),
+      schoolYear: appSettings.schoolYear || 'Sin nombre'
+    }));
+
+    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schoolYears', archiveId), {
+      id: archiveId,
+      name: appSettings.schoolYear || 'Año anterior',
+      createdAt: new Date().toISOString(),
+      subjects: snapshot
+    });
+
+    // Limpiar notas/asistencia/actividades/comunicados de cada materia, mantener estudiantes
+    for (const sub of subjects) {
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subjects', sub.id.toString()), {
+        ...sub,
+        activities: { 1: [], 2: [], 3: [] },
+        grades: { 1: {}, 2: {}, 3: {} },
+        attendance: {},
+        announcements: [],
+        students: sub.students.map(s => ({ id: s.id, name: s.name, code: s.code }))
+      });
+    }
+
+    // Actualizar nombre del año lectivo activo
+    await updateSettings({ ...appSettings, schoolYear: newYearName.trim() });
+
+    setShowYearManager(false);
+    setNewYearName('');
+    setNewYearConfirm(false);
+    setCurrentSubjectId(null);
+    alert(`✅ Nuevo año lectivo "${newYearName.trim()}" iniciado. El año anterior fue archivado.`);
   };
 
   // ── LOGIN DOCENTE ─────────────────────────────────────────────────────────
@@ -680,7 +764,7 @@ export default function UE19deAgosto() {
 
       <div className="bg-slate-900/40 backdrop-blur-xl p-10 rounded-3xl shadow-2xl w-full max-w-lg border border-white/10 text-center relative z-10">
         <div className="bg-gradient-to-tr from-indigo-500 to-emerald-500 p-5 rounded-2xl inline-block mb-6 shadow-xl">
-          <GraduationCap size={56} className="text-white" />
+          <ViteLogo size={56} />
         </div>
         <h1 className="text-5xl font-black mb-3 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">U.E. 19 de Agosto</h1>
         <p className="text-slate-400 mb-10 text-lg font-medium">Gestión Académica de Vanguardia</p>
@@ -757,9 +841,18 @@ export default function UE19deAgosto() {
 
           {/* Boleta consolidada */}
           <section className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
-            <div className="p-6 border-b border-slate-100 bg-slate-50/60 flex justify-between items-center">
-              <h2 className="text-lg font-black text-slate-800 flex items-center gap-2"><FileSpreadsheet className="text-emerald-500" /> Cuadro General de Calificaciones</h2>
-              <span className="text-xs font-bold text-slate-400">Año Lectivo {appSettings.schoolYear || 'Oficial'}</span>
+            <div className="p-6 border-b border-slate-100 bg-slate-50/60 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <h2 className="text-lg font-black text-slate-800 flex items-center gap-2"><FileSpreadsheet className="text-emerald-500" /> Cuadro General de Calificaciones</h2>
+                <p className="text-sm font-bold text-indigo-600 mt-0.5">Estudiante: <span className="text-slate-700">{viewingStudent.name}</span></p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-slate-400">Año Lectivo {appSettings.schoolYear || 'Oficial'}</span>
+                <button onClick={() => { setIsEditingParentForm(true); setShowParentForm(true); }}
+                  className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1">
+                  <Settings size={12} /> Editar Datos del Representante
+                </button>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -897,17 +990,22 @@ export default function UE19deAgosto() {
           </div>
         </div>
 
-        {/* BUG #1 FIX: Formulario de registro como OVERLAY dentro de student_view */}
-        {/* Antes estaba condicionado a viewMode que nunca se ponía en student_view en primera visita */}
+        {/* Formulario registro/edición de representante — overlay dentro de student_view */}
         {showParentForm && (
           <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center z-[100] p-4 overflow-y-auto">
             <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl p-8 my-auto">
-              <div className="flex justify-between items-start mb-8">
+              <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-3xl font-black text-slate-900 leading-tight">Registro de Representante</h2>
-                  <p className="text-slate-500 font-medium mt-1">Por favor, completa la información para habilitar el acceso al portal.</p>
+                  <h2 className="text-3xl font-black text-slate-900 leading-tight">
+                    {isEditingParentForm ? 'Actualizar Datos del Representante' : 'Registro de Representante'}
+                  </h2>
+                  <p className="text-slate-500 font-medium mt-1">
+                    Estudiante: <strong className="text-indigo-600">{viewingStudent?.name}</strong>
+                  </p>
                 </div>
-                <div className="bg-emerald-500/10 text-emerald-600 px-4 py-2 rounded-2xl font-black text-xs uppercase tracking-widest border border-emerald-500/20">Paso Obligatorio</div>
+                <div className={`px-4 py-2 rounded-2xl font-black text-xs uppercase tracking-widest border ${isEditingParentForm ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'}`}>
+                  {isEditingParentForm ? 'Edición' : 'Paso Obligatorio'}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -964,6 +1062,9 @@ export default function UE19deAgosto() {
                         <option>Madre</option><option>Padre</option><option>Abuelo/a</option><option>Tío/a</option><option>Otro</option>
                       </select>
                     </div>
+                    <input className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none"
+                      placeholder="Teléfono" value={parentFormData.representante1.phone || ''}
+                      onChange={e => setParentFormData({ ...parentFormData, representante1: { ...parentFormData.representante1, phone: e.target.value } })} />
                   </div>
                   {/* Representante 2 */}
                   <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 space-y-4 opacity-80 focus-within:opacity-100 transition-opacity">
@@ -983,26 +1084,34 @@ export default function UE19deAgosto() {
                         <option>Padre</option><option>Madre</option><option>Tío/a</option><option>Abuelo/a</option><option>Otro</option>
                       </select>
                     </div>
+                    <input className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none"
+                      placeholder="Teléfono" value={parentFormData.representante2.phone || ''}
+                      onChange={e => setParentFormData({ ...parentFormData, representante2: { ...parentFormData.representante2, phone: e.target.value } })} />
                   </div>
                 </div>
               </div>
 
               <div className="mt-10 flex flex-col sm:flex-row justify-end gap-4 border-t pt-8">
-                <button onClick={() => { setShowParentForm(false); setViewMode('portal'); setViewingStudent(null); }}
+                <button onClick={() => {
+                  setShowParentForm(false);
+                  setIsEditingParentForm(false);
+                  if (!isEditingParentForm) { setViewMode('portal'); setViewingStudent(null); }
+                }}
                   className="px-8 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-2xl transition">
-                  Cancelar
+                  {isEditingParentForm ? 'Cancelar' : 'Salir'}
                 </button>
                 <button onClick={async () => {
                   if (!parentFormData.representante1.name || !parentFormData.representante1.cedula)
                     return alert("El Representante 1 (nombre y cédula) es obligatorio.");
-                  const code = studentCodeInput.trim().toUpperCase();
+                  const code = viewingStudent?.code || studentCodeInput.trim().toUpperCase();
                   await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'parentProfiles', code), { formData: parentFormData });
                   setParentProfiles({ ...parentProfiles, [code]: { formData: parentFormData } });
                   setShowParentForm(false);
-                  alert("🎉 Perfil registrado. Bienvenido al portal.");
+                  setIsEditingParentForm(false);
+                  alert(isEditingParentForm ? "✅ Datos actualizados correctamente." : "🎉 Perfil registrado. Bienvenido al portal.");
                 }}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-indigo-600/30 transition-all active:scale-95">
-                  Guardar y Continuar
+                  {isEditingParentForm ? 'Guardar Cambios' : 'Guardar y Continuar'}
                 </button>
               </div>
             </div>
@@ -1025,7 +1134,7 @@ export default function UE19deAgosto() {
       <header className="bg-indigo-700 text-white p-4 flex justify-between items-center sticky top-0 z-50 shadow-lg">
         <h1 className="font-black text-2xl flex items-center gap-3 tracking-tighter">
           <div className="bg-white/10 p-2 rounded-xl backdrop-blur-md border border-white/20 shadow-inner">
-            <GraduationCap className="text-emerald-400" size={28} />
+            <ViteLogo size={28} />
           </div>
           <div className="flex flex-col">
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">U.E. 19 de Agosto</span>
@@ -1076,6 +1185,10 @@ export default function UE19deAgosto() {
                   <button onClick={() => { setIsManagingCourses(true); setShowMenu(false); }}
                     className="w-full bg-orange-600 text-white py-3 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-orange-700 transition-all font-bold shadow active:scale-95">
                     <BookOpen size={18} /> Cursos y Materias
+                  </button>
+                  <button onClick={() => { setNewYearName(''); setNewYearConfirm(false); setShowYearManager(true); setShowMenu(false); }}
+                    className="w-full bg-violet-600 text-white py-3 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-violet-700 transition-all font-bold shadow active:scale-95">
+                    <Calendar size={18} /> Años Lectivos
                   </button>
                 </>
               )}
@@ -1812,6 +1925,99 @@ export default function UE19deAgosto() {
                   <p className="text-[10px] text-slate-400 font-medium italic">Estas materias aparecerán al crear una asignatura para este nivel.</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Años Lectivos */}
+      {showYearManager && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center mb-6 border-b pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <Calendar className="text-violet-500" /> Gestión de Años Lectivos
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">Año activo: <strong className="text-indigo-600">{appSettings.schoolYear || 'No definido'}</strong></p>
+              </div>
+              <button onClick={() => setShowYearManager(false)} className="p-2 hover:bg-slate-100 rounded-full"><X /></button>
+            </div>
+
+            {/* Crear nuevo año */}
+            <div className="bg-violet-50 border border-violet-200 rounded-2xl p-5 mb-6">
+              <h4 className="font-black text-violet-800 text-sm uppercase tracking-widest mb-1 flex items-center gap-2">
+                <Plus size={16} /> Iniciar Nuevo Año Lectivo
+              </h4>
+              <p className="text-xs text-violet-600 mb-4">
+                El año actual (<strong>{appSettings.schoolYear || 'sin nombre'}</strong>) será archivado con todas sus notas y asistencia.
+                Los estudiantes se mantienen. Las actividades, notas y asistencia se resetean.
+              </p>
+              <input
+                className="w-full border-2 border-violet-200 rounded-xl p-3 mb-3 focus:border-violet-500 outline-none font-bold text-slate-800 bg-white"
+                placeholder="Nombre del nuevo año (ej. 2025 – 2026)"
+                value={newYearName}
+                onChange={e => setNewYearName(e.target.value)} />
+              <label className="flex items-start gap-3 cursor-pointer mb-4 bg-white border border-violet-200 rounded-xl p-4">
+                <input type="checkbox" className="mt-0.5 w-5 h-5 accent-violet-600 flex-shrink-0"
+                  checked={newYearConfirm} onChange={e => setNewYearConfirm(e.target.checked)} />
+                <span className="text-sm text-slate-700 font-medium">
+                  Entiendo que esto archivará el año actual y reiniciará notas, asistencia y actividades.
+                  Los estudiantes y el personal se conservan.
+                </span>
+              </label>
+              <button
+                onClick={createNewSchoolYear}
+                disabled={!newYearName.trim() || !newYearConfirm}
+                className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-black shadow-lg shadow-violet-600/20 transition active:scale-95">
+                Archivar Año Actual e Iniciar Nuevo
+              </button>
+            </div>
+
+            {/* Historial de años archivados */}
+            <div className="flex-1 overflow-auto">
+              <h4 className="font-black text-slate-500 text-xs uppercase tracking-widest mb-3">Años Lectivos Archivados ({schoolYears.length})</h4>
+              {schoolYears.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <Clock size={32} className="mx-auto mb-2 opacity-20" />
+                  <p className="text-sm font-bold">No hay años archivados aún.</p>
+                  <p className="text-xs mt-1">Cuando inicies un nuevo año lectivo, el actual se guardará aquí.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {schoolYears.map(yr => (
+                    <div key={yr.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex justify-between items-center hover:border-violet-200 transition-colors">
+                      <div>
+                        <div className="font-black text-slate-700">{yr.name}</div>
+                        <div className="text-xs text-slate-400 mt-0.5">
+                          Archivado: {yr.createdAt ? new Date(yr.createdAt).toLocaleDateString() : '—'}
+                          {' · '}{(yr.subjects || []).length} asignaturas
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            const lines = (yr.subjects || []).map(s =>
+                              `${s.name} (${s.parallel}) — ${s.students?.length || 0} est.`
+                            ).join('\n');
+                            alert(`📚 Año: ${yr.name}\n\n${lines || 'Sin asignaturas registradas.'}`);
+                          }}
+                          className="text-xs bg-white border border-slate-200 hover:border-indigo-300 text-slate-600 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1">
+                          <Eye size={12} /> Ver
+                        </button>
+                        <button
+                          onClick={() => runSecureAction(`¿Eliminar el archivo del año "${yr.name}"? Esta acción no se puede deshacer.`, async () => {
+                            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schoolYears', yr.id));
+                            logAudit("DELETE_YEAR", yr.id, `Año ${yr.name} eliminado`);
+                          })}
+                          className="text-red-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-lg transition">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
