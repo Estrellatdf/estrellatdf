@@ -84,21 +84,7 @@ const PALETTE = [
   'bg-orange-50 border-orange-100',
 ];
 
-// ── VITE LOGO (reemplaza el ícono de birrete) ─────────────────────────────
-const ViteLogo = ({ size = 40 }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 410 404" fill="none">
-    <path d="M399.641 59.525L215.643 388.545C211.844 395.338 202.084 395.378 198.228 388.618L10.582 59.525C6.381 52.148 12.68 43.225 21.028 44.778L205.223 78.212C206.398 78.434 207.601 78.434 208.776 78.212L389.487 44.778C397.82 43.225 404.12 52.125 399.641 59.525Z" fill="url(#vg0)" />
-    <path d="M292.965 1.574L156.801 28.255C154.563 28.694 152.906 30.59 152.771 32.866L144.395 174.33C144.198 177.662 147.258 180.248 150.51 179.498L188.42 170.749C191.967 169.931 195.172 172.945 194.687 176.554L183.028 260.664C182.425 265.054 187.997 267.496 190.71 263.895L199.001 252.05L302.094 148.032C304.36 145.481 302.569 141.385 299.219 141.217L259.685 139.538C256.106 139.372 253.807 135.6 255.251 132.323L293.655 7.628C294.853 4.447 291.716 1.083 292.965 1.574Z" fill="url(#vg1)" />
-    <defs>
-      <linearGradient id="vg0" x1="6" y1="33" x2="235" y2="344" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#41D1FF" /><stop offset="1" stopColor="#BD34FE" />
-      </linearGradient>
-      <linearGradient id="vg1" x1="194.651" y1="8.818" x2="236.076" y2="292.989" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#FF3232" /><stop offset="1" stopColor="#FF9832" />
-      </linearGradient>
-    </defs>
-  </svg>
-);
+
 
 export default function UE19deAgosto() {
   useEffect(() => {
@@ -774,7 +760,7 @@ export default function UE19deAgosto() {
 
       <div className="bg-slate-900/40 backdrop-blur-xl p-10 rounded-3xl shadow-2xl w-full max-w-lg border border-white/10 text-center relative z-10">
         <div className="bg-gradient-to-tr from-indigo-500 to-emerald-500 p-5 rounded-2xl inline-block mb-6 shadow-xl">
-          <ViteLogo size={56} />
+          <img src="/vite.svg" width="56" height="56" alt="Logo" className="drop-shadow-lg" />
         </div>
         <h1 className="text-5xl font-black mb-3 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">U.E. 19 de Agosto</h1>
         <p className="text-slate-400 mb-10 text-lg font-medium">Gestión Académica de Vanguardia</p>
@@ -1144,7 +1130,7 @@ export default function UE19deAgosto() {
       <header className="bg-indigo-700 text-white p-4 flex justify-between items-center sticky top-0 z-50 shadow-lg">
         <h1 className="font-black text-2xl flex items-center gap-3 tracking-tighter">
           <div className="bg-white/10 p-2 rounded-xl backdrop-blur-md border border-white/20 shadow-inner">
-            <ViteLogo size={28} />
+            <img src="/vite.svg" width="28" height="28" alt="Logo" className="drop-shadow-md" />
           </div>
           <div className="flex flex-col">
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">U.E. 19 de Agosto</span>
