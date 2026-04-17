@@ -294,7 +294,16 @@ export default function UE19deAgosto() {
     } catch (e) { console.error("Audit error", e); }
   };
 
-  const runSecureAction = (message, onConfirmFn) => {
+  const runSecureAction = (message, onConfirmFn, requirePassword = false) => {
+    if (requirePassword) {
+      if (currentUser?.role === 'Administrativo' && !currentUser.isAuthorized) {
+        alert("Acceso denegado. No tienes autorización del Rector para modificar datos.");
+        return;
+      }
+      setSecurityModal({ isOpen: true, message, onConfirm: onConfirmFn, requiresKey: true });
+      return;
+    }
+
     if (currentUser?.role === 'Rector') {
       setSecurityModal({ isOpen: true, message, onConfirm: onConfirmFn, requiresKey: false });
     } else if (currentUser?.role === 'Administrativo') {
@@ -309,9 +318,12 @@ export default function UE19deAgosto() {
   };
 
   const confirmSecureAction = () => {
-    if (securityModal.requiresKey && securityKeyInput !== currentUser?.securityKey) {
-      alert("Clave de seguridad incorrecta. Acción cancelada.");
-      return;
+    if (securityModal.requiresKey) {
+      const expectedKey = currentUser?.role === 'Administrativo' ? currentUser?.securityKey : currentUser?.password;
+      if (securityKeyInput !== expectedKey) {
+        alert("Contraseña o clave de seguridad incorrecta. Acción cancelada.");
+        return;
+      }
     }
     const fn = securityModal.onConfirm;
     setSecurityModal({ isOpen: false, onConfirm: null, message: '', requiresKey: false });
@@ -629,7 +641,7 @@ export default function UE19deAgosto() {
       if (newAttendance[studentId]) delete newAttendance[studentId];
       saveSubject({ ...currentSubject, students: newStudents, grades: newGrades, attendance: newAttendance });
       logAudit("DELETE_STUDENT", studentId, "Estudiante " + studentName);
-    });
+    }, true);
   };
 
   const addAnnouncement = () => {
@@ -1800,7 +1812,7 @@ export default function UE19deAgosto() {
             <p className="text-gray-700 font-medium mb-6">{securityModal.message}</p>
             {securityModal.requiresKey && (
               <div className="mb-6">
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Clave de Seguridad</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Clave de Seguridad / Contraseña</label>
                 <input type="password" value={securityKeyInput} onChange={e => setSecurityKeyInput(e.target.value)}
                   className="w-full border-2 border-red-200 focus:border-red-500 p-3 rounded-lg outline-none font-mono" placeholder="••••" autoFocus />
               </div>
@@ -1852,7 +1864,7 @@ export default function UE19deAgosto() {
                             updateSettings({ ...appSettings, courses: tree });
                             if (selectedCourseForParallel === c) setSelectedCourseForParallel('');
                             logAudit("DELETE_COURSE", c, "Eliminado");
-                          });
+                          }, true);
                         }} className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
                       </div>
                     </li>
@@ -1892,7 +1904,7 @@ export default function UE19deAgosto() {
                             tree[selectedCourseForParallel] = Array.isArray(cData) ? parallels : { ...cData, parallels };
                             updateSettings({ ...appSettings, courses: tree });
                             logAudit("DELETE_PARALLEL", p, "De " + selectedCourseForParallel);
-                          })} className="text-red-400 hover:text-red-600 bg-red-50 p-1.5 rounded-lg"><Trash2 size={16} /></button>
+                          }, true)} className="text-red-400 hover:text-red-600 bg-red-50 p-1.5 rounded-lg"><Trash2 size={16} /></button>
                         </div>
                       ))}
                     </div>
