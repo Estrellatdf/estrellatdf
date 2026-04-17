@@ -198,7 +198,8 @@ export default function UE19deAgosto() {
   const [newYearName, setNewYearName] = useState('');
   const [newYearConfirm, setNewYearConfirm] = useState(false);
   const [schoolYears, setSchoolYears] = useState([]);
-
+  const [viewingArchivedYear, setViewingArchivedYear] = useState(null);
+  const [viewingArchivedSubject, setViewingArchivedSubject] = useState(null);
   // ── AUTH ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (initError) { setLoading(false); return; }
@@ -1993,14 +1994,9 @@ export default function UE19deAgosto() {
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => {
-                            const lines = (yr.subjects || []).map(s =>
-                              `${s.name} (${s.parallel}) — ${s.students?.length || 0} est.`
-                            ).join('\n');
-                            alert(`📚 Año: ${yr.name}\n\n${lines || 'Sin asignaturas registradas.'}`);
-                          }}
+                          onClick={() => setViewingArchivedYear(yr)}
                           className="text-xs bg-white border border-slate-200 hover:border-indigo-300 text-slate-600 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1">
-                          <Eye size={12} /> Ver
+                          <Eye size={12} /> Ver Notas
                         </button>
                         <button
                           onClick={() => runSecureAction(`¿Eliminar el archivo del año "${yr.name}"? Esta acción no se puede deshacer.`, async () => {
@@ -2015,6 +2011,102 @@ export default function UE19deAgosto() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL: Ver Año Archivado */}
+      {viewingArchivedYear && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center mb-6 border-b pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <Clock className="text-violet-500" /> Archivo: {viewingArchivedYear.name}
+                </h3>
+                {viewingArchivedSubject && (
+                  <p className="text-sm font-bold text-indigo-600 mt-1">
+                    Materia: {viewingArchivedSubject.name} ({viewingArchivedSubject.parallel})
+                  </p>
+                )}
+              </div>
+              <button onClick={() => {
+                if (viewingArchivedSubject) setViewingArchivedSubject(null);
+                else setViewingArchivedYear(null);
+              }} className="p-2 hover:bg-slate-100 rounded-full"><X /></button>
+            </div>
+
+            <div className="flex-1 overflow-auto">
+              {!viewingArchivedSubject ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {(viewingArchivedYear.subjects || []).map(sub => (
+                    <button key={sub.id} onClick={() => setViewingArchivedSubject(sub)}
+                      className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left hover:border-violet-300 hover:shadow-md transition">
+                      <div className="font-black text-slate-700">{sub.name}</div>
+                      <div className="text-xs font-bold text-indigo-600 mb-2">{sub.parallel}</div>
+                      <div className="text-[10px] text-slate-400">{sub.students?.length || 0} estudiantes registrados</div>
+                      <div className="mt-3 text-xs bg-white border border-slate-200 text-center py-1.5 rounded-lg font-bold text-slate-600">
+                        Ver Notas Anuales
+                      </div>
+                    </button>
+                  ))}
+                  {(viewingArchivedYear.subjects || []).length === 0 && (
+                    <p className="text-slate-500 italic col-span-full">No hay materias en este archivo.</p>
+                  )}
+                </div>
+              ) : (() => {
+                const annualStudents = (viewingArchivedSubject.students || []).map(s => {
+                  const s1 = calculateStats(viewingArchivedSubject, 1, s.id);
+                  const s2 = calculateStats(viewingArchivedSubject, 2, s.id);
+                  const s3 = calculateStats(viewingArchivedSubject, 3, s.id);
+                  const sum = (parseFloat(s1.fin) || 0) + (parseFloat(s2.fin) || 0) + (parseFloat(s3.fin) || 0);
+                  return { s, s1, s2, s3, sum };
+                }).sort((a, b) => b.sum - a.sum);
+                const sortedSums = [...new Set(annualStudents.map(x => x.sum))].sort((a, b) => b - a);
+
+                return (
+                  <table className="w-full text-sm text-left border-collapse">
+                    <thead className="bg-gray-100 text-gray-600 sticky top-0 z-10 shadow-sm">
+                      <tr>
+                        <th className="p-4 w-10 text-center font-bold border-b border-gray-300">#</th>
+                        <th className="p-4 min-w-[200px] font-bold border-b border-gray-300 border-r">Estudiante</th>
+                        <th className="p-4 text-center font-bold border-b border-gray-300 border-r w-24">1º Trim</th>
+                        <th className="p-4 text-center font-bold border-b border-gray-300 border-r w-24">2º Trim</th>
+                        <th className="p-4 text-center font-bold border-b border-gray-300 border-r w-24">3º Trim</th>
+                        <th className="p-4 text-center font-bold border-b border-gray-300 border-r w-28 bg-indigo-50 text-indigo-900">Suma</th>
+                        <th className="p-4 text-center font-bold border-b border-gray-300">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {annualStudents.map((data, i) => {
+                        const rank = sortedSums.indexOf(data.sum);
+                        const medal = rank === 0 ? '🥇' : rank === 1 ? '🥈' : rank === 2 ? '🥉' : '';
+                        const isPassing = data.sum >= 21;
+                        return (
+                          <tr key={data.s.id} className={`border-b border-gray-100 hover:brightness-95 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                            <td className="p-4 text-center text-gray-400 font-mono text-xs">{i + 1}</td>
+                            <td className="p-4 font-bold text-gray-800 border-r border-gray-200/50">
+                              {medal && <span className="text-xl mr-2">{medal}</span>}{data.s.name}
+                            </td>
+                            <td className="p-4 border-r border-gray-200/50 text-center font-bold text-gray-700">{data.s1.fin}</td>
+                            <td className="p-4 border-r border-gray-200/50 text-center font-bold text-gray-700">{data.s2.fin}</td>
+                            <td className="p-4 border-r border-gray-200/50 text-center font-bold text-gray-700">{data.s3.fin}</td>
+                            <td className="p-4 border-r border-gray-200/50 text-center font-black text-xl bg-indigo-50/50 text-indigo-700">{data.sum.toFixed(2)}</td>
+                            <td className="p-4 text-center font-bold">
+                              {isPassing
+                                ? <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] uppercase font-black border border-green-200">Aprobado</span>
+                                : <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-[10px] uppercase font-black border border-red-200">Supletorio</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {annualStudents.length === 0 && (
+                        <tr><td colSpan="7" className="p-4 text-center text-gray-500 italic">No hay estudiantes en esta materia.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                );
+              })()}
             </div>
           </div>
         </div>
