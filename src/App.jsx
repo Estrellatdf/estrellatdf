@@ -132,6 +132,7 @@ export default function UE19deAgosto() {
   // Personal
   const [isManagingStaff, setIsManagingStaff] = useState(false);
   const [newStaffName, setNewStaffName] = useState('');
+  const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffRole, setNewStaffRole] = useState('Docente');
   const [newStaffTutoring, setNewStaffTutoring] = useState('');
   const [newStaffPass, setNewStaffPass] = useState('');
@@ -555,12 +556,12 @@ export default function UE19deAgosto() {
     if (!newStaffName || !newStaffPass) return alert("Nombre y contraseña son obligatorios.");
     const id = "staff_" + Date.now();
     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', id), {
-      id, name: newStaffName, role: newStaffRole, password: newStaffPass,
+      id, name: newStaffName, email: newStaffEmail, role: newStaffRole, password: newStaffPass,
       tutoringCourse: newStaffTutoring,
       isAuthorized: newStaffRole === 'Administrativo' ? newStaffAuth : true,
       securityKey: newStaffRole === 'Administrativo' ? newStaffSecKey : null
     });
-    setNewStaffName(''); setNewStaffPass(''); setNewStaffTutoring('');
+    setNewStaffName(''); setNewStaffEmail(''); setNewStaffPass(''); setNewStaffTutoring('');
     setNewStaffAuth(false); setNewStaffSecKey('');
   };
 
@@ -638,6 +639,32 @@ export default function UE19deAgosto() {
     };
     const currentList = Array.isArray(currentSubject.announcements) ? currentSubject.announcements : [];
     saveSubject({ ...currentSubject, announcements: [newAnn, ...currentList] });
+
+    // Enviar correo por mailto si hay correos de representantes
+    let bccEmails = [];
+    if (newAnnounceRecipient === 'all') {
+      currentSubject.students.forEach(st => {
+        const profile = parentProfiles[st.code]?.formData;
+        if (profile?.representante1?.email) bccEmails.push(profile.representante1.email);
+        if (profile?.representante2?.email) bccEmails.push(profile.representante2.email);
+      });
+    } else {
+      const st = currentSubject.students.find(st => st.id === newAnnounceRecipient);
+      if (st) {
+        const profile = parentProfiles[st.code]?.formData;
+        if (profile?.representante1?.email) bccEmails.push(profile.representante1.email);
+        if (profile?.representante2?.email) bccEmails.push(profile.representante2.email);
+      }
+    }
+    bccEmails = [...new Set(bccEmails)].filter(e => e.includes('@'));
+
+    if (bccEmails.length > 0) {
+      const subject = encodeURIComponent(`Comunicado U.E. 19 de Agosto: ${newAnnounceTitle}`);
+      const body = encodeURIComponent(`${newAnnounceBody}\n\nEnviado por: ${currentUser?.name} (${currentUser?.role})`);
+      const bcc = bccEmails.join(',');
+      window.open(`mailto:?bcc=${bcc}&subject=${subject}&body=${body}`, '_blank');
+    }
+
     setIsAddingAnnouncement(false); setNewAnnounceTitle(''); setNewAnnounceBody(''); setNewAnnounceRecipient('all');
   };
 
@@ -1682,6 +1709,7 @@ export default function UE19deAgosto() {
               <div className="bg-gray-50 p-4 rounded-xl mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <input className="border p-2 rounded text-sm" placeholder="Nombre completo" value={newStaffName} onChange={e => setNewStaffName(e.target.value)} />
                 <input className="border p-2 rounded text-sm" placeholder="Contraseña de acceso" value={newStaffPass} onChange={e => setNewStaffPass(e.target.value)} />
+                <input className="border p-2 rounded text-sm" placeholder="Correo institucional" value={newStaffEmail} onChange={e => setNewStaffEmail(e.target.value)} />
                 <select className="border p-2 rounded text-sm" value={newStaffRole} onChange={e => setNewStaffRole(e.target.value)}>
                   <option value="Docente">Docente</option>
                   <option value="Rector">Rector</option>
@@ -1714,6 +1742,7 @@ export default function UE19deAgosto() {
                 <thead className="bg-gray-100 sticky top-0">
                   <tr>
                     <th className="p-2 text-left">Nombre</th>
+                    <th className="p-2 text-left">Correo</th>
                     <th className="p-2 text-left">Rol</th>
                     <th className="p-2 text-left">Tutoría</th>
                     <th className="p-2 text-left">Clave</th>
@@ -1724,6 +1753,7 @@ export default function UE19deAgosto() {
                   {staff.map(s => (
                     <tr key={s.id} className="border-b">
                       <td className="p-2 font-medium">{s.name}</td>
+                      <td className="p-2 text-xs text-gray-500">{s.email || '-'}</td>
                       <td className="p-2"><span className={`text-[10px] px-2 py-0.5 rounded font-bold ${s.role === 'Rector' ? 'bg-red-100 text-red-700' : s.role === 'Administrativo' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>{s.role}</span></td>
                       <td className="p-2">{s.tutoringCourse || '-'}</td>
                       <td className="p-2 font-mono text-xs italic text-gray-400">{s.password}</td>
