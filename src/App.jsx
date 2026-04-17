@@ -181,10 +181,7 @@ export default function UE19deAgosto() {
   const [viewingStudentDetails, setViewingStudentDetails] = useState(null);
   const [showOtherSubjects, setShowOtherSubjects] = useState(false);
 
-  // Nuevo año
-  const [showNewYearModal, setShowNewYearModal] = useState(false);
-  const [newYearInput, setNewYearInput] = useState('');
-  const [newYearConfirm, setNewYearConfirm] = useState(false);
+
 
   // Perfil representante
   const [parentProfiles, setParentProfiles] = useState({});
