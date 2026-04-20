@@ -177,7 +177,8 @@ export default function UE19deAgosto() {
   const [parentFormData, setParentFormData] = useState({
     representante1: { name: '', relation: 'Madre', cedula: '', phone: '', email: '', occupation: '' },
     representante2: { name: '', relation: 'Padre', cedula: '', phone: '', email: '', occupation: '' },
-    studentAddress: '', studentPhone: '', studentNotes: ''
+    studentAddress: '', studentPhone: '', studentNotes: '',
+    studentCedula: '', studentBloodType: '', studentBirthDate: ''
   });
 
   // Años Lectivos
@@ -473,14 +474,16 @@ export default function UE19deAgosto() {
         setParentFormData(existingProfile.formData || {
           representante1: { name: '', relation: 'Madre', cedula: '', phone: '', email: '', occupation: '' },
           representante2: { name: '', relation: 'Padre', cedula: '', phone: '', email: '', occupation: '' },
-          studentAddress: '', studentPhone: '', studentNotes: ''
+          studentAddress: '', studentPhone: '', studentNotes: '',
+          studentCedula: '', studentBloodType: '', studentBirthDate: ''
         });
         setShowParentForm(false);
       } else {
         setParentFormData({
           representante1: { name: '', relation: 'Madre', cedula: '', phone: '', email: '', occupation: '' },
           representante2: { name: '', relation: 'Padre', cedula: '', phone: '', email: '', occupation: '' },
-          studentAddress: '', studentPhone: '', studentNotes: ''
+          studentAddress: '', studentPhone: '', studentNotes: '',
+          studentCedula: '', studentBloodType: '', studentBirthDate: ''
         });
         setShowParentForm(true); // mostrar form como overlay
       }
@@ -1031,19 +1034,48 @@ export default function UE19deAgosto() {
                     <User size={18} /> 1. Datos del Estudiante
                   </h3>
                   <div className="grid grid-cols-1 gap-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Cédula del Estudiante</label>
+                        <input className="w-full border-2 border-slate-100 rounded-xl p-3 focus:border-indigo-500 outline-none transition"
+                          value={parentFormData.studentCedula}
+                          onChange={e => setParentFormData({ ...parentFormData, studentCedula: e.target.value })}
+                          placeholder="Ej. 1712345678" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Fecha de Nacimiento</label>
+                        <input type="date" className="w-full border-2 border-slate-100 rounded-xl p-3 focus:border-indigo-500 outline-none transition"
+                          value={parentFormData.studentBirthDate}
+                          onChange={e => setParentFormData({ ...parentFormData, studentBirthDate: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Tipo de Sangre</label>
+                        <select className="w-full border-2 border-slate-100 rounded-xl p-3 focus:border-indigo-500 outline-none transition"
+                          value={parentFormData.studentBloodType}
+                          onChange={e => setParentFormData({ ...parentFormData, studentBloodType: e.target.value })}>
+                          <option value="">Seleccionar...</option>
+                          <option value="A+">A+</option><option value="A-">A-</option>
+                          <option value="B+">B+</option><option value="B-">B-</option>
+                          <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                          <option value="O+">O+</option><option value="O-">O-</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Teléfono de Contacto</label>
+                        <input className="w-full border-2 border-slate-100 rounded-xl p-3 focus:border-indigo-500 outline-none transition"
+                          value={parentFormData.studentPhone}
+                          onChange={e => setParentFormData({ ...parentFormData, studentPhone: e.target.value })}
+                          placeholder="Ej. 0998877665" />
+                      </div>
+                    </div>
                     <div>
                       <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Dirección Domiciliaria</label>
                       <input className="w-full border-2 border-slate-100 rounded-xl p-3 focus:border-indigo-500 outline-none transition"
                         value={parentFormData.studentAddress}
                         onChange={e => setParentFormData({ ...parentFormData, studentAddress: e.target.value })}
                         placeholder="Ej. Calle Principal y Av. Central" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Teléfono de Contacto</label>
-                      <input className="w-full border-2 border-slate-100 rounded-xl p-3 focus:border-indigo-500 outline-none transition"
-                        value={parentFormData.studentPhone}
-                        onChange={e => setParentFormData({ ...parentFormData, studentPhone: e.target.value })}
-                        placeholder="Ej. 0998877665" />
                     </div>
                     <div>
                       <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Observaciones / Datos Médicos</label>
@@ -1083,7 +1115,7 @@ export default function UE19deAgosto() {
                         placeholder="Teléfono" value={parentFormData.representante1.phone || ''}
                         onChange={e => setParentFormData({ ...parentFormData, representante1: { ...parentFormData.representante1, phone: e.target.value } })} />
                       <input className="bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none"
-                        placeholder="Correo (opcional)" value={parentFormData.representante1.email || ''}
+                        placeholder="Correo electrónico" value={parentFormData.representante1.email || ''}
                         onChange={e => setParentFormData({ ...parentFormData, representante1: { ...parentFormData.representante1, email: e.target.value } })} />
                     </div>
                   </div>
@@ -1110,7 +1142,7 @@ export default function UE19deAgosto() {
                         placeholder="Teléfono" value={parentFormData.representante2.phone || ''}
                         onChange={e => setParentFormData({ ...parentFormData, representante2: { ...parentFormData.representante2, phone: e.target.value } })} />
                       <input className="bg-white border border-slate-200 rounded-xl p-3 text-sm outline-none"
-                        placeholder="Correo (opcional)" value={parentFormData.representante2.email || ''}
+                        placeholder="Correo electrónico" value={parentFormData.representante2.email || ''}
                         onChange={e => setParentFormData({ ...parentFormData, representante2: { ...parentFormData.representante2, email: e.target.value } })} />
                     </div>
                   </div>
@@ -1127,8 +1159,8 @@ export default function UE19deAgosto() {
                   {isEditingParentForm ? 'Cancelar' : 'Salir'}
                 </button>
                 <button onClick={async () => {
-                  if (!parentFormData.representante1.name || !parentFormData.representante1.cedula)
-                    return alert("El Representante 1 (nombre y cédula) es obligatorio.");
+                  if (!parentFormData.representante1.name || !parentFormData.representante1.cedula || !parentFormData.representante1.email)
+                    return alert("El Representante 1 (nombre, cédula y correo) es obligatorio.");
                   const code = viewingStudent?.code || studentCodeInput.trim().toUpperCase();
                   await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'parentProfiles', code), { formData: parentFormData });
                   setParentProfiles({ ...parentProfiles, [code]: { formData: parentFormData } });
