@@ -300,7 +300,7 @@ export default function UE19deAgosto() {
 
   const confirmSecureAction = () => {
     if (securityModal.requiresKey) {
-      const expectedKey = currentUser?.role === 'Administrativo' ? currentUser?.securityKey : currentUser?.password;
+      const expectedKey = (currentUser?.role === 'Administrativo' && currentUser?.securityKey) ? currentUser.securityKey : currentUser?.password;
       if (securityKeyInput !== expectedKey) {
         alert("Contraseña o clave de seguridad incorrecta. Acción cancelada.");
         return;
@@ -1795,7 +1795,12 @@ export default function UE19deAgosto() {
                       <td className="p-2"><span className={`text-[10px] px-2 py-0.5 rounded font-bold ${s.role === 'Rector' ? 'bg-red-100 text-red-700' : s.role === 'Administrativo' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>{s.role}</span></td>
                       <td className="p-2">{s.tutoringCourse || '-'}</td>
                       <td className="p-2 font-mono text-xs italic text-gray-400">
-                        {s.password} {s.securityKey && <span className="text-emerald-600 font-bold ml-2" title="Clave de Seguridad">[{s.securityKey}]</span>}
+                        {s.password} 
+                        {s.role === 'Administrativo' && (
+                          s.securityKey 
+                            ? <span className="text-emerald-600 font-bold ml-2" title="Clave de Seguridad">[{s.securityKey}]</span>
+                            : <span className="text-amber-500 font-bold ml-2" title="Usará la contraseña para borrar">[Sin Clave Seg.]</span>
+                        )}
                       </td>
                       {isAdmin && <td className="p-2"><button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', s.id))} className="text-red-400 hover:text-red-600"><Trash2 size={16} /></button></td>}
                     </tr>
