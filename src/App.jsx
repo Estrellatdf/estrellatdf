@@ -138,6 +138,7 @@ export default function UE19deAgosto() {
   const [newStaffPass, setNewStaffPass] = useState('');
   const [newStaffAuth, setNewStaffAuth] = useState(false);
   const [newStaffSecKey, setNewStaffSecKey] = useState('');
+  const [editingStaffId, setEditingStaffId] = useState(null);
 
   // Cursos y paralelos
   const [isManagingCourses, setIsManagingCourses] = useState(false);
@@ -550,7 +551,7 @@ export default function UE19deAgosto() {
 
   const addStaffMember = async () => {
     if (!newStaffName || !newStaffPass) return alert("Nombre y contraseña son obligatorios.");
-    const id = "staff_" + Date.now();
+    const id = editingStaffId || ("staff_" + Date.now());
     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', id), {
       id, name: newStaffName, email: newStaffEmail, role: newStaffRole, password: newStaffPass,
       tutoringCourse: newStaffTutoring,
@@ -559,6 +560,7 @@ export default function UE19deAgosto() {
     });
     setNewStaffName(''); setNewStaffEmail(''); setNewStaffPass(''); setNewStaffTutoring('');
     setNewStaffAuth(false); setNewStaffSecKey('');
+    setEditingStaffId(null);
   };
 
   const addStudentsBulk = () => {
@@ -1741,10 +1743,11 @@ export default function UE19deAgosto() {
           <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-gray-800">Gestionar Personal ({staff.length})</h3>
-              <button onClick={() => setIsManagingStaff(false)}><X /></button>
+              <button onClick={() => { setIsManagingStaff(false); setEditingStaffId(null); }}><X /></button>
             </div>
             {isAdmin && (
-              <div className="bg-gray-50 p-4 rounded-xl mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="bg-gray-50 p-4 rounded-xl mb-4 grid grid-cols-1 md:grid-cols-2 gap-3 relative">
+                {editingStaffId && <div className="md:col-span-2 text-[10px] font-bold text-indigo-600 uppercase mb-1">Editando miembro: {newStaffName} <button onClick={() => { setEditingStaffId(null); setNewStaffName(''); setNewStaffEmail(''); setNewStaffPass(''); setNewStaffSecKey(''); }} className="text-red-500 underline ml-2">Cancelar</button></div>}
                 <input className="border p-2 rounded text-sm" placeholder="Nombre completo" value={newStaffName} onChange={e => setNewStaffName(e.target.value)} />
                 <input className="border p-2 rounded text-sm" placeholder="Contraseña de acceso" value={newStaffPass} onChange={e => setNewStaffPass(e.target.value)} />
                 <input className="border p-2 rounded text-sm" placeholder="Correo institucional" value={newStaffEmail} onChange={e => setNewStaffEmail(e.target.value)} />
@@ -1772,7 +1775,9 @@ export default function UE19deAgosto() {
                     <p className="text-xs text-slate-400 italic">Se pedirá cada vez que intente borrar registros.</p>
                   </div>
                 )}
-                <button onClick={addStaffMember} className="bg-indigo-600 text-white py-2 rounded-lg font-bold md:col-span-2 hover:bg-indigo-500 transition">Añadir al Sistema</button>
+                <button onClick={addStaffMember} className={`text-white py-2 rounded-lg font-bold md:col-span-2 transition ${editingStaffId ? 'bg-amber-600 hover:bg-amber-500' : 'bg-indigo-600 hover:bg-indigo-500'}`}>
+                  {editingStaffId ? 'Actualizar Miembro' : 'Añadir al Sistema'}
+                </button>
               </div>
             )}
             <div className="flex-1 overflow-auto">
@@ -1802,7 +1807,21 @@ export default function UE19deAgosto() {
                             : <span className="text-amber-500 font-bold ml-2" title="Usará la contraseña para borrar">[Sin Clave Seg.]</span>
                         )}
                       </td>
-                      {isAdmin && <td className="p-2"><button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', s.id))} className="text-red-400 hover:text-red-600"><Trash2 size={16} /></button></td>}
+                      {isAdmin && (
+                        <td className="p-2">
+                          <button onClick={() => {
+                            setEditingStaffId(s.id);
+                            setNewStaffName(s.name);
+                            setNewStaffEmail(s.email || '');
+                            setNewStaffRole(s.role);
+                            setNewStaffTutoring(s.tutoringCourse || '');
+                            setNewStaffPass(s.password);
+                            setNewStaffAuth(!!s.isAuthorized);
+                            setNewStaffSecKey(s.securityKey || '');
+                          }} className="text-indigo-400 hover:text-indigo-600 mr-2" title="Editar"><Settings size={16} /></button>
+                          <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', s.id))} className="text-red-400 hover:text-red-600"><Trash2 size={16} /></button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
