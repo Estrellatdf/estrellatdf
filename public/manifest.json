@@ -1,0 +1,17 @@
+{
+  "name": "U.E. 19 de Agosto",
+  "short_name": "19 de Agosto",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#4f46e5",
+  "description": "Portal de Gestión Académica para Padres y Docentes",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
