@@ -972,7 +972,7 @@ export default function UE19deAgosto() {
               {/* Actividades */}
               <div className="bg-white rounded-[2rem] shadow-lg border border-slate-100 p-6">
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="font-bold text-slate-800 flex items-center gap-2"><LayoutList className="text-indigo-500" /> {viewingSubject.name}</h3>
+                  <h3 className="font-bold text-slate-800 flex items-center gap-2"><LayoutList className="text-indigo-500" /> <span>{viewingSubject.name}</span></h3>
                   <div className="flex gap-1">
                     {[1, 2, 3].map(t => (
                       <button key={t} onClick={() => setCurrentTrimester(t)}
