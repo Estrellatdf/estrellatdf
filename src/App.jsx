@@ -285,10 +285,6 @@ export default function UE19deAgosto() {
 
   const runSecureAction = (message, onConfirmFn, requirePassword = false) => {
     if (requirePassword) {
-      if (currentUser?.role === 'Administrativo' && !currentUser.isAuthorized) {
-        alert("Acceso denegado. No tienes autorización del Rector para modificar datos.");
-        return;
-      }
       setSecurityModal({ isOpen: true, message, onConfirm: onConfirmFn, requiresKey: true });
       return;
     }
@@ -296,10 +292,6 @@ export default function UE19deAgosto() {
     if (currentUser?.role === 'Rector') {
       setSecurityModal({ isOpen: true, message, onConfirm: onConfirmFn, requiresKey: false });
     } else if (currentUser?.role === 'Administrativo') {
-      if (!currentUser.isAuthorized) {
-        alert("Acceso denegado. No tienes autorización del Rector para modificar datos.");
-        return;
-      }
       setSecurityModal({ isOpen: true, message, onConfirm: onConfirmFn, requiresKey: true });
     } else {
       if (confirm(message)) onConfirmFn();
@@ -1914,7 +1906,7 @@ export default function UE19deAgosto() {
                       <div className="flex items-center gap-3">
                         <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500 font-bold">{getCourseParallels(c).length} Paralelos</span>
                         <button onClick={e => {
-                          e.stopPropagation(); runSecureAction("¿Eliminar este curso?", () => {
+                          e.stopPropagation(); runSecureAction(`¿Estás seguro de eliminar el curso "${c}"?`, () => {
                             const tree = { ...appSettings.courses }; delete tree[c];
                             updateSettings({ ...appSettings, courses: tree });
                             if (selectedCourseForParallel === c) setSelectedCourseForParallel('');
@@ -1952,7 +1944,7 @@ export default function UE19deAgosto() {
                       {getCourseParallels(selectedCourseForParallel).map(p => (
                         <div key={p} className="bg-white border-2 border-orange-200 px-4 py-2 rounded-xl text-lg font-black text-orange-800 flex items-center gap-3 shadow-sm">
                           {p}
-                          <button onClick={() => runSecureAction("¿Eliminar este paralelo?", () => {
+                          <button onClick={() => runSecureAction(`¿Estás seguro de eliminar el paralelo "${p}" de ${selectedCourseForParallel}?`, () => {
                             const tree = { ...appSettings.courses };
                             const cData = tree[selectedCourseForParallel];
                             const parallels = (Array.isArray(cData) ? cData : (cData?.parallels || [])).filter(x => x !== p);
