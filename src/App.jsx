@@ -180,6 +180,7 @@ export default function UE19deAgosto() {
     studentAddress: '', studentPhone: '', studentNotes: '',
     studentCedula: '', studentBloodType: '', studentBirthDate: ''
   });
+  const [viewingProfileCode, setViewingProfileCode] = useState(null);
 
   // Años Lectivos
   const [showYearManager, setShowYearManager] = useState(false);
@@ -1488,7 +1489,10 @@ export default function UE19deAgosto() {
                                 <td className="p-3 font-medium text-gray-800 border-r border-gray-200/50 relative group leading-tight">
                                   {s.name.split(' ').reduce((acc, w, idx) => { if (idx % 2 === 0) acc.push([w]); else acc[acc.length - 1].push(w); return acc; }, []).map((line, i) => <div key={i}>{line.join(' ')}</div>)}
                                   <div className="text-[10px] text-gray-400 font-mono">CÓD: {s.code}</div>
-                                  {editable && <button onClick={() => deleteStudent(s.id, s.name)} className="absolute top-2 right-2 text-red-300 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 p-1 rounded-md shadow-sm"><Trash2 size={12} /></button>}
+                                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => setViewingProfileCode(s.code)} className="text-indigo-500 hover:text-indigo-700 bg-white/90 p-1 rounded-md shadow-sm" title="Ver Perfil"><Eye size={12} /></button>
+                                    {editable && <button onClick={() => deleteStudent(s.id, s.name)} className="text-red-400 hover:text-red-600 bg-white/90 p-1 rounded-md shadow-sm"><Trash2 size={12} /></button>}
+                                  </div>
                                 </td>
                                 {(currentSubject.activities[currentTrimester] || []).map(a => (
                                   <td key={a.id} className="p-1 border-r border-gray-200/50 text-center">
@@ -2173,6 +2177,125 @@ export default function UE19deAgosto() {
           </div>
         </div>
       )}
+      {/* MODAL: Vista de Perfil para Docente */}
+      {viewingProfileCode && (() => {
+        const profile = parentProfiles[viewingProfileCode]?.formData;
+        const studentName = currentSubject?.students.find(s => s.code === viewingProfileCode)?.name || "Estudiante";
+        
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+            <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col border border-white/20">
+              <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-indigo-50/50">
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{studentName}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-indigo-600 font-bold text-[10px] bg-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-widest">CÓDIGO: {viewingProfileCode}</span>
+                    <span className="text-slate-400 font-bold text-[10px] bg-slate-100 px-2 py-0.5 rounded-full uppercase tracking-widest">Ficha de Datos</span>
+                  </div>
+                </div>
+                <button onClick={() => setViewingProfileCode(null)} className="p-3 hover:bg-slate-100 rounded-full transition shadow-sm text-slate-400 hover:text-slate-600"><X size={24} /></button>
+              </div>
+
+              {!profile ? (
+                <div className="flex-1 p-20 text-center flex flex-col items-center justify-center">
+                  <div className="bg-amber-50 text-amber-600 p-10 rounded-[2.5rem] border border-amber-100 shadow-inner">
+                    <div className="bg-white p-4 rounded-full inline-block mb-6 shadow-sm"><User size={48} className="opacity-40" /></div>
+                    <h4 className="text-lg font-black mb-2 uppercase tracking-tight">Sin Registro</h4>
+                    <p className="font-medium text-sm text-amber-700/60 max-w-xs mx-auto italic">Este estudiante aún no ha completado el registro de su perfil en el portal de padres.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar">
+                  {/* Datos Estudiante */}
+                  <section>
+                    <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                      <div className="h-px w-8 bg-indigo-200" /> Datos del Estudiante
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="bg-slate-50/50 p-5 rounded-[1.5rem] border border-slate-100 shadow-sm">
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Cédula Identidad</div>
+                        <div className="font-black text-slate-800 text-lg">{profile.studentCedula || '-'}</div>
+                      </div>
+                      <div className="bg-slate-50/50 p-5 rounded-[1.5rem] border border-slate-100 shadow-sm">
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Grupo Sanguíneo</div>
+                        <div className="font-black text-red-600 text-lg">{profile.studentBloodType || '-'}</div>
+                      </div>
+                      <div className="bg-slate-50/50 p-5 rounded-[1.5rem] border border-slate-100 shadow-sm">
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Nacimiento</div>
+                        <div className="font-black text-slate-800 text-lg">{profile.studentBirthDate || '-'}</div>
+                      </div>
+                      <div className="bg-slate-50/50 p-5 rounded-[1.5rem] border border-slate-100 shadow-sm">
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Teléfono</div>
+                        <div className="font-black text-slate-800">{profile.studentPhone || '-'}</div>
+                      </div>
+                      <div className="md:col-span-2 bg-slate-50/50 p-5 rounded-[1.5rem] border border-slate-100 shadow-sm">
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Domicilio Actual</div>
+                        <div className="font-bold text-slate-800 text-sm">{profile.studentAddress || '-'}</div>
+                      </div>
+                      <div className="md:col-span-3 bg-indigo-50/40 p-6 rounded-[2rem] border border-indigo-100/50">
+                        <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Bug size={14} /> Observaciones Médicas / Alergias</div>
+                        <div className="text-sm text-slate-600 font-medium whitespace-pre-line leading-relaxed">{profile.studentNotes || 'Sin información médica adicional.'}</div>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Representantes */}
+                  <section>
+                    <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                      <div className="h-px w-8 bg-emerald-200" /> Contactos de Emergencia
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {[profile.representante1, profile.representante2].map((rep, idx) => (
+                        <div key={idx} className={`p-8 rounded-[2.5rem] border transition-all duration-300 ${idx === 0 ? 'bg-white border-indigo-100 shadow-xl shadow-indigo-500/5' : 'bg-slate-50/50 border-slate-100 opacity-90'}`}>
+                          <div className="flex justify-between items-start mb-6">
+                            <span className={`text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full ${idx === 0 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-slate-400 text-white'}`}>
+                              {idx === 0 ? 'Representante Primario' : 'Representante Secundario'}
+                            </span>
+                            {idx === 1 && !rep?.name && <span className="text-[9px] font-bold text-slate-400 italic">No registrado</span>}
+                          </div>
+                          
+                          {rep?.name ? (
+                            <div className="space-y-4">
+                              <div>
+                                <div className="text-xl font-black text-slate-900 leading-tight mb-1">{rep.name}</div>
+                                <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{rep.relation}</div>
+                              </div>
+                              <div className="h-px bg-slate-100 w-full" />
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                                  <div className="text-[8px] font-black text-slate-400 uppercase mb-0.5">ID / Cédula</div>
+                                  <div className="text-xs font-black text-slate-700">{rep.cedula}</div>
+                                </div>
+                                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                                  <div className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Celular</div>
+                                  <div className="text-xs font-black text-slate-700">{rep.phone}</div>
+                                </div>
+                              </div>
+                              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                                <div className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Email Contacto</div>
+                                <div className="text-xs font-black text-indigo-600 break-all">{rep.email}</div>
+                              </div>
+                            </div>
+                          ) : idx === 0 ? (
+                            <div className="text-slate-400 italic text-sm py-10 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">Datos no disponibles</div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+              )}
+              
+              <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button onClick={() => setViewingProfileCode(null)} 
+                  className="bg-slate-900 hover:bg-black text-white px-12 py-4 rounded-[1.5rem] font-black transition shadow-xl active:scale-95">
+                  Cerrar Ficha
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
