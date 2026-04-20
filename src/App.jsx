@@ -1913,10 +1913,10 @@ export default function UE19deAgosto() {
               {/* Col 1: Cursos */}
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                 <h4 className="font-bold mb-3">1. Crear Curso</h4>
-                <div className="flex gap-2 mb-4">
-                  <input className="flex-1 p-2 rounded border focus:outline-none focus:ring-2 focus:ring-orange-400"
+                <div className="flex flex-col sm:flex-row gap-2 mb-6">
+                  <input className="flex-1 p-3 rounded-xl border-2 border-gray-100 focus:border-orange-400 focus:outline-none transition-all text-sm shadow-sm"
                     placeholder="Ej. Octavo Básico" value={newCourseName} onChange={e => setNewCourseName(e.target.value)} />
-                  <button className="bg-orange-600 text-white px-4 rounded font-bold hover:bg-orange-700" onClick={() => {
+                  <button className="bg-orange-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-orange-700 shadow-lg shadow-orange-600/20 transition-all active:scale-95 whitespace-nowrap text-sm" onClick={() => {
                     if (!newCourseName) return;
                     const tree = { ...(appSettings.courses || {}) };
                     if (!tree[newCourseName]) tree[newCourseName] = { parallels: [], subjects: [] };
@@ -1950,10 +1950,10 @@ export default function UE19deAgosto() {
                 <h4 className="font-bold mb-3">2. Paralelos en: <span className="text-orange-600">{selectedCourseForParallel || 'Ninguno'}</span></h4>
                 {selectedCourseForParallel ? (
                   <>
-                    <div className="flex gap-2 mb-4">
-                      <input className="w-20 p-2 rounded border text-center font-bold text-xl uppercase focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    <div className="flex gap-2 mb-6">
+                      <input className="w-20 p-3 rounded-xl border-2 border-gray-100 text-center font-black text-xl uppercase focus:border-orange-400 focus:outline-none transition-all shadow-sm"
                         placeholder="A" value={newParallelName} onChange={e => setNewParallelName(e.target.value.toUpperCase())} maxLength={3} />
-                      <button className="bg-orange-600 hover:bg-orange-700 text-white px-4 rounded font-bold flex-1" onClick={() => {
+                      <button className="bg-orange-600 hover:bg-orange-700 text-white px-6 rounded-xl font-bold flex-1 shadow-lg shadow-orange-600/20 transition-all active:scale-95 text-sm" onClick={() => {
                         if (!newParallelName) return;
                         const tree = { ...appSettings.courses };
                         const cData = tree[selectedCourseForParallel];
