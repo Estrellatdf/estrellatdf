@@ -104,6 +104,7 @@ export default function UE19deAgosto() {
   const [appSettings, setAppSettings] = useState({ teacherPassword: null, courses: {} });
 
   const [viewMode, setViewMode] = useState('portal');
+  const [portalSelection, setPortalSelection] = useState(null);
   const [authPassword, setAuthPassword] = useState('');
   const [studentCodeInput, setStudentCodeInput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -776,43 +777,90 @@ export default function UE19deAgosto() {
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px]" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-600/20 rounded-full blur-[120px]" />
 
-      <div className="bg-slate-900/40 backdrop-blur-xl p-10 rounded-3xl shadow-2xl w-full max-w-lg border border-white/10 text-center relative z-10">
-        <div className="bg-gradient-to-tr from-indigo-500 to-emerald-500 p-2 rounded-2xl inline-block mb-6 shadow-xl">
-          <img src="/vite.svg" width="112" height="112" alt="Logo" className="drop-shadow-lg" />
-        </div>
-        <h1 className="text-5xl font-black mb-3 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">U.E. 19 de Agosto</h1>
-        <p className="text-slate-400 mb-10 text-lg font-medium">Gestión Académica de Vanguardia</p>
-
-        <div className="space-y-4">
-          {/* Acceso docente */}
-          <div className="bg-black/30 p-5 rounded-xl text-left border border-white/10">
-            <label className="text-xs uppercase font-bold text-indigo-300 block mb-2 flex items-center gap-2"><Lock size={14} /> Acceso Personal (Docente / Admin)</label>
-            <div className="flex gap-2">
-              <input type="password" value={authPassword}
-                onChange={e => setAuthPassword(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleTeacherLogin()}
-                className="flex-1 bg-white/10 border border-white/20 rounded px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                placeholder="Contraseña" />
-              <button onClick={handleTeacherLogin} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded font-medium transition">Entrar</button>
+      <div className="bg-slate-900/40 backdrop-blur-xl p-10 rounded-[2.5rem] shadow-2xl w-full max-w-xl border border-white/10 text-center relative z-10 transition-all duration-500">
+        {!portalSelection ? (
+          <>
+            <div className="bg-gradient-to-tr from-indigo-500 to-emerald-500 p-2 rounded-2xl inline-block mb-6 shadow-xl">
+              <img src="/vite.svg" width="100" height="100" alt="Logo" className="drop-shadow-lg" />
             </div>
-            <button onClick={handleEmergencyRector} className="mt-2 text-[10px] text-indigo-400 hover:text-indigo-200 underline opacity-30 hover:opacity-100 transition">
-              Acceso de Emergencia (Rector)
+            <h1 className="text-4xl font-black mb-2 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400 uppercase">U.E. 19 de Agosto</h1>
+            <p className="text-slate-400 mb-10 text-base font-medium">Seleccione su portal de acceso</p>
+
+            <div className="grid grid-cols-1 gap-4">
+              <button onClick={() => setPortalSelection('parent')}
+                className="group bg-white/5 hover:bg-emerald-600/20 border border-white/10 hover:border-emerald-500/50 p-8 rounded-3xl transition-all duration-300 text-left flex items-center gap-6 active:scale-95">
+                <div className="bg-emerald-500/20 group-hover:bg-emerald-500 p-4 rounded-2xl text-emerald-500 group-hover:text-white transition-colors">
+                  <User size={32} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-white mb-1">Padres de Familia</h3>
+                  <p className="text-slate-400 text-xs font-medium">Consulta de notas, asistencia y comunicados</p>
+                </div>
+              </button>
+
+              <button onClick={() => setPortalSelection('teacher')}
+                className="group bg-white/5 hover:bg-indigo-600/20 border border-white/10 hover:border-indigo-500/50 p-8 rounded-3xl transition-all duration-300 text-left flex items-center gap-6 active:scale-95">
+                <div className="bg-indigo-500/20 group-hover:bg-indigo-500 p-4 rounded-2xl text-indigo-500 group-hover:text-white transition-colors">
+                  <Lock size={32} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-white mb-1">Personal Docente</h3>
+                  <p className="text-slate-400 text-xs font-medium">Gestión académica, notas y administración</p>
+                </div>
+              </button>
+            </div>
+            <p className="mt-8 text-[10px] text-slate-500 font-bold uppercase tracking-widest opacity-50">Unidad Educativa Particular "19 de Agosto"</p>
+          </>
+        ) : portalSelection === 'teacher' ? (
+          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+            <button onClick={() => setPortalSelection(null)} className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 mb-6 font-bold text-sm transition-colors">
+               ← Volver al inicio
             </button>
-          </div>
-
-          {/* Acceso padres */}
-          <div className="bg-black/30 p-5 rounded-xl text-left border border-white/10">
-            <label className="text-xs uppercase font-bold text-green-300 block mb-2 flex items-center gap-2"><Eye size={14} /> Acceso Padres / Representantes</label>
-            <div className="flex gap-2">
-              <input value={studentCodeInput}
-                onChange={e => setStudentCodeInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleStudentLogin()}
-                className="flex-1 bg-white/10 border border-white/20 rounded px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400 uppercase"
-                placeholder="Código del estudiante (ej. ABC123)" />
-              <button onClick={handleStudentLogin} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-medium transition">Ver</button>
+            <div className="bg-indigo-500/20 p-4 rounded-2xl inline-block mb-6 shadow-xl text-indigo-400 border border-indigo-500/30">
+              <Lock size={48} />
+            </div>
+            <h2 className="text-3xl font-black mb-2 text-white uppercase tracking-tight">Acceso Docente</h2>
+            <p className="text-slate-400 mb-8 text-sm">Ingrese su contraseña institucional</p>
+            
+            <div className="bg-black/30 p-8 rounded-3xl text-left border border-white/10">
+              <label className="text-xs uppercase font-bold text-indigo-300 block mb-3 flex items-center gap-2">Contraseña de Acceso</label>
+              <div className="space-y-4">
+                <input type="password" value={authPassword}
+                  onChange={e => setAuthPassword(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleTeacherLogin()}
+                  className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 text-lg"
+                  placeholder="••••••••" autoFocus />
+                <button onClick={handleTeacherLogin} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-2xl font-black text-lg transition shadow-xl shadow-indigo-600/20 active:scale-95">Ingresar al Sistema</button>
+              </div>
+              <button onClick={handleEmergencyRector} className="mt-6 w-full text-[10px] text-indigo-400/50 hover:text-indigo-400 underline transition uppercase tracking-widest font-bold">
+                Acceso de Emergencia (Rector)
+              </button>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="animate-in fade-in slide-in-from-left-4 duration-300">
+            <button onClick={() => setPortalSelection(null)} className="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 mb-6 font-bold text-sm transition-colors">
+               ← Volver al inicio
+            </button>
+            <div className="bg-emerald-500/20 p-4 rounded-2xl inline-block mb-6 shadow-xl text-emerald-400 border border-emerald-500/30">
+              <User size={48} />
+            </div>
+            <h2 className="text-3xl font-black mb-2 text-white uppercase tracking-tight">Portal de Padres</h2>
+            <p className="text-slate-400 mb-8 text-sm">Ingrese el código de su representado</p>
+
+            <div className="bg-black/30 p-8 rounded-3xl text-left border border-white/10">
+              <label className="text-xs uppercase font-bold text-emerald-300 block mb-3 flex items-center gap-2">Código del Estudiante</label>
+              <div className="space-y-4">
+                <input value={studentCodeInput}
+                  onChange={e => setStudentCodeInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleStudentLogin()}
+                  className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-lg uppercase tracking-widest"
+                  placeholder="Ej. ABC123" autoFocus />
+                <button onClick={handleStudentLogin} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-2xl font-black text-lg transition shadow-xl shadow-emerald-600/20 active:scale-95">Ver Calificaciones</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
