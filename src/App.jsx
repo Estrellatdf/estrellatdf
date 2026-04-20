@@ -4,7 +4,7 @@ import {
   GraduationCap, FileSpreadsheet, Lock, Eye, Calendar,
   CheckCircle, XCircle, MessageSquare, LogOut, AlertTriangle, Bug, Download, BarChart2,
   Bell, Megaphone, Clock, Settings, ShieldAlert, RefreshCw, ClipboardList, Phone, MapPin, UserCheck,
-  LayoutList, ShieldCheck
+  LayoutList, ShieldCheck, Printer
 } from 'lucide-react';
 
 // Importaciones de Firebase
@@ -879,6 +879,118 @@ export default function UE19deAgosto() {
     const uniqueAnnouncements = Array.from(new Map(filteredAnnouncements.map(ann => [ann.id, ann])).values())
       .sort((a, b) => b.id.localeCompare(a.id));
 
+    const handlePrintReportCard = () => {
+      let rowsHtml = '';
+      studentSubjects.forEach(m => {
+        const s1 = calculateStats(m.subject, 1, m.student.id);
+        const s2 = calculateStats(m.subject, 2, m.student.id);
+        const s3 = calculateStats(m.subject, 3, m.student.id);
+        const total = (parseFloat(s1.fin) || 0) + (parseFloat(s2.fin) || 0) + (parseFloat(s3.fin) || 0);
+        const pass = total >= 21;
+        
+        rowsHtml += `
+          <tr>
+            <td style="padding: 12px 10px; border: 1px solid #cbd5e1; font-weight: bold; color: #334155;">${m.subject.name}</td>
+            <td style="padding: 12px 10px; border: 1px solid #cbd5e1; text-align: center; color: #475569;">${s1.fin}</td>
+            <td style="padding: 12px 10px; border: 1px solid #cbd5e1; text-align: center; color: #475569;">${s2.fin}</td>
+            <td style="padding: 12px 10px; border: 1px solid #cbd5e1; text-align: center; color: #475569;">${s3.fin}</td>
+            <td style="padding: 12px 10px; border: 1px solid #cbd5e1; text-align: center; font-weight: 900; background: #f8fafc; color: #0f172a;">${total.toFixed(2)}</td>
+            <td style="padding: 12px 10px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; color: ${pass ? '#059669' : '#dc2626'}; background: ${pass ? '#f0fdf4' : '#fef2f2'}; text-transform: uppercase; font-size: 11px;">${pass ? 'Aprobado' : 'Supletorio'}</td>
+          </tr>
+        `;
+      });
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Boletín de Calificaciones - ${viewingStudent.name}</title>
+            <style>
+              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #0f172a; margin: 0; }
+              .header { text-align: center; border-bottom: 3px solid #4f46e5; padding-bottom: 20px; margin-bottom: 30px; }
+              .logo { width: 80px; height: 80px; margin-bottom: 10px; }
+              .school-name { font-size: 26px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: 1px; color: #0f172a; }
+              .doc-title { font-size: 16px; color: #4f46e5; margin-top: 5px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; }
+              .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 30px; }
+              .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+              .info-row:last-child { margin-bottom: 0; }
+              .info-label { font-weight: bold; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; display: inline-block; width: 120px; }
+              .info-value { font-weight: 800; color: #0f172a; font-size: 15px; text-transform: uppercase; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+              th { background: #4f46e5; color: white; padding: 14px 10px; text-align: center; border: 1px solid #4338ca; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+              th:first-child { text-align: left; }
+              .footer { margin-top: 50px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+              .signatures { display: flex; justify-content: space-around; margin-top: 100px; page-break-inside: avoid; }
+              .sig-line { border-top: 1px solid #475569; width: 220px; padding-top: 8px; text-align: center; font-weight: bold; color: #475569; font-size: 12px; text-transform: uppercase; }
+              @media print {
+                body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                .no-print { display: none; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="no-print" style="margin-bottom: 20px; text-align: center; background: #f8fafc; padding: 20px; border-radius: 12px; border: 2px dashed #cbd5e1;">
+              <p style="margin-top:0; color: #475569; font-size: 14px; font-weight: bold;">Vista previa de impresión</p>
+              <button onclick="window.print()" style="background: #4f46e5; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);">🖨️ Confirmar Impresión / Guardar PDF</button>
+            </div>
+            <div class="header">
+              <img src="${window.location.origin}/vite.svg" class="logo" alt="Logo" />
+              <h1 class="school-name">U.E. 19 de Agosto</h1>
+              <p class="doc-title">Cuadro General de Calificaciones</p>
+            </div>
+            
+            <div class="info-box">
+              <div class="info-row">
+                <div><span class="info-label">Estudiante:</span> <span class="info-value">${viewingStudent.name}</span></div>
+                <div><span class="info-label">Código:</span> <span class="info-value">${viewingStudent.code}</span></div>
+              </div>
+              <div class="info-row">
+                <div><span class="info-label">Año Lectivo:</span> <span class="info-value">${appSettings.schoolYear || 'Oficial'}</span></div>
+                <div><span class="info-label">Fecha Emisión:</span> <span class="info-value">${new Date().toLocaleDateString('es-ES')}</span></div>
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Asignatura</th>
+                  <th>1º Trim</th>
+                  <th>2º Trim</th>
+                  <th>3º Trim</th>
+                  <th style="background: #4338ca;">Suma Final</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+
+            <div class="signatures">
+              <div class="sig-line">Rector(a)</div>
+              <div class="sig-line">Secretaría / Tutor(a)</div>
+            </div>
+
+            <div class="footer">
+              <p>Documento oficial generado por el Sistema de Gestión Académica. Las calificaciones están sujetas a verificación en los libros matrices.</p>
+            </div>
+            <script>
+              window.onload = () => { setTimeout(() => window.print(), 800); };
+            </script>
+          </body>
+        </html>
+      `;
+
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+      } else {
+        alert("⚠️ Tu navegador bloqueó la ventana emergente. Por favor, permite las ventanas emergentes para este sitio e intenta de nuevo.");
+      }
+    };
+
     return (
       <div className="min-h-screen bg-slate-50 font-sans text-gray-800 flex flex-col">
         {/* Header */}
@@ -908,12 +1020,18 @@ export default function UE19deAgosto() {
                 <h2 className="text-lg font-black text-slate-800 flex items-center gap-2"><FileSpreadsheet className="text-emerald-500" /> Cuadro General de Calificaciones</h2>
                 <p className="text-sm font-bold text-indigo-600 mt-0.5">Estudiante: <span className="text-slate-700">{viewingStudent.name}</span></p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
                 <span className="text-xs font-bold text-slate-400">Año Lectivo {appSettings.schoolYear || 'Oficial'}</span>
-                <button onClick={() => { setIsEditingParentForm(true); setShowParentForm(true); }}
-                  className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1">
-                  <Settings size={12} /> Editar Datos del Representante
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={handlePrintReportCard}
+                    className="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1 shadow-sm">
+                    <Printer size={14} /> Imprimir Boletín
+                  </button>
+                  <button onClick={() => { setIsEditingParentForm(true); setShowParentForm(true); }}
+                    className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1 shadow-sm">
+                    <Settings size={14} /> Ficha Médica/Contacto
+                  </button>
+                </div>
               </div>
             </div>
             <div className="overflow-x-auto">
