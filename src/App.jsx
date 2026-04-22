@@ -405,7 +405,7 @@ export default function UE19deAgosto() {
   };
 
   const handleEmergencyRector = async () => {
-    if (authPassword === appSettings.teacherPassword || authPassword === "rector2026") {
+    if (authPassword === appSettings.teacherPassword || authPassword === "19de@gosto357") {
       const id = "rector_master";
       const masterRector = { id, name: 'Rector Principal', role: 'Rector', password: authPassword };
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', id), masterRector);
