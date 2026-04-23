@@ -147,6 +147,8 @@ export default function UE19deAgosto() {
   const [newParallelName, setNewParallelName] = useState('');
   const [selectedCourseForParallel, setSelectedCourseForParallel] = useState('');
   const [selectedParallelForStudents, setSelectedParallelForStudents] = useState('');
+  const [editingCourseName, setEditingCourseName] = useState(null);
+  const [tempCourseName, setTempCourseName] = useState('');
 
   // Modal de seguridad
   const [securityModal, setSecurityModal] = useState({ isOpen: false, onConfirm: null, message: '', requiresKey: false });
@@ -835,6 +837,28 @@ export default function UE19deAgosto() {
     return Array.isArray(cData.parallelsData[parallelName]?.students) ? cData.parallelsData[parallelName].students : [];
   };
 
+  const renameCourse = async (oldName, newName) => {
+    if (!newName || oldName === newName) return setEditingCourseName(null);
+    const tree = { ...appSettings.courses };
+    if (tree[newName]) return alert("Ya existe un curso con ese nombre.");
+
+    tree[newName] = tree[oldName];
+    delete tree[oldName];
+
+    await saveSettings({ ...appSettings, courses: tree });
+
+    // Actualizar materias que usan este curso
+    const toUpdate = subjects.filter(s => s.courseName === oldName);
+    for (const sub of toUpdate) {
+      const newParallel = sub.parallel.replace(oldName, newName);
+      await saveSubject({ ...sub, courseName: newName, parallel: newParallel });
+    }
+
+    setEditingCourseName(null);
+    if (selectedCourseForParallel === oldName) setSelectedCourseForParallel(newName);
+    logAudit("RENAME_COURSE", oldName, `Renombrado a ${newName}`);
+  };
+
   // ── ERROR / LOADING ───────────────────────────────────────────────────────
   if (errorMsg) return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
@@ -1494,8 +1518,8 @@ export default function UE19deAgosto() {
               )}
               {(isDocente || isAdmin || isRector) && (
                 <button onClick={() => { setNewSubjectName(''); setNewParallel(''); setNewSubjectCourse(''); setNewSubjectTeacher(''); setIsEditingSubject(false); setIsAddingSubject(true); setShowMenu(false); }}
-                  className="w-full bg-indigo-600 text-white py-4 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all font-bold shadow-lg active:scale-95 mb-2">
-                  <Plus size={20} /> Nueva Asignatura
+                  className="w-full bg-indigo-600 text-white py-3 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all font-bold shadow active:scale-95 mt-4">
+                  <Plus size={18} /> Nueva Asignatura
                 </button>
               )}
               {isRector && (
@@ -1990,7 +2014,7 @@ export default function UE19deAgosto() {
       {/* MODAL: Gestionar Personal */}
       {isManagingStaff && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-[95vw] lg:max-w-7xl h-[90vh] flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-gray-800">Gestionar Personal ({staff.length})</h3>
               <button onClick={() => { setIsManagingStaff(false); setEditingStaffId(null); }}><X /></button>
@@ -2161,39 +2185,54 @@ export default function UE19deAgosto() {
             </div>
             <div className="flex-1 overflow-auto grid grid-cols-1 md:grid-cols-4 gap-4 p-1 text-xs">
               {/* Col 1: Cursos */}
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                <h4 className="font-bold mb-3">1. Crear Curso</h4>
-                <div className="flex flex-col sm:flex-row gap-2 mb-6">
-                  <input className="flex-1 p-3 rounded-xl border-2 border-gray-100 focus:border-orange-400 focus:outline-none transition-all text-sm shadow-sm"
-                    placeholder="Ej. Octavo Básico" value={newCourseName} onChange={e => setNewCourseName(e.target.value)} />
-                  <button className="bg-orange-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-orange-700 shadow-lg shadow-orange-600/20 transition-all active:scale-95 whitespace-nowrap text-sm" onClick={() => {
-                    if (!newCourseName) return;
-                    const tree = { ...(appSettings.courses || {}) };
-                    if (!tree[newCourseName]) tree[newCourseName] = { parallels: [], subjects: [] };
-                    updateSettings({ ...appSettings, courses: tree });
-                    setNewCourseName('');
-                    logAudit("CREATE_COURSE", newCourseName, "Curso creado");
-                  }}>Añadir</button>
-                </div>
-                <ul className="space-y-1">
-                  {Object.keys(appSettings.courses || {}).sort().map(c => (
-                    <li key={c} className={`flex justify-between items-center p-2 bg-white rounded-lg border shadow-sm cursor-pointer transition ${selectedCourseForParallel === c ? 'border-orange-400 bg-orange-50' : 'hover:border-orange-300'}`} onClick={() => { setSelectedCourseForParallel(c); setSelectedParallelForStudents(''); }}>
-                      <span className="font-bold text-gray-700">{c}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded text-gray-500 font-bold">{getCourseParallels(c).length} P</span>
-                        <button onClick={e => {
-                          e.stopPropagation(); runSecureAction(`¿Estás seguro de eliminar el curso "${c}"?`, () => {
-                            const tree = { ...appSettings.courses }; delete tree[c];
-                            updateSettings({ ...appSettings, courses: tree });
-                            if (selectedCourseForParallel === c) setSelectedCourseForParallel('');
-                            logAudit("DELETE_COURSE", c, "Eliminado");
-                          }, true);
-                        }} className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+               <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                 <h4 className="font-bold mb-3">1. Crear Curso</h4>
+                 <div className="flex flex-col gap-2 mb-6">
+                   <input className="w-full p-2.5 rounded-xl border-2 border-gray-100 focus:border-orange-400 focus:outline-none transition-all text-[10px] shadow-sm"
+                     placeholder="Ej. Octavo Básico" value={newCourseName} onChange={e => setNewCourseName(e.target.value)} />
+                   <button className="w-full bg-orange-600 text-white py-2 rounded-xl font-bold hover:bg-orange-700 shadow-lg shadow-orange-600/20 transition-all active:scale-95 text-[10px]" onClick={() => {
+                     if (!newCourseName) return;
+                     const tree = { ...(appSettings.courses || {}) };
+                     if (!tree[newCourseName]) tree[newCourseName] = { parallels: [], subjects: [] };
+                     updateSettings({ ...appSettings, courses: tree });
+                     setNewCourseName('');
+                     logAudit("CREATE_COURSE", newCourseName, "Curso creado");
+                   }}>Añadir</button>
+                 </div>
+                 <ul className="space-y-1">
+                   {Object.keys(appSettings.courses || {}).sort().map(c => (
+                     <li key={c} className={`group flex flex-col p-2 bg-white rounded-lg border shadow-sm cursor-pointer transition ${selectedCourseForParallel === c ? 'border-orange-400 bg-orange-50' : 'hover:border-orange-300'}`} onClick={() => { setSelectedCourseForParallel(c); setSelectedParallelForStudents(''); }}>
+                       <div className="flex justify-between items-center">
+                         {editingCourseName === c ? (
+                           <div className="flex gap-1 flex-1 mr-2" onClick={e => e.stopPropagation()}>
+                             <input className="flex-1 border border-indigo-300 rounded px-2 py-0.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400"
+                               value={tempCourseName} onChange={e => setTempCourseName(e.target.value)} autoFocus
+                               onKeyDown={e => e.key === 'Enter' && renameCourse(c, tempCourseName)} />
+                             <button onClick={() => renameCourse(c, tempCourseName)} className="text-emerald-500 p-1"><CheckCircle size={14} /></button>
+                             <button onClick={() => setEditingCourseName(null)} className="text-red-400 p-1"><X size={14} /></button>
+                           </div>
+                         ) : (
+                           <span className="font-bold text-gray-700 truncate mr-2" title={c}>{c}</span>
+                         )}
+                         <div className="flex items-center gap-1">
+                           {!editingCourseName && (
+                             <button onClick={e => { e.stopPropagation(); setEditingCourseName(c); setTempCourseName(c); }} className="text-gray-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"><Settings size={12} /></button>
+                           )}
+                           <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-bold">{getCourseParallels(c).length} P</span>
+                           <button onClick={e => {
+                             e.stopPropagation(); runSecureAction(`¿Estás seguro de eliminar el curso "${c}"?`, () => {
+                               const tree = { ...appSettings.courses }; delete tree[c];
+                               updateSettings({ ...appSettings, courses: tree });
+                               if (selectedCourseForParallel === c) setSelectedCourseForParallel('');
+                               logAudit("DELETE_COURSE", c, "Eliminado");
+                             }, true);
+                           }} className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
+                         </div>
+                       </div>
+                     </li>
+                   ))}
+                 </ul>
+               </div>
 
               {/* Col 2: Paralelos */}
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
