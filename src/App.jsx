@@ -612,10 +612,10 @@ export default function UE19deAgosto() {
 
   const syncStudentsWithMasterList = () => {
     if (!currentSubject) return;
-    const masterStudents = getParallelStudents(currentSubject.courseName, currentSubject.parallelName);
+    const masterStudents = getParallelStudents(currentSubject.courseName, currentSubject.parallelName).filter(n => n.trim());
     if (masterStudents.length === 0) return alert("No hay una lista de estudiantes definida por administración para este curso/paralelo.");
 
-    runSecureAction(`¿Sincronizar con la lista oficial de Administración? Se añadirán los estudiantes que falten.`, () => {
+    runSecureAction(`¿Sincronizar con la lista oficial de Administración? Se añadirán nuevos ingresos y se revisarán retiros.`, () => {
       const existingStudentsMap = new Map();
       subjects.forEach(sub => {
         (sub.students || []).forEach(st => {
@@ -624,24 +624,43 @@ export default function UE19deAgosto() {
         });
       });
 
+      const masterNorms = new Set(masterStudents.map(n => normalizeText(n)));
       const currentNormNames = new Set(currentSubject.students.map(s => normalizeText(s.name)));
-      const toAdd = masterStudents.filter(n => n.trim()).map(n => {
+
+      // Estudiantes a añadir
+      const toAdd = masterStudents.map(n => {
         const norm = normalizeText(n);
+        if (currentNormNames.has(norm)) return null;
         if (existingStudentsMap.has(norm)) {
           const ex = existingStudentsMap.get(norm);
           return { id: ex.id, name: ex.name, code: ex.code };
         }
         return { id: "s_" + Date.now() + Math.random().toString(36).substr(2, 5), name: n.trim(), code: generateStudentCode() };
-      }).filter(s => !currentNormNames.has(normalizeText(s.name)));
+      }).filter(s => s !== null);
 
-      if (toAdd.length === 0) {
+      // Estudiantes a retirar (están en la materia pero no en la lista maestra)
+      const toRemove = currentSubject.students.filter(s => !masterNorms.has(normalizeText(s.name)));
+
+      if (toAdd.length === 0 && toRemove.length === 0) {
         alert("La lista ya está al día con los registros de Administración.");
         return;
       }
 
-      saveSubject({ ...currentSubject, students: [...currentSubject.students, ...toAdd] });
-      logAudit("SYNC_STUDENTS", currentSubject.id, `Sincronizados ${toAdd.length} estudiantes`);
-      alert(`✅ Se han añadido ${toAdd.length} estudiantes nuevos.`);
+      let finalStudents = [...currentSubject.students, ...toAdd];
+      let msg = "";
+      if (toAdd.length > 0) msg += `✅ Se añadieron ${toAdd.length} estudiantes nuevos.\n`;
+
+      if (toRemove.length > 0) {
+        if (confirm(`Se detectaron ${toRemove.length} estudiantes que ya no están en la lista oficial (posibles retiros):\n${toRemove.map(s => "- " + s.name).join('\n')}\n\n¿Deseas eliminarlos de esta asignatura? (Se perderán sus notas)`)) {
+          const toRemoveIds = new Set(toRemove.map(s => s.id));
+          finalStudents = finalStudents.filter(s => !toRemoveIds.has(s.id));
+          msg += `❌ Se eliminaron ${toRemove.length} estudiantes retirados.`;
+        }
+      }
+
+      saveSubject({ ...currentSubject, students: finalStudents });
+      logAudit("SYNC_STUDENTS", currentSubject.id, `Sincronización completa: +${toAdd.length} -${toRemove.length}`);
+      if (msg) alert(msg);
     });
   };
 
@@ -1473,10 +1492,10 @@ export default function UE19deAgosto() {
                   </button>
                 </>
               )}
-              {(isDocente || isAdmin) && (
+              {(isDocente || isAdmin || isRector) && (
                 <button onClick={() => { setNewSubjectName(''); setNewParallel(''); setNewSubjectCourse(''); setNewSubjectTeacher(''); setIsEditingSubject(false); setIsAddingSubject(true); setShowMenu(false); }}
-                  className="w-full bg-indigo-600 text-white py-3 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all font-bold shadow active:scale-95">
-                  <Plus size={18} /> Nueva Asignatura
+                  className="w-full bg-indigo-600 text-white py-4 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all font-bold shadow-lg active:scale-95 mb-2">
+                  <Plus size={20} /> Nueva Asignatura
                 </button>
               )}
               {isRector && (
@@ -1625,7 +1644,7 @@ export default function UE19deAgosto() {
                       {(isAdmin || isRector) && (
                         <button onClick={() => setIsAddingStudent(true)} className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition" title="Inscribir manualmente (Solo Admin)"><Plus size={16} /> Estudiante</button>
                       )}
-                      {canEditGrades(currentSubject) && (
+                      {(isAdmin || isRector) && (
                         <button onClick={() => deleteSubjectDB(currentSubject.id)} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition" title="Borrar Clase"><Trash2 size={18} /></button>
                       )}
                     </div>
@@ -2132,7 +2151,7 @@ export default function UE19deAgosto() {
       {/* MODAL: Cursos y Paralelos */}
       {isManagingCourses && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-6xl h-[85vh] flex flex-col">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-[95vw] lg:max-w-7xl h-[90vh] flex flex-col">
             <div className="flex justify-between items-center mb-4 border-b pb-4">
               <h3 className="text-xl font-bold flex items-center gap-2 text-slate-800"><BookOpen className="text-orange-500" /> Gestión Académica: Cursos y Materias</h3>
               <div className="flex items-center gap-4">
