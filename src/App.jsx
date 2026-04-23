@@ -146,6 +146,7 @@ export default function UE19deAgosto() {
   const [newCourseName, setNewCourseName] = useState('');
   const [newParallelName, setNewParallelName] = useState('');
   const [selectedCourseForParallel, setSelectedCourseForParallel] = useState('');
+  const [selectedParallelForStudents, setSelectedParallelForStudents] = useState('');
 
   // Modal de seguridad
   const [securityModal, setSecurityModal] = useState({ isOpen: false, onConfirm: null, message: '', requiresKey: false });
@@ -521,6 +522,26 @@ export default function UE19deAgosto() {
     if (!newSubjectName || !newParallel || !newSubjectCourse) return alert("Selecciona curso, paralelo y materia.");
     const teacherId = isDocente ? currentUser.id : newSubjectTeacher;
     const selectedDoc = staff.find(d => d.id === teacherId);
+
+    // Cargar estudiantes automáticamente desde la lista del administrativo
+    const existingStudentsMap = new Map();
+    subjects.forEach(sub => {
+      (sub.students || []).forEach(st => {
+        const norm = normalizeText(st.name);
+        if (!existingStudentsMap.has(norm)) existingStudentsMap.set(norm, st);
+      });
+    });
+
+    const masterStudents = getParallelStudents(newSubjectCourse, newParallel);
+    const initialStudents = masterStudents.filter(n => n.trim()).map(n => {
+      const norm = normalizeText(n);
+      if (existingStudentsMap.has(norm)) {
+        const ex = existingStudentsMap.get(norm);
+        return { id: ex.id, name: ex.name, code: ex.code };
+      }
+      return { id: "s_" + Date.now() + Math.random().toString(36).substr(2, 5), name: n.trim(), code: generateStudentCode() };
+    });
+
     const newSub = {
       id: Date.now(),
       name: newSubjectName,
@@ -529,7 +550,7 @@ export default function UE19deAgosto() {
       parallelName: newParallel,
       teacherId,
       teacherName: selectedDoc?.name || (isDocente ? currentUser.name : ''),
-      students: [],
+      students: initialStudents,
       activities: { 1: [], 2: [], 3: [] },
       grades: { 1: {}, 2: {}, 3: {} },
       attendance: {},
@@ -587,6 +608,41 @@ export default function UE19deAgosto() {
     if (filtered.length === 0) alert("Los estudiantes seleccionados ya estaban en la materia.");
     saveSubject({ ...currentSubject, students: [...currentSubject.students, ...filtered] });
     setIsAddingStudent(false); setNewStudentList('');
+  };
+
+  const syncStudentsWithMasterList = () => {
+    if (!currentSubject) return;
+    const masterStudents = getParallelStudents(currentSubject.courseName, currentSubject.parallelName);
+    if (masterStudents.length === 0) return alert("No hay una lista de estudiantes definida por administración para este curso/paralelo.");
+
+    runSecureAction(`¿Sincronizar con la lista oficial de Administración? Se añadirán los estudiantes que falten.`, () => {
+      const existingStudentsMap = new Map();
+      subjects.forEach(sub => {
+        (sub.students || []).forEach(st => {
+          const norm = normalizeText(st.name);
+          if (!existingStudentsMap.has(norm)) existingStudentsMap.set(norm, st);
+        });
+      });
+
+      const currentNormNames = new Set(currentSubject.students.map(s => normalizeText(s.name)));
+      const toAdd = masterStudents.filter(n => n.trim()).map(n => {
+        const norm = normalizeText(n);
+        if (existingStudentsMap.has(norm)) {
+          const ex = existingStudentsMap.get(norm);
+          return { id: ex.id, name: ex.name, code: ex.code };
+        }
+        return { id: "s_" + Date.now() + Math.random().toString(36).substr(2, 5), name: n.trim(), code: generateStudentCode() };
+      }).filter(s => !currentNormNames.has(normalizeText(s.name)));
+
+      if (toAdd.length === 0) {
+        alert("La lista ya está al día con los registros de Administración.");
+        return;
+      }
+
+      saveSubject({ ...currentSubject, students: [...currentSubject.students, ...toAdd] });
+      logAudit("SYNC_STUDENTS", currentSubject.id, `Sincronizados ${toAdd.length} estudiantes`);
+      alert(`✅ Se han añadido ${toAdd.length} estudiantes nuevos.`);
+    });
   };
 
   const addActivity = () => {
@@ -752,6 +808,12 @@ export default function UE19deAgosto() {
   const getCourseSubjects = (courseName) => {
     const cData = appSettings.courses?.[courseName];
     return Array.isArray(cData?.subjects) ? cData.subjects : [];
+  };
+
+  const getParallelStudents = (courseName, parallelName) => {
+    const cData = appSettings.courses?.[courseName];
+    if (!cData || !cData.parallelsData) return [];
+    return Array.isArray(cData.parallelsData[parallelName]?.students) ? cData.parallelsData[parallelName].students : [];
   };
 
   // ── ERROR / LOADING ───────────────────────────────────────────────────────
@@ -1555,10 +1617,13 @@ export default function UE19deAgosto() {
                           {canEditGrades(currentSubject) && (
                             <>
                               <button onClick={() => setIsAddingActivity(true)} className="text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition"><Plus size={16} /> Actividad</button>
-                              <button onClick={() => setIsAddingStudent(true)} className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition"><User size={16} /> Estudiante</button>
+                              <button onClick={syncStudentsWithMasterList} className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition" title="Sincronizar con la lista oficial de Administración"><RefreshCw size={16} /> Sincronizar Lista</button>
                             </>
                           )}
                         </>
+                      )}
+                      {(isAdmin || isRector) && (
+                        <button onClick={() => setIsAddingStudent(true)} className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition" title="Inscribir manualmente (Solo Admin)"><Plus size={16} /> Estudiante</button>
                       )}
                       {canEditGrades(currentSubject) && (
                         <button onClick={() => deleteSubjectDB(currentSubject.id)} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition" title="Borrar Clase"><Trash2 size={18} /></button>
@@ -2075,7 +2140,7 @@ export default function UE19deAgosto() {
                 <button onClick={() => setIsManagingCourses(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500">Cerrar</button>
               </div>
             </div>
-            <div className="flex-1 overflow-auto grid grid-cols-1 md:grid-cols-3 gap-6 p-1">
+            <div className="flex-1 overflow-auto grid grid-cols-1 md:grid-cols-4 gap-4 p-1 text-xs">
               {/* Col 1: Cursos */}
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                 <h4 className="font-bold mb-3">1. Crear Curso</h4>
@@ -2091,12 +2156,12 @@ export default function UE19deAgosto() {
                     logAudit("CREATE_COURSE", newCourseName, "Curso creado");
                   }}>Añadir</button>
                 </div>
-                <ul className="space-y-2">
+                <ul className="space-y-1">
                   {Object.keys(appSettings.courses || {}).sort().map(c => (
-                    <li key={c} className={`flex justify-between items-center p-3 bg-white rounded-lg border shadow-sm cursor-pointer transition ${selectedCourseForParallel === c ? 'border-orange-400 bg-orange-50' : 'hover:border-orange-300'}`} onClick={() => setSelectedCourseForParallel(c)}>
+                    <li key={c} className={`flex justify-between items-center p-2 bg-white rounded-lg border shadow-sm cursor-pointer transition ${selectedCourseForParallel === c ? 'border-orange-400 bg-orange-50' : 'hover:border-orange-300'}`} onClick={() => { setSelectedCourseForParallel(c); setSelectedParallelForStudents(''); }}>
                       <span className="font-bold text-gray-700">{c}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500 font-bold">{getCourseParallels(c).length} Paralelos</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded text-gray-500 font-bold">{getCourseParallels(c).length} P</span>
                         <button onClick={e => {
                           e.stopPropagation(); runSecureAction(`¿Estás seguro de eliminar el curso "${c}"?`, () => {
                             const tree = { ...appSettings.courses }; delete tree[c];
@@ -2104,7 +2169,7 @@ export default function UE19deAgosto() {
                             if (selectedCourseForParallel === c) setSelectedCourseForParallel('');
                             logAudit("DELETE_COURSE", c, "Eliminado");
                           }, true);
-                        }} className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
+                        }} className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
                       </div>
                     </li>
                   ))}
@@ -2134,16 +2199,20 @@ export default function UE19deAgosto() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {getCourseParallels(selectedCourseForParallel).map(p => (
-                        <div key={p} className="bg-white border-2 border-orange-200 px-4 py-2 rounded-xl text-lg font-black text-orange-800 flex items-center gap-3 shadow-sm">
+                        <div key={p} onClick={() => setSelectedParallelForStudents(p)}
+                          className={`cursor-pointer bg-white border-2 px-3 py-1.5 rounded-xl text-sm font-black flex items-center gap-2 shadow-sm transition-all ${selectedParallelForStudents === p ? 'border-indigo-500 text-indigo-800 ring-2 ring-indigo-200' : 'border-orange-200 text-orange-800 hover:border-orange-400'}`}>
                           {p}
-                          <button onClick={() => runSecureAction(`¿Estás seguro de eliminar el paralelo "${p}" de ${selectedCourseForParallel}?`, () => {
-                            const tree = { ...appSettings.courses };
-                            const cData = tree[selectedCourseForParallel];
-                            const parallels = (Array.isArray(cData) ? cData : (cData?.parallels || [])).filter(x => x !== p);
-                            tree[selectedCourseForParallel] = Array.isArray(cData) ? parallels : { ...cData, parallels };
-                            updateSettings({ ...appSettings, courses: tree });
-                            logAudit("DELETE_PARALLEL", p, "De " + selectedCourseForParallel);
-                          }, true)} className="text-red-400 hover:text-red-600 bg-red-50 p-1.5 rounded-lg"><Trash2 size={16} /></button>
+                          <button onClick={e => {
+                            e.stopPropagation(); runSecureAction(`¿Estás seguro de eliminar el paralelo "${p}" de ${selectedCourseForParallel}?`, () => {
+                              const tree = { ...appSettings.courses };
+                              const cData = tree[selectedCourseForParallel];
+                              const parallels = (Array.isArray(cData) ? cData : (cData?.parallels || [])).filter(x => x !== p);
+                              tree[selectedCourseForParallel] = Array.isArray(cData) ? parallels : { ...cData, parallels };
+                              updateSettings({ ...appSettings, courses: tree });
+                              if (selectedParallelForStudents === p) setSelectedParallelForStudents('');
+                              logAudit("DELETE_PARALLEL", p, "De " + selectedCourseForParallel);
+                            }, true);
+                          }} className="text-red-400 hover:text-red-600 bg-red-50 p-1 rounded-lg"><Trash2 size={14} /></button>
                         </div>
                       ))}
                     </div>
@@ -2173,6 +2242,27 @@ export default function UE19deAgosto() {
                 <div className="mt-4 p-3 bg-white rounded-xl border border-slate-200">
                   <p className="text-[10px] text-slate-400 font-medium italic">Estas materias aparecerán al crear una asignatura para este nivel.</p>
                 </div>
+              </div>
+
+              {/* Col 4: Estudiantes */}
+              <div className="bg-indigo-50 p-5 rounded-2xl border border-indigo-200 flex flex-col">
+                <h4 className="font-black text-indigo-800 mb-1 flex items-center gap-2"><UserCheck size={18} className="text-indigo-600" /> 4. Estudiantes</h4>
+                {selectedParallelForStudents ? (
+                  <>
+                    <p className="text-[10px] text-indigo-500 font-bold uppercase mb-4">Estudiantes en <strong>{selectedCourseForParallel} {selectedParallelForStudents}</strong> — uno por línea</p>
+                    <textarea className="flex-1 w-full border border-indigo-300 rounded-2xl p-4 bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm resize-none shadow-inner min-h-[200px]"
+                      placeholder={"Juan Pérez\nMaría López"}
+                      value={getParallelStudents(selectedCourseForParallel, selectedParallelForStudents).join('\n')}
+                      onChange={e => {
+                        const students = e.target.value.split('\n');
+                        const tree = { ...appSettings.courses };
+                        if (!tree[selectedCourseForParallel].parallelsData) tree[selectedCourseForParallel].parallelsData = {};
+                        if (!tree[selectedCourseForParallel].parallelsData[selectedParallelForStudents]) tree[selectedCourseForParallel].parallelsData[selectedParallelForStudents] = {};
+                        tree[selectedCourseForParallel].parallelsData[selectedParallelForStudents].students = students;
+                        setAppSettings({ ...appSettings, courses: tree });
+                      }} />
+                  </>
+                ) : <div className="text-center text-gray-400 mt-10 p-6 bg-white rounded-xl border border-dashed">Selecciona un paralelo para gestionar sus estudiantes</div>}
               </div>
             </div>
           </div>
