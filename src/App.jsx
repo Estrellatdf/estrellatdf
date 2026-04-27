@@ -115,6 +115,7 @@ export default function UE19deAgosto() {
   const [currentSubjectId, setCurrentSubjectId] = useState(null);
   const [currentTrimester, setCurrentTrimester] = useState(1);
   const [activeTab, setActiveTab] = useState('grades');
+  const [attendanceSession, setAttendanceSession] = useState('');
 
   // Formularios materias
   const [isAddingSubject, setIsAddingSubject] = useState(false);
@@ -802,7 +803,7 @@ export default function UE19deAgosto() {
     const allDates = new Set();
     currentSubject.students.forEach(s => Object.keys(currentSubject?.attendance?.[s.id] || {}).forEach(d => allDates.add(d)));
     const sortedDates = Array.from(allDates).sort();
-    let csv = "Estudiante;Codigo;" + sortedDates.join(";") + ";% Asistencia\n";
+    let csv = "Estudiante;Codigo;" + sortedDates.map(d => d.replace('#', ' ')).join(";") + ";% Asistencia\n";
     currentSubject.students.forEach(s => {
       const att = currentSubject?.attendance?.[s.id] || {};
       let presentCount = 0, totalRecorded = 0;
@@ -1799,8 +1800,24 @@ export default function UE19deAgosto() {
               {/* TAB ASISTENCIA */}
               {activeTab === 'attendance' && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[calc(100vh-220px)]">
-                  <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center sticky top-0 z-20">
-                    <h3 className="font-bold flex items-center gap-2 text-gray-700"><Calendar className="text-indigo-600" /> Asistencia del Día: <span className="bg-white px-3 py-1 rounded border shadow-sm text-indigo-700">{today}</span></h3>
+                  <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-wrap gap-4 justify-between items-center sticky top-0 z-20">
+                    <div className="flex flex-wrap items-center gap-4">
+                      <h3 className="font-bold flex items-center gap-2 text-gray-700">
+                        <Calendar className="text-indigo-600" /> Asistencia: 
+                        <span className="bg-white px-3 py-1 rounded border shadow-sm text-indigo-700 font-mono text-sm">{today}</span>
+                      </h3>
+                      <div className="relative group">
+                        <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400" />
+                        <input 
+                          type="text" 
+                          placeholder="Nombre de la clase/clase 2..." 
+                          className="pl-9 pr-4 py-2 text-sm bg-white border border-indigo-100 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none w-64 shadow-sm"
+                          value={attendanceSession}
+                          onChange={e => setAttendanceSession(e.target.value)}
+                        />
+                        <div className="absolute -top-6 left-0 text-[9px] font-black text-indigo-400 uppercase tracking-tighter opacity-0 group-focus-within:opacity-100 transition-opacity">Identificador de Clase</div>
+                      </div>
+                    </div>
                     <button onClick={exportAttendanceCSV} className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow transition"><Download size={16} /> Exportar Historial</button>
                   </div>
                   <div className="flex-1 overflow-auto p-4 space-y-3">
@@ -1821,7 +1838,8 @@ export default function UE19deAgosto() {
                       </div>
                     )}
                     {currentSubject.students.sort((a, b) => a.name.localeCompare(b.name)).map((s, i) => {
-                      const att = (currentSubject?.attendance?.[s.id] || {})[today] || { status: 'P', note: '' };
+                      const attendanceKey = today + (attendanceSession.trim() ? '#' + attendanceSession.trim() : '');
+                      const att = (currentSubject?.attendance?.[s.id] || {})[attendanceKey] || { status: 'P', note: '' };
                       const editable = canEditGrades(currentSubject);
                       return (
                         <div key={s.id} className={`flex flex-col md:flex-row md:items-center gap-3 p-4 rounded-xl border border-gray-200 shadow-sm ${PALETTE[i % PALETTE.length]}`}>
@@ -1833,8 +1851,8 @@ export default function UE19deAgosto() {
                             <div className="text-xs text-gray-500 font-mono">Cód: {s.code}</div>
                           </div>
                           <div className="flex items-center gap-2 bg-white/80 p-1.5 rounded-lg border border-gray-200 shadow-sm">
-                            <button disabled={!editable} onClick={() => updateAttendance(s.id, today, 'status', 'P')} className={`px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${att.status === 'P' ? 'bg-green-600 text-white shadow' : 'text-gray-400 hover:bg-gray-100'} ${!editable ? 'opacity-50' : ''}`}><CheckCircle size={16} /> Asistió</button>
-                            <button disabled={!editable} onClick={() => updateAttendance(s.id, today, 'status', 'A')} className={`px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${att.status === 'A' ? 'bg-red-600 text-white shadow' : 'text-gray-400 hover:bg-gray-100'} ${!editable ? 'opacity-50' : ''}`}><XCircle size={16} /> Falta</button>
+                            <button disabled={!editable} onClick={() => updateAttendance(s.id, attendanceKey, 'status', 'P')} className={`px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${att.status === 'P' ? 'bg-green-600 text-white shadow' : 'text-gray-400 hover:bg-gray-100'} ${!editable ? 'opacity-50' : ''}`}><CheckCircle size={16} /> Asistió</button>
+                            <button disabled={!editable} onClick={() => updateAttendance(s.id, attendanceKey, 'status', 'A')} className={`px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${att.status === 'A' ? 'bg-red-600 text-white shadow' : 'text-gray-400 hover:bg-gray-100'} ${!editable ? 'opacity-50' : ''}`}><XCircle size={16} /> Falta</button>
                           </div>
                           <div className="flex-1 relative">
                             <MessageSquare size={16} className="absolute top-3 left-3 text-gray-400" />
@@ -1842,7 +1860,7 @@ export default function UE19deAgosto() {
                               className={`w-full pl-9 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white/90 shadow-sm ${!editable ? 'opacity-50' : ''}`}
                               placeholder={!editable ? "Solo lectura" : "Observación..."}
                               value={att.note || ''}
-                              onChange={e => updateAttendance(s.id, today, 'note', e.target.value)} />
+                              onChange={e => updateAttendance(s.id, attendanceKey, 'note', e.target.value)} />
                           </div>
                         </div>
                       );
@@ -1905,18 +1923,22 @@ export default function UE19deAgosto() {
               <button onClick={() => setViewingStudentDetails(null)}><X /></button>
             </div>
             <div className="overflow-y-auto pr-2 space-y-3">
-              {Object.entries(currentSubject?.attendance?.[viewingStudentDetails.id] || {}).sort().reverse().map(([d, v]) => (
-                <div key={d} className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <div className="text-center min-w-[80px]">
-                    <div className="text-xs font-bold text-gray-400">{d.split('-')[0]}</div>
-                    <div className="text-sm font-bold text-gray-700">{d.split('-').slice(1).join('/')}</div>
+              {Object.entries(currentSubject?.attendance?.[viewingStudentDetails.id] || {}).sort().reverse().map(([d, v]) => {
+                const [datePart, sessionPart] = d.split('#');
+                return (
+                  <div key={d} className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="text-center min-w-[80px]">
+                      <div className="text-xs font-bold text-gray-400">{datePart.split('-')[0]}</div>
+                      <div className="text-sm font-bold text-gray-700">{datePart.split('-').slice(1).join('/')}</div>
+                      {sessionPart && <div className="text-[10px] font-black text-indigo-500 uppercase mt-1 leading-tight">{sessionPart}</div>}
+                    </div>
+                    <div className="flex-1">
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${v.status === 'P' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{v.status === 'P' ? 'Presente' : 'Ausente'}</span>
+                      {v.note && <p className="text-xs text-gray-600 mt-1 italic border-l-2 border-indigo-200 pl-2">"{v.note}"</p>}
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${v.status === 'P' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{v.status === 'P' ? 'Presente' : 'Ausente'}</span>
-                    {v.note && <p className="text-xs text-gray-600 mt-1 italic border-l-2 border-indigo-200 pl-2">"{v.note}"</p>}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {Object.keys(currentSubject?.attendance?.[viewingStudentDetails.id] || {}).length === 0 && <div className="text-center py-10 text-gray-400 italic">Sin registros.</div>}
             </div>
             <div className="mt-6 flex justify-end">
