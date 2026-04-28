@@ -342,6 +342,49 @@ export default function UE19deAgosto() {
     } catch (e) { alert("Error al guardar: " + e.message); }
   };
 
+  const recoverCoursesFromSubjects = async () => {
+    if (!window.confirm("¿Deseas intentar recuperar la configuración de cursos basándote en las materias creadas por los docentes?")) return;
+    
+    const tree = { ...appSettings.courses } || {};
+    let count = 0;
+    
+    allSubjects.forEach(sub => {
+       const cName = sub.course;
+       const pName = sub.parallel;
+       const sName = sub.name;
+       
+       if (!cName) return;
+       
+       if (!tree[cName]) tree[cName] = { parallels: [], subjects: [], parallelsData: {} };
+       
+       if (pName && !tree[cName].parallels.includes(pName)) {
+           tree[cName].parallels.push(pName); count++;
+       }
+       if (sName && !tree[cName].subjects.includes(sName)) {
+           tree[cName].subjects.push(sName); count++;
+       }
+       
+       if (pName && sub.students && sub.students.length > 0) {
+           if (!tree[cName].parallelsData) tree[cName].parallelsData = {};
+           if (!tree[cName].parallelsData[pName]) tree[cName].parallelsData[pName] = { students: [] };
+           
+           const existingStudents = tree[cName].parallelsData[pName].students || [];
+           sub.students.forEach(st => {
+               if (!existingStudents.includes(st.name)) {
+                   existingStudents.push(st.name); count++;
+               }
+           });
+           tree[cName].parallelsData[pName].students = existingStudents;
+       }
+    });
+    
+    const newSettings = { ...appSettings, courses: tree };
+    setAppSettings(newSettings);
+    await saveSettings(newSettings);
+    alert(`¡Recuperación completada! Se restauraron ${count} elementos desde las materias activas.`);
+  };
+
+
   // ── AÑOS LECTIVOS ─────────────────────────────────────────────────────────
   // Crea un nuevo año lectivo: archiva datos del actual y limpia para el nuevo.
   const createNewSchoolYear = async () => {
@@ -2203,6 +2246,7 @@ export default function UE19deAgosto() {
             <div className="flex justify-between items-center mb-4 border-b pb-4">
               <h3 className="text-xl font-bold flex items-center gap-2 text-slate-800"><BookOpen className="text-orange-500" /> Gestión Académica: Cursos y Materias</h3>
               <div className="flex items-center gap-4">
+                <button onClick={recoverCoursesFromSubjects} className="bg-orange-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-orange-600 shadow-lg active:scale-95 transition-all text-sm flex items-center gap-2"><RefreshCw size={16}/> Recuperar Datos</button>
                 <button onClick={() => saveSettings(appSettings)} className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-emerald-700 shadow-lg active:scale-95 transition-all">Guardar Todo</button>
                 <button onClick={() => setIsManagingCourses(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500">Cerrar</button>
               </div>
