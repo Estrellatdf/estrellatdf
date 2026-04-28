@@ -396,7 +396,9 @@ export default function UE19deAgosto() {
       }
       return;
     }
+    
     const matches = staff.filter(s => s.password === authPassword);
+
     if (matches.length > 0) {
       const found = matches.find(m => m.role === 'Rector')
         || matches.find(m => m.role === 'Administrativo')
@@ -1153,7 +1155,7 @@ export default function UE19deAgosto() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {studentSubjects.sort((a, b) => a.subject.name.localeCompare(b.subject.name)).map(m => {
+                  {[...studentSubjects].sort((a, b) => a.subject.name.localeCompare(b.subject.name)).map(m => {
                     const s1 = calculateStats(m.subject, 1, m.student.id);
                     const s2 = calculateStats(m.subject, 2, m.student.id);
                     const s3 = calculateStats(m.subject, 3, m.student.id);
@@ -1542,7 +1544,7 @@ export default function UE19deAgosto() {
                         <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">{p || 'Sin Paralelo'}</span>
                         <div className="h-px flex-1 bg-indigo-100" />
                       </div>
-                      {visibleSubjects.filter(s => s.parallel === p).sort((a, b) => a.name.localeCompare(b.name)).map(s => (
+                      {[...visibleSubjects].filter(s => s.parallel === p).sort((a, b) => a.name.localeCompare(b.name)).map(s => (
                         <button key={s.id} onClick={() => { setCurrentSubjectId(s.id); setShowMenu(false); }}
                           className={`w-full text-left p-3 rounded-xl flex justify-between items-center transition-all mb-1 ${currentSubjectId === s.id ? 'bg-indigo-600 text-white shadow-lg translate-x-1' : 'hover:bg-slate-50 text-slate-600 hover:translate-x-1'}`}>
                           <div className="flex-1 min-w-0 pr-2">
@@ -1567,7 +1569,7 @@ export default function UE19deAgosto() {
                       {isAdmin ? 'Todas las Asignaturas' : 'Mis Asignaturas'}
                     </h3>
                   </div>
-                  {(isAdmin ? visibleSubjects : mySubjects).sort((a, b) => a.name.localeCompare(b.name)).map(s => (
+                  {[...(isAdmin ? visibleSubjects : mySubjects)].sort((a, b) => a.name.localeCompare(b.name)).map(s => (
                     <button key={s.id} onClick={() => { setCurrentSubjectId(s.id); setShowMenu(false); }}
                       className={`w-full text-left p-4 rounded-2xl flex justify-between items-center transition-all duration-300 ${currentSubjectId === s.id ? 'bg-indigo-600 text-white shadow-xl translate-x-1' : 'hover:bg-slate-50 text-slate-600 hover:translate-x-1'}`}>
                       <div className="flex-1 min-w-0 pr-3">
@@ -1587,7 +1589,7 @@ export default function UE19deAgosto() {
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-indigo-600 transition-colors">Materias de Tutoría</h3>
                         <span className="text-xs text-slate-400 font-bold group-hover:text-indigo-600 px-2 py-0.5 bg-gray-100 rounded-md">{showOtherSubjects ? 'Ocultar ▲' : 'Ver ▼'}</span>
                       </button>
-                      {showOtherSubjects && otherSubjects.sort((a, b) => a.name.localeCompare(b.name)).map(s => (
+                      {showOtherSubjects && [...otherSubjects].sort((a, b) => a.name.localeCompare(b.name)).map(s => (
                         <button key={s.id} onClick={() => { setCurrentSubjectId(s.id); setShowMenu(false); }}
                           className={`w-full text-left p-3 rounded-xl flex justify-between items-center transition-all mb-1 ${currentSubjectId === s.id ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100' : 'hover:bg-slate-50 text-slate-500'}`}>
                           <div className="flex-1 min-w-0 pr-2">
@@ -1606,11 +1608,11 @@ export default function UE19deAgosto() {
         </aside>
 
         {/* MAIN */}
-        <main className="flex-1 p-4 lg:p-10 overflow-auto bg-slate-50 w-full">
+        <main className="flex-1 p-4 lg:p-8 overflow-hidden bg-slate-50 w-full flex flex-col">
           {currentSubject ? (
-            <div className="max-w-[1600px] mx-auto space-y-8">
+            <div className="max-w-[1600px] w-full mx-auto flex flex-col flex-1 min-h-0 space-y-6">
               {/* Encabezado materia */}
-              <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 flex flex-col lg:flex-row justify-between lg:items-center gap-6">
+              <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 flex flex-col lg:flex-row justify-between lg:items-center gap-4 shrink-0">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
                     {currentSubject.name}
@@ -1644,7 +1646,7 @@ export default function UE19deAgosto() {
 
               {/* TAB NOTAS */}
               {activeTab === 'grades' && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[calc(100vh-220px)]">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
                   <div className="p-3 border-b border-gray-200 bg-gray-50 flex flex-wrap gap-2 items-center justify-between">
                     <div className="flex flex-wrap items-center gap-1 bg-white border border-gray-200 px-1 py-1 rounded-lg shadow-sm">
                       {[1, 2, 3, 'Anual'].map(t => (
@@ -1749,7 +1751,7 @@ export default function UE19deAgosto() {
                           </tr>
                         </thead>
                         <tbody>
-                          {currentSubject.students.sort((a, b) => a.name.localeCompare(b.name)).map((s, i) => {
+                          {[...currentSubject.students].sort((a, b) => a.name.localeCompare(b.name)).map((s, i) => {
                             const st = calculateStats(currentSubject, currentTrimester, s.id);
                             const editable = canEditGrades(currentSubject);
                             return (
@@ -1799,7 +1801,7 @@ export default function UE19deAgosto() {
 
               {/* TAB ASISTENCIA */}
               {activeTab === 'attendance' && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[calc(100vh-220px)]">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
                   <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-wrap gap-4 justify-between items-center sticky top-0 z-20">
                     <div className="flex flex-wrap items-center gap-4">
                       <h3 className="font-bold flex items-center gap-2 text-gray-700">
@@ -1825,7 +1827,7 @@ export default function UE19deAgosto() {
                       <div className="mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                         <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><BarChart2 size={14} /> Resumen de Faltas</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {currentSubject.students.sort((a, b) => a.name.localeCompare(b.name)).map(s => {
+                          {[...currentSubject.students].sort((a, b) => a.name.localeCompare(b.name)).map(s => {
                             const totalAbsences = Object.values(currentSubject?.attendance?.[s.id] || {}).filter(v => v.status === 'A').length;
                             return (
                               <div key={s.id} className="bg-white p-3 rounded-xl border border-slate-100 flex justify-between items-center shadow-sm">
@@ -1837,7 +1839,7 @@ export default function UE19deAgosto() {
                         </div>
                       </div>
                     )}
-                    {currentSubject.students.sort((a, b) => a.name.localeCompare(b.name)).map((s, i) => {
+                    {[...currentSubject.students].sort((a, b) => a.name.localeCompare(b.name)).map((s, i) => {
                       const attendanceKey = today + (attendanceSession.trim() ? '#' + attendanceSession.trim() : '');
                       const att = (currentSubject?.attendance?.[s.id] || {})[attendanceKey] || { status: 'P', note: '' };
                       const editable = canEditGrades(currentSubject);
@@ -2089,7 +2091,7 @@ export default function UE19deAgosto() {
                   </tr>
                 </thead>
                 <tbody>
-                  {staff.sort((a, b) => a.name.localeCompare(b.name)).map(s => (
+                  {[...staff].sort((a, b) => a.name.localeCompare(b.name)).map(s => (
                     <tr key={s.id} className="border-b">
                       <td className="p-2 font-medium">{s.name}</td>
                       <td className="p-2 text-xs text-gray-500">{s.email || '-'}</td>
@@ -2137,7 +2139,7 @@ export default function UE19deAgosto() {
               value={newAnnounceRecipient} onChange={e => setNewAnnounceRecipient(e.target.value)}>
               <option value="all">📢 Todos los estudiantes</option>
               <optgroup label="Estudiante Específico">
-                {currentSubject.students.sort((a, b) => a.name.localeCompare(b.name)).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {[...currentSubject.students].sort((a, b) => a.name.localeCompare(b.name)).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </optgroup>
             </select>
             <input className="border border-gray-300 w-full p-3 rounded-lg mb-3 focus:ring-2 focus:ring-orange-500 outline-none font-bold" placeholder="Título" value={newAnnounceTitle} onChange={e => setNewAnnounceTitle(e.target.value)} />
@@ -2316,7 +2318,9 @@ export default function UE19deAgosto() {
                         const parallels = Array.isArray(cData) ? cData : (cData?.parallels || []);
                         tree[selectedCourseForParallel] = { ...(Array.isArray(cData) ? { parallels } : cData), subjects };
                         setAppSettings({ ...appSettings, courses: tree });
-                      }} />
+                      }} 
+                      onBlur={() => saveSettings(appSettings)}
+                    />
                   </>
                 ) : <div className="text-center text-gray-400 mt-10 p-6 bg-white rounded-xl border border-dashed">Selecciona un curso para ver sus materias</div>}
                 <div className="mt-4 p-3 bg-white rounded-xl border border-slate-200">
@@ -2340,7 +2344,9 @@ export default function UE19deAgosto() {
                         if (!tree[selectedCourseForParallel].parallelsData[selectedParallelForStudents]) tree[selectedCourseForParallel].parallelsData[selectedParallelForStudents] = {};
                         tree[selectedCourseForParallel].parallelsData[selectedParallelForStudents].students = students;
                         setAppSettings({ ...appSettings, courses: tree });
-                      }} />
+                      }} 
+                      onBlur={() => saveSettings(appSettings)}
+                    />
                   </>
                 ) : <div className="text-center text-gray-400 mt-10 p-6 bg-white rounded-xl border border-dashed">Selecciona un paralelo para gestionar sus estudiantes</div>}
               </div>
@@ -2459,7 +2465,7 @@ export default function UE19deAgosto() {
             <div className="flex-1 overflow-auto">
               {!viewingArchivedSubject ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {(viewingArchivedYear.subjects || []).sort((a, b) => a.name.localeCompare(b.name)).map(sub => (
+                  {[...(viewingArchivedYear.subjects || [])].sort((a, b) => a.name.localeCompare(b.name)).map(sub => (
                     <button key={sub.id} onClick={() => setViewingArchivedSubject(sub)}
                       className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left hover:border-violet-300 hover:shadow-md transition">
                       <div className="font-black text-slate-700">{sub.name}</div>
