@@ -349,8 +349,8 @@ export default function UE19deAgosto() {
     let count = 0;
     
     subjects.forEach(sub => {
-       const cName = sub.course;
-       const pName = sub.parallel;
+       const cName = sub.courseName || sub.course;
+       const pName = sub.parallelName || (sub.parallel ? sub.parallel.replace(cName, '').trim() : '');
        const sName = sub.name;
        
        if (!cName) return;
@@ -1531,7 +1531,7 @@ export default function UE19deAgosto() {
             className="flex items-center gap-1 text-sm bg-indigo-800 hover:bg-indigo-900 px-3 py-1.5 rounded transition">
             <LogOut size={16} /> Salir
           </button>
-          <button className="md:hidden" onClick={() => setShowMenu(!showMenu)}><Menu /></button>
+          <button className="lg:hidden" onClick={() => setShowMenu(!showMenu)}><Menu /></button>
         </div>
       </header>
 
