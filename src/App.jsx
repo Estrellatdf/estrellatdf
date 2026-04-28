@@ -348,7 +348,7 @@ export default function UE19deAgosto() {
     const tree = { ...appSettings.courses } || {};
     let count = 0;
     
-    allSubjects.forEach(sub => {
+    subjects.forEach(sub => {
        const cName = sub.course;
        const pName = sub.parallel;
        const sName = sub.name;
@@ -1651,7 +1651,14 @@ export default function UE19deAgosto() {
         </aside>
 
         {/* MAIN */}
-        <main className="flex-1 p-4 lg:p-8 overflow-hidden bg-slate-50 w-full flex flex-col">
+        <main className="flex-1 p-4 lg:p-8 overflow-hidden bg-slate-50 w-full flex flex-col relative">
+          
+          {/* Botón flotante para menú en móviles */}
+          <button className="lg:hidden fixed bottom-6 right-6 z-30 bg-indigo-600 text-white p-4 rounded-full shadow-[0_10px_25px_-5px_rgba(79,70,229,0.5)] hover:bg-indigo-700 active:scale-90 transition-all flex items-center justify-center border-2 border-white" 
+            onClick={() => setShowMenu(!showMenu)} title="Abrir Panel de Control">
+            <Menu size={24} />
+          </button>
+
           {currentSubject ? (
             <div className="max-w-[1600px] w-full mx-auto flex flex-col flex-1 min-h-0 space-y-6">
               {/* Encabezado materia */}
