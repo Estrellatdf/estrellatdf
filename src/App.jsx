@@ -2377,7 +2377,7 @@ export default function UE19deAgosto() {
                     <p className="text-[10px] text-slate-500 font-bold uppercase mb-4">Materias para <strong>{selectedCourseForParallel}</strong> — una por línea</p>
                     <textarea className="flex-1 w-full border border-slate-300 rounded-2xl p-4 bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm resize-none shadow-inner min-h-[200px]"
                       placeholder={"Matemáticas\nLenguaje\nHistoria"}
-                      value={getCourseSubjects(selectedCourseForParallel).join('\n')}
+                      value={(Array.isArray(appSettings.courses?.[selectedCourseForParallel]?.subjects) ? appSettings.courses[selectedCourseForParallel].subjects : []).join('\n')}
                       onChange={e => {
                         const subjects = e.target.value.split('\n');
                         const tree = { ...appSettings.courses };
@@ -2386,7 +2386,15 @@ export default function UE19deAgosto() {
                         tree[selectedCourseForParallel] = { ...(Array.isArray(cData) ? { parallels } : cData), subjects };
                         setAppSettings({ ...appSettings, courses: tree });
                       }} 
-                      onBlur={() => saveSettings(appSettings)}
+                      onBlur={() => {
+                        const tree = { ...appSettings.courses };
+                        const cData = tree[selectedCourseForParallel];
+                        if (cData && Array.isArray(cData.subjects)) {
+                            cData.subjects = cData.subjects.sort((a, b) => a.localeCompare(b));
+                        }
+                        setAppSettings({ ...appSettings, courses: tree });
+                        saveSettings({ ...appSettings, courses: tree });
+                      }}
                     />
                   </>
                 ) : <div className="text-center text-gray-400 mt-10 p-6 bg-white rounded-xl border border-dashed">Selecciona un curso para ver sus materias</div>}
@@ -2403,7 +2411,7 @@ export default function UE19deAgosto() {
                     <p className="text-[10px] text-indigo-500 font-bold uppercase mb-4">Estudiantes en <strong>{selectedCourseForParallel} {selectedParallelForStudents}</strong> — uno por línea</p>
                     <textarea className="flex-1 w-full border border-indigo-300 rounded-2xl p-4 bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm resize-none shadow-inner min-h-[200px]"
                       placeholder={"Juan Pérez\nMaría López"}
-                      value={getParallelStudents(selectedCourseForParallel, selectedParallelForStudents).join('\n')}
+                      value={(appSettings.courses?.[selectedCourseForParallel]?.parallelsData?.[selectedParallelForStudents]?.students || []).join('\n')}
                       onChange={e => {
                         const students = e.target.value.split('\n');
                         const tree = { ...appSettings.courses };
@@ -2412,7 +2420,15 @@ export default function UE19deAgosto() {
                         tree[selectedCourseForParallel].parallelsData[selectedParallelForStudents].students = students;
                         setAppSettings({ ...appSettings, courses: tree });
                       }} 
-                      onBlur={() => saveSettings(appSettings)}
+                      onBlur={() => {
+                        const tree = { ...appSettings.courses };
+                        const pData = tree[selectedCourseForParallel]?.parallelsData?.[selectedParallelForStudents];
+                        if (pData && Array.isArray(pData.students)) {
+                            pData.students = pData.students.sort((a, b) => a.localeCompare(b));
+                        }
+                        setAppSettings({ ...appSettings, courses: tree });
+                        saveSettings({ ...appSettings, courses: tree });
+                      }}
                     />
                   </>
                 ) : <div className="text-center text-gray-400 mt-10 p-6 bg-white rounded-xl border border-dashed">Selecciona un paralelo para gestionar sus estudiantes</div>}
