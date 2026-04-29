@@ -8,6 +8,27 @@
     <link rel="manifest" href="/manifest.json" />
     <title>U.E. 19 de Agosto</title>
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignal = window.OneSignal || [];
+      OneSignal.push(function() {
+        OneSignal.init({
+          appId: "2a9779af-a413-47f6-9196-9be1bf792bbe",
+          allowLocalhostAsSecureOrigin: true,
+          notifyButton: {
+            enable: true,
+            position: 'bottom-right',
+            displayPredicate: function() { return true; }
+          },
+          promptOptions: {
+            slidedown: {
+              enabled: true,
+              autoPrompt: true,
+              timeDelay: 3
+            }
+          }
+        });
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>

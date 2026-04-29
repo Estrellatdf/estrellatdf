@@ -84,45 +84,8 @@ const PALETTE = [
   'bg-orange-50 border-orange-100',
 ];
 
-
-
 export default function UE19deAgosto() {
   useEffect(() => {
-    // Inicializar OneSignal con opciones de auto-prompt
-    window.OneSignal = window.OneSignal || [];
-    window.OneSignal.push(function() {
-      window.OneSignal.init({
-        appId: "2a9779af-a413-47f6-9196-9be1bf792bbe",
-        allowLocalhostAsSecureOrigin: true,
-        serviceWorkerParam: { scope: "/" },
-        serviceWorkerPath: "OneSignalSDKWorker.js",
-        notifyButton: {
-          enable: true, // Esto activará una campanita azul para probar
-          position: 'bottom-right',
-          theme: 'default',
-          text: {
-            'tip.state.unsubscribed': 'Suscribirse a notificaciones',
-            'tip.state.subscribed': 'Estás suscrito',
-            'tip.state.blocked': 'Has bloqueado las notificaciones',
-            'message.action.subscribed': '¡Gracias por suscribirte!',
-            'message.action.resubscribed': 'Estás suscrito de nuevo',
-            'message.action.unsubscribed': 'Ya no recibirás notificaciones',
-            'dialog.main.title': 'Gestionar Notificaciones',
-            'dialog.main.button.subscribe': 'SUSCRIBIRSE',
-            'dialog.main.button.unsubscribe': 'DESACTIVAR',
-          }
-        },
-        promptOptions: {
-          slidedown: {
-            enabled: true,
-            autoPrompt: true,
-            timeDelay: 3,
-            pageViews: 1
-          }
-        }
-      });
-    });
-
     const existingScript = document.getElementById('tailwindcss');
     if (!existingScript) {
       const script = document.createElement('script');
