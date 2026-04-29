@@ -105,9 +105,8 @@ export default function UE19deAgosto() {
   const [portalSelection, setPortalSelection] = useState(null);
   const [authPassword, setAuthPassword] = useState('');
   const [studentCodeInput, setStudentCodeInput] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState(initError);
   const [showMenu, setShowMenu] = useState(false);
+  const [pushStatus, setPushStatus] = useState('checking'); // 'checking', 'granted', 'denied', 'default'
 
   // Profesor
   const [currentSubjectId, setCurrentSubjectId] = useState(null);
@@ -215,6 +214,45 @@ export default function UE19deAgosto() {
     });
     return () => unsubscribe();
   }, []);
+
+  // ── PUSH STATUS MONITOR ───────────────────────────────────────────────────
+  useEffect(() => {
+    const checkPush = () => {
+      const os = window.OneSignal || window.OneSignalDeferred;
+      if (os) {
+        const pushFn = (OneSignal) => {
+          try {
+            const instance = OneSignal || window.OneSignal;
+            if (instance.Notifications?.permission) {
+              setPushStatus(instance.Notifications.permissionNative || (instance.Notifications.permission ? 'granted' : 'default'));
+            } else if (Notification.permission) {
+              setPushStatus(Notification.permission);
+            }
+          } catch (e) { console.error(e); }
+        };
+        if (window.OneSignalDeferred?.push) window.OneSignalDeferred.push(pushFn);
+        else if (window.OneSignal?.push) window.OneSignal.push(pushFn);
+      }
+    };
+    const timer = setInterval(checkPush, 3000);
+    checkPush();
+    return () => clearInterval(timer);
+  }, []);
+
+  const requestPushPermission = () => {
+    const os = window.OneSignal || window.OneSignalDeferred;
+    if (os) {
+      const pushFn = async (OneSignal) => {
+        const instance = OneSignal || window.OneSignal;
+        if (instance.Notifications?.requestPermission) {
+          await instance.Notifications.requestPermission();
+          setPushStatus(instance.Notifications.permissionNative || (instance.Notifications.permission ? 'granted' : 'default'));
+        }
+      };
+      if (window.OneSignalDeferred?.push) window.OneSignalDeferred.push(pushFn);
+      else if (window.OneSignal?.push) window.OneSignal.push(pushFn);
+    }
+  };
 
   // ── DATA ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -790,11 +828,18 @@ export default function UE19deAgosto() {
 
   const sendPushNotification = async (title, body, studentCode, isGlobal) => {
     try {
-      await fetch('/api/send-push', {
+      const response = await fetch('/api/send-push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, body, studentCode, isGlobal })
       });
+      const data = await response.json();
+      if (!response.ok) {
+        console.error("Push Error:", data);
+        if (data.error?.includes('REST_API_KEY')) {
+          alert("⚠️ Error: La llave de OneSignal (REST API KEY) no está configurada en Vercel.");
+        }
+      }
     } catch (err) {
       console.error("Error al enviar notificación push:", err);
     }
@@ -1026,7 +1071,19 @@ export default function UE19deAgosto() {
                 </div>
               </button>
             </div>
-            <p className="mt-8 text-[10px] text-slate-500 font-bold uppercase tracking-widest opacity-50">Unidad Educativa Particular "19 de Agosto"</p>
+            <div className="mt-8 flex flex-col items-center gap-2">
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest opacity-50">Unidad Educativa Particular "19 de Agosto"</p>
+              
+              <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full border border-white/5">
+                <div className={`w-2 h-2 rounded-full ${pushStatus === 'granted' ? 'bg-emerald-500 animate-pulse' : pushStatus === 'denied' ? 'bg-red-500' : 'bg-yellow-500'}`} />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                  Notificaciones: {pushStatus === 'granted' ? 'Activadas' : pushStatus === 'denied' ? 'Bloqueadas' : 'No configurado'}
+                </span>
+                {pushStatus !== 'granted' && (
+                  <button onClick={requestPushPermission} className="text-[10px] text-indigo-400 underline font-bold uppercase ml-1">Activar</button>
+                )}
+              </div>
+            </div>
           </>
         ) : portalSelection === 'teacher' ? (
           <div className="animate-in fade-in slide-in-from-right-4 duration-300">
