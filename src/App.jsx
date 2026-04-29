@@ -1180,7 +1180,7 @@ export default function UE19deAgosto() {
                   </button>
                   <button onClick={() => { setIsEditingParentForm(true); setShowParentForm(true); }}
                     className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1 shadow-sm">
-                    <Settings size={14} /> Ficha Médica/Contacto
+                    <Settings size={14} /> Datos y Contacto
                   </button>
                 </div>
               </div>
@@ -2700,7 +2700,7 @@ export default function UE19deAgosto() {
               <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
                 <button onClick={() => setViewingProfileCode(null)} 
                   className="bg-slate-900 hover:bg-black text-white px-12 py-4 rounded-[1.5rem] font-black transition shadow-xl active:scale-95">
-                  Cerrar Ficha
+                  Cerrar Datos
                 </button>
               </div>
             </div>
