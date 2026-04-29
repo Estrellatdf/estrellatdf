@@ -88,6 +88,15 @@ const PALETTE = [
 
 export default function UE19deAgosto() {
   useEffect(() => {
+    // Inicializar OneSignal
+    window.OneSignal = window.OneSignal || [];
+    window.OneSignal.push(function() {
+      window.OneSignal.init({
+        appId: "2a9779af-a413-47f6-9196-9be1bf792bbe",
+        allowLocalhostAsSecureOrigin: true,
+      });
+    });
+
     const existingScript = document.getElementById('tailwindcss');
     if (!existingScript) {
       const script = document.createElement('script');
@@ -501,6 +510,13 @@ export default function UE19deAgosto() {
       if (!studentCodeInput) return;
       const code = studentCodeInput.trim().toUpperCase();
 
+      // Vincular dispositivo con OneSignal para notificaciones push
+      if (window.OneSignal) {
+        window.OneSignal.push(function() {
+          window.OneSignal.sendTag("studentCode", code);
+        });
+      }
+
       let studentName = null;
       for (const sub of subjects) {
         const s = (sub.students || []).find(st => st.code === code);
@@ -759,6 +775,18 @@ export default function UE19deAgosto() {
     }, true);
   };
 
+  const sendPushNotification = async (title, body, studentCode, isGlobal) => {
+    try {
+      await fetch('/api/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, body, studentCode, isGlobal })
+      });
+    } catch (err) {
+      console.error("Error al enviar notificación push:", err);
+    }
+  };
+
   const addAnnouncement = () => {
     if (!newAnnounceTitle || !currentSubject) return;
     const isGlobal = newAnnounceRecipient === 'all' && isRector;
@@ -799,6 +827,15 @@ export default function UE19deAgosto() {
       const bcc = bccEmails.join(',');
       window.open(`mailto:?bcc=${bcc}&subject=${subject}&body=${body}`, '_blank');
     }
+
+    // Enviar notificación Push al celular
+    let pushStudentCode = null;
+    if (newAnnounceRecipient !== 'all') {
+      const targetStu = currentSubject.students.find(st => st.id === newAnnounceRecipient);
+      if (targetStu) pushStudentCode = targetStu.code;
+    }
+
+    sendPushNotification(newAnnounceTitle, newAnnounceBody, pushStudentCode, isGlobal);
 
     setIsAddingAnnouncement(false); setNewAnnounceTitle(''); setNewAnnounceBody(''); setNewAnnounceRecipient('all');
   };
