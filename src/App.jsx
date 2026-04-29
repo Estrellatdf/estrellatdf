@@ -105,6 +105,8 @@ export default function UE19deAgosto() {
   const [portalSelection, setPortalSelection] = useState(null);
   const [authPassword, setAuthPassword] = useState('');
   const [studentCodeInput, setStudentCodeInput] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState(initError);
   const [showMenu, setShowMenu] = useState(false);
   const [pushStatus, setPushStatus] = useState('checking'); // 'checking', 'granted', 'denied', 'default'
 
