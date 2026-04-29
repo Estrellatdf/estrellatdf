@@ -513,7 +513,16 @@ export default function UE19deAgosto() {
       // Vincular dispositivo con OneSignal para notificaciones push
       if (window.OneSignal) {
         window.OneSignal.push(function() {
-          window.OneSignal.sendTag("studentCode", code);
+          try {
+            // API v16: OneSignal.User.addTag
+            if (window.OneSignal.User && window.OneSignal.User.addTag) {
+              window.OneSignal.User.addTag("studentCode", code);
+            } else if (window.OneSignal.sendTag) {
+              window.OneSignal.sendTag("studentCode", code);
+            }
+          } catch (e) {
+            console.error("OneSignal tag error:", e);
+          }
         });
       }
 
