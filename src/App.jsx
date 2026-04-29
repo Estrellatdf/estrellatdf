@@ -378,6 +378,19 @@ export default function UE19deAgosto() {
        }
     });
     
+    // Ordenar alfabéticamente todo lo recuperado
+    Object.keys(tree).forEach(cName => {
+        if (tree[cName].parallels) tree[cName].parallels.sort((a, b) => a.localeCompare(b));
+        if (tree[cName].subjects) tree[cName].subjects.sort((a, b) => a.localeCompare(b));
+        if (tree[cName].parallelsData) {
+            Object.keys(tree[cName].parallelsData).forEach(pName => {
+                if (tree[cName].parallelsData[pName].students) {
+                    tree[cName].parallelsData[pName].students.sort((a, b) => a.localeCompare(b));
+                }
+            });
+        }
+    });
+    
     const newSettings = { ...appSettings, courses: tree };
     setAppSettings(newSettings);
     await saveSettings(newSettings);
@@ -869,18 +882,21 @@ export default function UE19deAgosto() {
   // ── HELPERS UI CURSOS ─────────────────────────────────────────────────────
   const getCourseParallels = (courseName) => {
     const cData = appSettings.courses?.[courseName];
-    return Array.isArray(cData) ? cData : (cData?.parallels || []);
+    const arr = Array.isArray(cData) ? cData : (cData?.parallels || []);
+    return [...arr].sort((a, b) => a.localeCompare(b));
   };
 
   const getCourseSubjects = (courseName) => {
     const cData = appSettings.courses?.[courseName];
-    return Array.isArray(cData?.subjects) ? cData.subjects : [];
+    const arr = Array.isArray(cData?.subjects) ? cData.subjects : [];
+    return [...arr].sort((a, b) => a.localeCompare(b));
   };
 
   const getParallelStudents = (courseName, parallelName) => {
     const cData = appSettings.courses?.[courseName];
     if (!cData || !cData.parallelsData) return [];
-    return Array.isArray(cData.parallelsData[parallelName]?.students) ? cData.parallelsData[parallelName].students : [];
+    const arr = Array.isArray(cData.parallelsData[parallelName]?.students) ? cData.parallelsData[parallelName].students : [];
+    return [...arr].sort((a, b) => a.localeCompare(b));
   };
 
   const renameCourse = async (oldName, newName) => {
