@@ -8,22 +8,51 @@
     <link rel="manifest" href="/manifest.json" />
     <title>U.E. 19 de Agosto</title>
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <style>
+      #onesignal-bell-container { z-index: 999999 !important; }
+    </style>
     <script>
-      window.OneSignal = window.OneSignal || [];
-      OneSignal.push(function() {
-        OneSignal.init({
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
           appId: "2a9779af-a413-47f6-9196-9be1bf792bbe",
           allowLocalhostAsSecureOrigin: true,
           notifyButton: {
             enable: true,
             position: 'bottom-right',
-            displayPredicate: function() { return true; }
+            size: 'medium',
+            theme: 'default',
+            displayPredicate: function() { return true; },
+            text: {
+              'tip.state.unsubscribed': 'Suscribirse a notificaciones',
+              'tip.state.subscribed': 'Estás suscrito a las notificaciones',
+              'tip.state.blocked': 'Has bloqueado las notificaciones',
+              'message.prenotify': 'Haz clic para suscribirte a las notificaciones',
+              'message.action.subscribed': '¡Gracias por suscribirte!',
+              'message.action.resubscribed': 'Estás suscrito a las notificaciones',
+              'message.action.unsubscribed': 'Ya no recibirás notificaciones',
+              'dialog.main.title': 'Gestionar Notificaciones',
+              'dialog.main.button.subscribe': 'SUSCRIBIRSE',
+              'dialog.main.button.unsubscribe': 'ANULAR SUSCRIPCIÓN'
+            }
           },
           promptOptions: {
             slidedown: {
-              enabled: true,
-              autoPrompt: true,
-              timeDelay: 3
+              prompts: [
+                {
+                  type: "push",
+                  autoPrompt: true,
+                  text: {
+                    actionMessage: "¿Deseas recibir notificaciones sobre notas y comunicados en tiempo real?",
+                    acceptButton: "Suscibirme",
+                    cancelButton: "Más tarde"
+                  },
+                  delay: {
+                    pageViews: 1,
+                    timeDelay: 5
+                  }
+                }
+              ]
             }
           }
         });
@@ -36,7 +65,8 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').then(registration => {
+          // Registramos el SW solo si no estamos en modo desarrollo o si es necesario
+          navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(registration => {
             console.log('SW registrado con éxito:', registration.scope);
           }).catch(err => {
             console.log('Falló el registro del SW:', err);

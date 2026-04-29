@@ -500,24 +500,34 @@ export default function UE19deAgosto() {
       const code = studentCodeInput.trim().toUpperCase();
 
       // Vincular dispositivo con OneSignal para notificaciones push
-      if (window.OneSignal) {
-        window.OneSignal.push(function() {
+      const os = window.OneSignal || window.OneSignalDeferred;
+      if (os) {
+        const pushFn = async (OneSignalInstance) => {
           try {
-            // Solicitar permiso explícitamente
-            if (window.OneSignal.Notifications && window.OneSignal.Notifications.requestPermission) {
-              window.OneSignal.Notifications.requestPermission();
+            // En v16, OneSignalInstance puede ser pasado por OneSignalDeferred
+            const instance = OneSignalInstance || window.OneSignal;
+            
+            // Solicitar permiso
+            if (instance.Notifications?.requestPermission) {
+              await instance.Notifications.requestPermission();
             }
 
-            // API v16: OneSignal.User.addTag
-            if (window.OneSignal.User && window.OneSignal.User.addTag) {
-              window.OneSignal.User.addTag("studentCode", code);
-            } else if (window.OneSignal.sendTag) {
-              window.OneSignal.sendTag("studentCode", code);
+            // Etiquetar al usuario con su código de estudiante
+            if (instance.User?.addTag) {
+              await instance.User.addTag("studentCode", code);
+            } else if (instance.sendTag) {
+              await instance.sendTag("studentCode", code);
             }
           } catch (e) {
             console.error("OneSignal error:", e);
           }
-        });
+        };
+
+        if (window.OneSignalDeferred && typeof window.OneSignalDeferred.push === 'function') {
+          window.OneSignalDeferred.push(pushFn);
+        } else if (window.OneSignal && typeof window.OneSignal.push === 'function') {
+          window.OneSignal.push(pushFn);
+        }
       }
 
       let studentName = null;
