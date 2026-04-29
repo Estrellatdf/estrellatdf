@@ -514,6 +514,11 @@ export default function UE19deAgosto() {
       if (window.OneSignal) {
         window.OneSignal.push(function() {
           try {
+            // Solicitar permiso explícitamente
+            if (window.OneSignal.Notifications && window.OneSignal.Notifications.requestPermission) {
+              window.OneSignal.Notifications.requestPermission();
+            }
+
             // API v16: OneSignal.User.addTag
             if (window.OneSignal.User && window.OneSignal.User.addTag) {
               window.OneSignal.User.addTag("studentCode", code);
@@ -521,7 +526,7 @@ export default function UE19deAgosto() {
               window.OneSignal.sendTag("studentCode", code);
             }
           } catch (e) {
-            console.error("OneSignal tag error:", e);
+            console.error("OneSignal error:", e);
           }
         });
       }
