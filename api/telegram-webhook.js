@@ -1,6 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, getDoc, setDoc, collection, getDocs, initializeFirestore } from 'firebase/firestore';
-import { getAuth, signInAnonymously } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDpo89i5887oP6uhkzsDdIAsKAFji2OqbY",
@@ -13,9 +12,7 @@ const firebaseConfig = {
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
-// Ajuste para mejorar conexión en servidores
 const db = initializeFirestore(app, { experimentalForceLongPolling: true });
-const auth = getAuth(app);
 const firebaseAppId = "escuela-v1";
 
 export default async function handler(req, res) {
@@ -42,7 +39,6 @@ export default async function handler(req, res) {
   // 2. Consulta de Notas
   if (text === 'NOTAS' || text === '/NOTAS') {
     try {
-      await signInAnonymously(auth);
       const userDoc = await getDoc(doc(db, 'artifacts', firebaseAppId, 'public', 'data', 'telegram_users', chatId.toString()));
       
       if (!userDoc.exists()) {
@@ -110,7 +106,6 @@ export default async function handler(req, res) {
   // 3. Intentar vincular código (6 caracteres)
   if (text.length === 6 && !text.includes('/')) {
     try {
-      await signInAnonymously(auth);
       const profileDoc = await getDoc(doc(db, 'artifacts', firebaseAppId, 'public', 'data', 'parentProfiles', text));
       
       if (profileDoc.exists()) {

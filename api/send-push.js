@@ -73,7 +73,6 @@ export default async function handler(req, res) {
 
     // --- 3. ENVIAR TELEGRAM ---
     try {
-      await signInAnonymously(auth);
       let targetChatIds = [];
       if (isGlobal) {
         const regs = await getDocs(collection(db, 'artifacts', firebaseAppId, 'public', 'data', 'telegram_registrations'));
