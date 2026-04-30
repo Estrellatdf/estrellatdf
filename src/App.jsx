@@ -852,69 +852,59 @@ export default function UE19deAgosto() {
     }
   };
 
-  const addAnnouncement = () => {
-    if (!newAnnounceTitle || !currentSubject) return;
-    const isGlobal = newAnnounceRecipient === 'all' && isRector;
-    let recipName = isGlobal ? "Todos los Cursos" : "Todos";
-    if (newAnnounceRecipient !== 'all') {
-      const s = currentSubject.students.find(st => st.id === newAnnounceRecipient);
-      if (s) recipName = s.name;
-    }
-    const newAnn = {
-      id: "msg_" + Date.now(), title: newAnnounceTitle, body: newAnnounceBody,
-      type: newAnnounceType, recipient: newAnnounceRecipient,
-      recipientName: recipName, isGlobal, date: new Date().toLocaleDateString()
-    };
-    const currentList = Array.isArray(currentSubject.announcements) ? currentSubject.announcements : [];
-    saveSubject({ ...currentSubject, announcements: [newAnn, ...currentList] });
+  const addAnnouncement = async () => {
+    try {
+      if (!newAnnounceTitle) return;
+      const isGlobal = newAnnounceRecipient === 'all' && isRector;
+      
+      // Si no es global y no hay materia, entonces sí salimos
+      if (!isGlobal && !currentSubject) return;
 
-    // Enviar correo por mailto si hay correos de representantes
-    let bccEmails = [];
-    if (newAnnounceRecipient === 'all') {
-      currentSubject.students.forEach(st => {
-        const profile = parentProfiles[st.code]?.formData;
-        if (profile?.representante1?.email) bccEmails.push(profile.representante1.email);
-        if (profile?.representante2?.email) bccEmails.push(profile.representante2.email);
-      });
-    } else {
-      const st = currentSubject.students.find(st => st.id === newAnnounceRecipient);
-      if (st) {
-        const profile = parentProfiles[st.code]?.formData;
-        if (profile?.representante1?.email) bccEmails.push(profile.representante1.email);
-        if (profile?.representante2?.email) bccEmails.push(profile.representante2.email);
+      let recipName = isGlobal ? "Todos los Cursos" : "Todos";
+      if (newAnnounceRecipient !== 'all' && currentSubject) {
+        const s = currentSubject.students.find(st => st.id === newAnnounceRecipient);
+        if (s) recipName = s.name;
       }
-    }
-    bccEmails = [...new Set(bccEmails)].filter(e => e.includes('@'));
 
-    if (bccEmails.length > 0) {
-      const subject = encodeURIComponent(`Comunicado U.E. 19 de Agosto: ${newAnnounceTitle}`);
-      const body = encodeURIComponent(`${newAnnounceBody}\n\nEnviado por: ${currentUser?.name} (${currentUser?.role})`);
-      const bcc = bccEmails.join(',');
-      window.open(`mailto:?bcc=${bcc}&subject=${subject}&body=${body}`, '_blank');
-    }
+      const newAnn = {
+        id: "msg_" + Date.now(), title: newAnnounceTitle, body: newAnnounceBody,
+        type: newAnnounceType, recipient: newAnnounceRecipient,
+        recipientName: recipName, isGlobal, date: new Date().toLocaleDateString()
+      };
 
-    // Enviar notificación Push al celular
-    const subjectName = currentSubject?.name || 'General';
-    const teacherName = staffData?.[user?.uid]?.name || 'Administración';
-    
-    const pushTitle = isGlobal ? `📢 RECTORÍA: ${newAnnounceTitle}` : `📘 ${subjectName}: ${newAnnounceTitle}`;
-    const pushBody = isGlobal ? newAnnounceBody : `${newAnnounceBody}\n\nEnviado por: ${teacherName}`;
-
-    if (isGlobal) {
-      sendPushNotification(pushTitle, pushBody, null, true);
-    } else if (newAnnounceRecipient === 'all') {
-      const codes = currentSubject.students.map(st => st.code).filter(Boolean);
-      if (codes.length > 0) {
-        sendPushNotification(pushTitle, pushBody, codes, false);
+      if (isGlobal) {
+        // Guardar comunicado global en la configuración general
+        const currentList = Array.isArray(appSettings.announcements) ? appSettings.announcements : [];
+        await saveSettings({ ...appSettings, announcements: [newAnn, ...currentList] });
+      } else if (currentSubject) {
+        // Guardar comunicado en la materia
+        const currentList = Array.isArray(currentSubject.announcements) ? currentSubject.announcements : [];
+        await saveSubject({ ...currentSubject, announcements: [newAnn, ...currentList] });
       }
-    } else {
-      const targetStu = currentSubject.students.find(st => st.id === newAnnounceRecipient);
-      if (targetStu) {
-        sendPushNotification(pushTitle, pushBody, targetStu.code, false);
-      }
-    }
 
-    setIsAddingAnnouncement(false); setNewAnnounceTitle(''); setNewAnnounceBody(''); setNewAnnounceRecipient('all');
+      // ── ENVÍO DE NOTIFICACIONES ──
+      const subjectName = currentSubject?.name || 'General';
+      const teacherName = staffData?.[user?.uid]?.name || 'Administración';
+      const pushTitle = isGlobal ? `📢 RECTORÍA: ${newAnnounceTitle}` : `📘 ${subjectName}: ${newAnnounceTitle}`;
+      const pushBody = isGlobal ? newAnnounceBody : `${newAnnounceBody}\n\nEnviado por: ${teacherName}`;
+
+      if (isGlobal) {
+        sendPushNotification(pushTitle, pushBody, null, true);
+      } else if (newAnnounceRecipient === 'all' && currentSubject) {
+        const codes = currentSubject.students.map(st => st.code).filter(Boolean);
+        if (codes.length > 0) sendPushNotification(pushTitle, pushBody, codes, false);
+      } else if (currentSubject) {
+        const st = currentSubject.students.find(st => st.id === newAnnounceRecipient);
+        if (st) sendPushNotification(pushTitle, pushBody, st.code, false);
+      }
+    } catch (err) {
+      console.error("Error en addAnnouncement:", err);
+    } finally {
+      setIsAddingAnnouncement(false); 
+      setNewAnnounceTitle(''); 
+      setNewAnnounceBody(''); 
+      setNewAnnounceRecipient('all');
+    }
   };
 
   const deleteAnnouncement = (id) => {
