@@ -65,15 +65,19 @@ export default async function handler(req, res) {
           if (student) {
             found = true;
             report += `📘 *${sub.name || 'Materia'}*\n`;
-            const tri1 = (sub.grades || {})[1] || {};
-            const stuGrades = tri1[student.id] || {};
-            const vals = Object.values(stuGrades).filter(v => typeof v === 'number');
-            if (vals.length > 0) {
-              const avg = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2);
-              report += `   Promedio T1: *${avg}*\n\n`;
-            } else {
-              report += `   Promedio T1: _Sin notas_\n\n`;
+            
+            const grades = sub.grades || {};
+            for (let t = 1; t <= 3; t++) {
+              const triGrades = grades[t] || {};
+              const stuGrades = triGrades[student.id] || {};
+              const vals = Object.values(stuGrades).filter(v => typeof v === 'number');
+              
+              if (vals.length > 0) {
+                const avg = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2);
+                report += `   T${t}: *${avg}*`;
+              }
             }
+            report += `\n\n`;
           }
         } catch (innerErr) { console.error(innerErr); }
       });
