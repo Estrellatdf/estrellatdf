@@ -67,17 +67,30 @@ export default async function handler(req, res) {
             report += `📘 *${sub.name || 'Materia'}*\n`;
             
             const grades = sub.grades || {};
+            let annualSum = 0;
+            let trimestersWithData = 0;
+
             for (let t = 1; t <= 3; t++) {
               const triGrades = grades[t] || {};
               const stuGrades = triGrades[student.id] || {};
               const vals = Object.values(stuGrades).filter(v => typeof v === 'number');
               
               if (vals.length > 0) {
-                const avg = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2);
-                report += `   T${t}: *${avg}*`;
+                const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+                annualSum += avg;
+                trimestersWithData++;
+                report += `   T${t}: *${avg.toFixed(2)}*`;
               }
             }
-            report += `\n\n`;
+
+            if (trimestersWithData > 0) {
+              const finalAvg = annualSum / 3; // Promedio anual sobre 3 trimestres
+              const status = finalAvg >= 7 ? "✅ APROBADO" : "⚠️ SUPLETORIO / REMEDIAL";
+              report += `\n   *FINAL ANUAL: ${finalAvg.toFixed(2)}*`;
+              report += `\n   Estado: ${status}\n\n`;
+            } else {
+              report += `\n   _Sin calificaciones aún_\n\n`;
+            }
           }
         } catch (innerErr) { console.error(innerErr); }
       });
