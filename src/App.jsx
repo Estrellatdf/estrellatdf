@@ -873,12 +873,12 @@ export default function UE19deAgosto() {
       };
 
       // ── ENVÍO DE NOTIFICACIONES ──
-      const teacherObj = staff.find(s => s.id === user?.uid);
-      const teacherName = teacherObj?.name || 'Administración';
+      const teacherName = currentUser?.name || 'Docente';
       const subjectName = currentSubject?.name || 'General';
 
-      const pushTitle = isGlobal ? `📢 RECTORÍA: ${newAnnounceTitle}` : `📘 ${subjectName}: ${newAnnounceTitle}`;
-      const pushBody = isGlobal ? newAnnounceBody : `${newAnnounceBody}\n\nEnviado por: ${teacherName}`;
+      // Formato para OneSignal (Push)
+      const pushTitle = isGlobal ? `📢 RECTORÍA` : `📘 ${subjectName}`;
+      const pushBody = `📌 ${newAnnounceTitle}\n\n${newAnnounceBody}\n\n👤 Enviado por: ${teacherName}`;
 
       if (isGlobal) {
         sendPushNotification(pushTitle, pushBody, null, true);
