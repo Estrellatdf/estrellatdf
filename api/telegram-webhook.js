@@ -42,7 +42,6 @@ export default async function handler(req, res) {
   if (text === 'NOTAS' || text === '/NOTAS') {
     try {
       await signInAnonymously(auth);
-      // Buscar qué código tiene este chat_id
       const userDoc = await getDoc(doc(db, 'artifacts', firebaseAppId, 'public', 'data', 'telegram_users', chatId.toString()));
       
       if (!userDoc.exists()) {
@@ -51,36 +50,47 @@ export default async function handler(req, res) {
       }
 
       const studentCode = userDoc.data().studentCode;
-      
-      // Buscar materias de este estudiante
       const subjectsSnap = await getDocs(collection(db, 'artifacts', firebaseAppId, 'public', 'data', 'subjects'));
-      let report = `📊 *Reporte de Calificaciones*\nEstudiante: ${studentCode}\n\n`;
+      
+      let report = `📊 *Reporte de Calificaciones*\nCódigo: ${studentCode}\n\n`;
       let found = false;
 
       subjectsSnap.forEach(subDoc => {
-        const sub = subDoc.data();
-        const student = (sub.students || []).find(s => s.code === studentCode);
-        
-        if (student) {
-          found = true;
-          report += `📘 *${sub.name}*\n`;
-          // Mostrar promedio del 1er Trimestre (por ejemplo)
-          const tri = sub.grades?.[1] || {};
-          const stuGrades = tri[student.id] || {};
-          const vals = Object.values(stuGrades);
-          const avg = vals.length > 0 ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : "S/N";
-          report += `   Promedio T1: *${avg}*\n\n`;
+        try {
+          const sub = subDoc.data();
+          const students = sub.students || [];
+          const student = students.find(s => s.code === studentCode);
+          
+          if (student) {
+            found = true;
+            report += `📘 *${sub.name || 'Materia'}*\n`;
+            
+            // Calculamos promedio del 1er Trimestre
+            const grades = sub.grades || {};
+            const tri1 = grades[1] || {};
+            const stuGrades = tri1[student.id] || {};
+            
+            const vals = Object.values(stuGrades).filter(v => typeof v === 'number');
+            if (vals.length > 0) {
+              const avg = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2);
+              report += `   Promedio T1: *${avg}*\n\n`;
+            } else {
+              report += `   Promedio T1: _Sin notas_\n\n`;
+            }
+          }
+        } catch (innerErr) {
+          console.error("Error en materia individual:", innerErr);
         }
       });
 
       if (!found) {
-        await sendTelegramMessage(token, chatId, "No se encontraron materias registradas para este código.");
+        await sendTelegramMessage(token, chatId, "No se encontraron materias para este estudiante.");
       } else {
         await sendTelegramMessage(token, chatId, report);
       }
     } catch (e) {
-      console.error(e);
-      await sendTelegramMessage(token, chatId, "Error al consultar notas.");
+      console.error("Error general notas:", e);
+      await sendTelegramMessage(token, chatId, "⚠️ Error al consultar notas. Por favor, intenta más tarde.");
     }
     return res.status(200).send('OK');
   }
