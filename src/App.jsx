@@ -217,18 +217,23 @@ export default function UE19deAgosto() {
     return () => unsubscribe();
   }, []);
 
+  const [linkedCode, setLinkedCode] = useState(null);
+
   // ── PUSH STATUS MONITOR ───────────────────────────────────────────────────
   useEffect(() => {
     const checkPush = () => {
       const os = window.OneSignal || window.OneSignalDeferred;
       if (os) {
-        const pushFn = (OneSignal) => {
+        const pushFn = async (OneSignal) => {
           try {
             const instance = OneSignal || window.OneSignal;
             if (instance.Notifications?.permission) {
               setPushStatus(instance.Notifications.permissionNative || (instance.Notifications.permission ? 'granted' : 'default'));
-            } else if (Notification.permission) {
-              setPushStatus(Notification.permission);
+            }
+            // En v16, intentar obtener etiquetas para ver si el código está vinculado
+            if (instance.User?.getTags) {
+              const tags = await instance.User.getTags();
+              if (tags && tags.studentCode) setLinkedCode(tags.studentCode);
             }
           } catch (e) { console.error(e); }
         };
@@ -236,7 +241,7 @@ export default function UE19deAgosto() {
         else if (window.OneSignal?.push) window.OneSignal.push(pushFn);
       }
     };
-    const timer = setInterval(checkPush, 3000);
+    const timer = setInterval(checkPush, 5000);
     checkPush();
     return () => clearInterval(timer);
   }, []);
@@ -248,7 +253,6 @@ export default function UE19deAgosto() {
         const instance = OneSignal || window.OneSignal;
         if (instance.Notifications?.requestPermission) {
           await instance.Notifications.requestPermission();
-          setPushStatus(instance.Notifications.permissionNative || (instance.Notifications.permission ? 'granted' : 'default'));
         }
       };
       if (window.OneSignalDeferred?.push) window.OneSignalDeferred.push(pushFn);
@@ -1080,6 +1084,12 @@ export default function UE19deAgosto() {
                 <div className={`w-2 h-2 rounded-full ${pushStatus === 'granted' ? 'bg-emerald-500 animate-pulse' : pushStatus === 'denied' ? 'bg-red-500' : 'bg-yellow-500'}`} />
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
                   Notificaciones: {pushStatus === 'granted' ? 'Activadas' : pushStatus === 'denied' ? 'Bloqueadas' : 'No configurado'}
+                  {pushStatus === 'granted' && linkedCode && (
+                    <span className="text-emerald-400 ml-1"> (Código: {linkedCode})</span>
+                  )}
+                  {pushStatus === 'granted' && !linkedCode && (
+                    <span className="text-yellow-400 ml-1"> (Sin vincular)</span>
+                  )}
                 </span>
                 {pushStatus !== 'granted' && (
                   <button onClick={requestPushPermission} className="text-[10px] text-indigo-400 underline font-bold uppercase ml-1">Activar</button>
