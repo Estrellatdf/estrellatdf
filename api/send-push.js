@@ -13,12 +13,15 @@ export default async function handler(req, res) {
     });
   }
 
+  const host = req.headers.host;
+  const protocol = req.headers['x-forwarded-proto'] || 'https';
+  const baseUrl = `${protocol}://${host}/`;
+
   const notificationBody = {
     app_id: appId,
     headings: { en: title, es: title },
     contents: { en: body, es: body },
-    // URL to open when clicking the notification
-    url: "https://estrellatdf---19-de-agosto.vercel.app/" 
+    url: baseUrl
   };
 
   if (isGlobal) {
