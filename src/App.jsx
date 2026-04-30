@@ -894,18 +894,20 @@ export default function UE19deAgosto() {
     }
 
     // Enviar notificación Push al celular
+    const pushTitle = isGlobal ? `📢 RECTORÍA: ${newAnnounceTitle}` : `📘 ${currentSubject.name}: ${newAnnounceTitle}`;
+    const pushBody = isGlobal ? newAnnounceBody : `${newAnnounceBody}\n\nEnviado por: ${staffData?.[user.uid]?.name || 'Docente'}`;
+
     if (isGlobal) {
-      sendPushNotification(newAnnounceTitle, newAnnounceBody, null, true);
+      sendPushNotification(pushTitle, pushBody, null, true);
     } else if (newAnnounceRecipient === 'all') {
-      // Enviar a todos los códigos de esta materia
       const codes = currentSubject.students.map(st => st.code).filter(Boolean);
       if (codes.length > 0) {
-        sendPushNotification(newAnnounceTitle, newAnnounceBody, codes, false);
+        sendPushNotification(pushTitle, pushBody, codes, false);
       }
     } else {
       const targetStu = currentSubject.students.find(st => st.id === newAnnounceRecipient);
       if (targetStu) {
-        sendPushNotification(newAnnounceTitle, newAnnounceBody, targetStu.code, false);
+        sendPushNotification(pushTitle, pushBody, targetStu.code, false);
       }
     }
 
