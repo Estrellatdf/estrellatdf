@@ -1081,19 +1081,19 @@ export default function UE19deAgosto() {
             <div className="mt-8 flex flex-col items-center gap-2">
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest opacity-50">Unidad Educativa Particular "19 de Agosto"</p>
               
-              <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full border border-white/5">
-                <div className={`w-2 h-2 rounded-full ${pushStatus === 'granted' ? 'bg-emerald-500 animate-pulse' : pushStatus === 'denied' ? 'bg-red-500' : 'bg-yellow-500'}`} />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                  Notificaciones: {pushStatus === 'granted' ? 'Activadas' : pushStatus === 'denied' ? 'Bloqueadas' : 'No configurado'}
+              <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full border border-white/10 backdrop-blur-md shadow-inner">
+                <div className={`w-2 h-2 rounded-full shadow-[0_0_8px] ${pushStatus === 'granted' ? 'bg-emerald-500 shadow-emerald-500/50 animate-pulse' : pushStatus === 'denied' ? 'bg-red-500 shadow-red-500/50' : 'bg-yellow-500 shadow-yellow-500/50'}`} />
+                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-tighter">
+                  SISTEMA DE NOTIFICACIONES: {pushStatus === 'granted' ? 'ACTIVO' : pushStatus === 'denied' ? 'BLOQUEADO' : 'PENDIENTE'}
                   {pushStatus === 'granted' && linkedCode && (
-                    <span className="text-emerald-400 ml-1"> (Código: {linkedCode})</span>
+                    <span className="text-emerald-400 ml-1 opacity-80"> (ID: {linkedCode})</span>
                   )}
                   {pushStatus === 'granted' && !linkedCode && (
-                    <span className="text-yellow-400 ml-1"> (Sin vincular)</span>
+                    <span className="text-yellow-400 ml-1 opacity-80"> (SIN VINCULAR)</span>
                   )}
                 </span>
                 {pushStatus !== 'granted' && (
-                  <button onClick={requestPushPermission} className="text-[10px] text-indigo-400 underline font-bold uppercase ml-1">Activar</button>
+                  <button onClick={requestPushPermission} className="text-[10px] text-indigo-400 hover:text-indigo-300 underline font-black uppercase ml-1 transition-colors">Configurar</button>
                 )}
               </div>
             </div>
