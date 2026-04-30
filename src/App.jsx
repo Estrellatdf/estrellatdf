@@ -872,19 +872,11 @@ export default function UE19deAgosto() {
         recipientName: recipName, isGlobal, date: new Date().toLocaleDateString()
       };
 
-      if (isGlobal) {
-        // Guardar comunicado global en la configuración general
-        const currentList = Array.isArray(appSettings.announcements) ? appSettings.announcements : [];
-        await saveSettings({ ...appSettings, announcements: [newAnn, ...currentList] });
-      } else if (currentSubject) {
-        // Guardar comunicado en la materia
-        const currentList = Array.isArray(currentSubject.announcements) ? currentSubject.announcements : [];
-        await saveSubject({ ...currentSubject, announcements: [newAnn, ...currentList] });
-      }
-
       // ── ENVÍO DE NOTIFICACIONES ──
+      const teacherObj = staff.find(s => s.id === user?.uid);
+      const teacherName = teacherObj?.name || 'Administración';
       const subjectName = currentSubject?.name || 'General';
-      const teacherName = staffData?.[user?.uid]?.name || 'Administración';
+
       const pushTitle = isGlobal ? `📢 RECTORÍA: ${newAnnounceTitle}` : `📘 ${subjectName}: ${newAnnounceTitle}`;
       const pushBody = isGlobal ? newAnnounceBody : `${newAnnounceBody}\n\nEnviado por: ${teacherName}`;
 
@@ -896,6 +888,15 @@ export default function UE19deAgosto() {
       } else if (currentSubject) {
         const st = currentSubject.students.find(st => st.id === newAnnounceRecipient);
         if (st) sendPushNotification(pushTitle, pushBody, st.code, false);
+      }
+
+      // ── GUARDAR EN BASE DE DATOS ──
+      if (isGlobal) {
+        const currentList = Array.isArray(appSettings.announcements) ? appSettings.announcements : [];
+        await saveSettings({ ...appSettings, announcements: [newAnn, ...currentList] });
+      } else if (currentSubject) {
+        const currentList = Array.isArray(currentSubject.announcements) ? currentSubject.announcements : [];
+        await saveSubject({ ...currentSubject, announcements: [newAnn, ...currentList] });
       }
     } catch (err) {
       console.error("Error en addAnnouncement:", err);
