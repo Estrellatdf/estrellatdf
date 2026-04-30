@@ -842,9 +842,10 @@ export default function UE19deAgosto() {
       const data = await response.json();
       if (!response.ok) {
         console.error("Push Error:", data);
-        if (data.error?.includes('REST_API_KEY')) {
-          alert("⚠️ Error: La llave de OneSignal (REST API KEY) no está configurada en Vercel.");
-        }
+        const errorDetail = data.details?.errors?.[0] || data.error || "Error desconocido";
+        alert(`⚠️ Error de OneSignal: ${errorDetail}\n\nVerifica que la REST API KEY en Vercel sea correcta.`);
+      } else {
+        // Opcional: alert("✅ Notificación enviada con éxito.");
       }
     } catch (err) {
       console.error("Error al enviar notificación push:", err);
