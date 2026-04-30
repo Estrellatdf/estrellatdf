@@ -894,8 +894,11 @@ export default function UE19deAgosto() {
     }
 
     // Enviar notificación Push al celular
-    const pushTitle = isGlobal ? `📢 RECTORÍA: ${newAnnounceTitle}` : `📘 ${currentSubject.name}: ${newAnnounceTitle}`;
-    const pushBody = isGlobal ? newAnnounceBody : `${newAnnounceBody}\n\nEnviado por: ${staffData?.[user.uid]?.name || 'Docente'}`;
+    const subjectName = currentSubject?.name || 'General';
+    const teacherName = staffData?.[user?.uid]?.name || 'Administración';
+    
+    const pushTitle = isGlobal ? `📢 RECTORÍA: ${newAnnounceTitle}` : `📘 ${subjectName}: ${newAnnounceTitle}`;
+    const pushBody = isGlobal ? newAnnounceBody : `${newAnnounceBody}\n\nEnviado por: ${teacherName}`;
 
     if (isGlobal) {
       sendPushNotification(pushTitle, pushBody, null, true);
