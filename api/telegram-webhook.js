@@ -1,5 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDpo89i5887oP6uhkzsDdIAsKAFji2OqbY",
@@ -13,6 +14,7 @@ const firebaseConfig = {
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
 const db = getFirestore(app);
+const auth = getAuth(app);
 const firebaseAppId = "escuela-v1";
 
 export default async function handler(req, res) {
@@ -39,6 +41,9 @@ export default async function handler(req, res) {
   // 2. Intentar vincular código
   if (text.length === 6) {
     try {
+      // Autenticar para tener permisos de Firestore
+      await signInAnonymously(auth);
+
       // Verificar si el código existe
       const profileDoc = await getDoc(doc(db, 'artifacts', firebaseAppId, 'public', 'data', 'parentProfiles', text));
       

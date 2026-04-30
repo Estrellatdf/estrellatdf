@@ -1,6 +1,6 @@
-
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDpo89i5887oP6uhkzsDdIAsKAFji2OqbY",
@@ -14,6 +14,7 @@ const firebaseConfig = {
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
 const db = getFirestore(app);
+const auth = getAuth(app);
 const firebaseAppId = "escuela-v1";
 const telegramToken = "8714699056:AAEMenEJAvtlpecmm6qJQ-2DtnRJ4K2siJs";
 
@@ -72,6 +73,7 @@ export default async function handler(req, res) {
 
     // --- 3. ENVIAR TELEGRAM ---
     try {
+      await signInAnonymously(auth);
       let targetChatIds = [];
       if (isGlobal) {
         const regs = await getDocs(collection(db, 'artifacts', firebaseAppId, 'public', 'data', 'telegram_registrations'));
