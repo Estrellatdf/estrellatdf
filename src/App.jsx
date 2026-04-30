@@ -894,13 +894,20 @@ export default function UE19deAgosto() {
     }
 
     // Enviar notificación Push al celular
-    let pushStudentCode = null;
-    if (newAnnounceRecipient !== 'all') {
+    if (isGlobal) {
+      sendPushNotification(newAnnounceTitle, newAnnounceBody, null, true);
+    } else if (newAnnounceRecipient === 'all') {
+      // Enviar a todos los códigos de esta materia
+      const codes = currentSubject.students.map(st => st.code).filter(Boolean);
+      if (codes.length > 0) {
+        sendPushNotification(newAnnounceTitle, newAnnounceBody, codes, false);
+      }
+    } else {
       const targetStu = currentSubject.students.find(st => st.id === newAnnounceRecipient);
-      if (targetStu) pushStudentCode = targetStu.code;
+      if (targetStu) {
+        sendPushNotification(newAnnounceTitle, newAnnounceBody, targetStu.code, false);
+      }
     }
-
-    sendPushNotification(newAnnounceTitle, newAnnounceBody, pushStudentCode, isGlobal);
 
     setIsAddingAnnouncement(false); setNewAnnounceTitle(''); setNewAnnounceBody(''); setNewAnnounceRecipient('all');
   };

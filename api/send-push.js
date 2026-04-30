@@ -27,9 +27,21 @@ export default async function handler(req, res) {
   if (isGlobal) {
     notificationBody.included_segments = ['All'];
   } else if (studentCode) {
-    notificationBody.filters = [
-      { field: 'tag', key: 'studentCode', relation: '=', value: studentCode.toUpperCase() }
-    ];
+    if (Array.isArray(studentCode)) {
+      // Crear filtros OR para múltiples códigos
+      const filters = [];
+      studentCode.forEach((code, index) => {
+        filters.push({ field: 'tag', key: 'studentCode', relation: '=', value: code.toUpperCase() });
+        if (index < studentCode.length - 1) {
+          filters.push({ operator: 'OR' });
+        }
+      });
+      notificationBody.filters = filters;
+    } else {
+      notificationBody.filters = [
+        { field: 'tag', key: 'studentCode', relation: '=', value: studentCode.toUpperCase() }
+      ];
+    }
   } else {
     return res.status(400).json({ error: 'Missing target (studentCode or isGlobal)' });
   }
