@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs, initializeFirestore } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 
 const firebaseConfig = {
@@ -13,7 +13,8 @@ const firebaseConfig = {
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
-const db = getFirestore(app);
+// Ajuste para mejorar conexión en servidores
+const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 const auth = getAuth(app);
 const firebaseAppId = "escuela-v1";
 
@@ -64,12 +65,8 @@ export default async function handler(req, res) {
           if (student) {
             found = true;
             report += `📘 *${sub.name || 'Materia'}*\n`;
-            
-            // Calculamos promedio del 1er Trimestre
-            const grades = sub.grades || {};
-            const tri1 = grades[1] || {};
+            const tri1 = (sub.grades || {})[1] || {};
             const stuGrades = tri1[student.id] || {};
-            
             const vals = Object.values(stuGrades).filter(v => typeof v === 'number');
             if (vals.length > 0) {
               const avg = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2);
@@ -78,19 +75,17 @@ export default async function handler(req, res) {
               report += `   Promedio T1: _Sin notas_\n\n`;
             }
           }
-        } catch (innerErr) {
-          console.error("Error en materia individual:", innerErr);
-        }
+        } catch (innerErr) { console.error(innerErr); }
       });
 
       if (!found) {
-        await sendTelegramMessage(token, chatId, "No se encontraron materias para este estudiante.");
+        await sendTelegramMessage(token, chatId, "No se encontraron materias.");
       } else {
         await sendTelegramMessage(token, chatId, report);
       }
     } catch (e) {
-      console.error("Error general notas:", e);
-      await sendTelegramMessage(token, chatId, "⚠️ Error al consultar notas. Por favor, intenta más tarde.");
+      console.error("Error detallado:", e);
+      await sendTelegramMessage(token, chatId, `⚠️ Error: ${e.message || 'Error desconocido'}`);
     }
     return res.status(200).send('OK');
   }
