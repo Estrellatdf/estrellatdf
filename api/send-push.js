@@ -1,3 +1,13 @@
+
+import { initializeApp, getApps } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+
+const firebaseConfig = { projectId: "estrellatdf---19-de-agosto" };
+if (!getApps().length) initializeApp(firebaseConfig);
+const db = getFirestore();
+const firebaseAppId = "escuela-v1";
+const telegramToken = "8714699056:AAEMenEJAvtlpecmm6qJQ-2DtnRJ4K2siJs";
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -8,9 +18,7 @@ export default async function handler(req, res) {
   const restApiKey = process.env.ONESIGNAL_REST_API_KEY;
 
   if (!restApiKey) {
-    return res.status(500).json({ 
-      error: 'ONESIGNAL_REST_API_KEY is not configured in environment variables' 
-    });
+    return res.status(500).json({ error: 'ONESIGNAL_REST_API_KEY is not configured' });
   }
 
   const host = req.headers.host;
@@ -24,30 +32,27 @@ export default async function handler(req, res) {
     url: baseUrl
   };
 
+  // --- 1. CONFIGURAR FILTROS ONESIGNAL ---
   if (isGlobal) {
     notificationBody.included_segments = ['All'];
   } else if (studentCode) {
     if (Array.isArray(studentCode)) {
-      // Crear filtros OR para múltiples códigos
       const filters = [];
       studentCode.forEach((code, index) => {
         filters.push({ field: 'tag', key: 'studentCode', relation: '=', value: code.toUpperCase() });
-        if (index < studentCode.length - 1) {
-          filters.push({ operator: 'OR' });
-        }
+        if (index < studentCode.length - 1) filters.push({ operator: 'OR' });
       });
       notificationBody.filters = filters;
     } else {
-      notificationBody.filters = [
-        { field: 'tag', key: 'studentCode', relation: '=', value: studentCode.toUpperCase() }
-      ];
+      notificationBody.filters = [{ field: 'tag', key: 'studentCode', relation: '=', value: studentCode.toUpperCase() }];
     }
   } else {
-    return res.status(400).json({ error: 'Missing target (studentCode or isGlobal)' });
+    return res.status(400).json({ error: 'Missing target' });
   }
 
   try {
-    const response = await fetch('https://onesignal.com/api/v1/notifications', {
+    // --- 2. ENVIAR PUSH ONESIGNAL ---
+    const osResponse = await fetch('https://onesignal.com/api/v1/notifications', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
@@ -56,13 +61,44 @@ export default async function handler(req, res) {
       body: JSON.stringify(notificationBody),
     });
 
-    const data = await response.json();
-    if (!response.ok) {
-      return res.status(response.status).json({ error: 'OneSignal API Error', details: data });
+    // --- 3. ENVIAR TELEGRAM ---
+    try {
+      let targetChatIds = [];
+      if (isGlobal) {
+        const regs = await db.collection(`artifacts/${firebaseAppId}/public/data/telegram_registrations`).get();
+        regs.forEach(doc => { targetChatIds = targetChatIds.concat(doc.data().chatIds || []); });
+      } else if (studentCode) {
+        const codes = Array.isArray(studentCode) ? studentCode : [studentCode];
+        for (const code of codes) {
+          const regDoc = await db.doc(`artifacts/${firebaseAppId}/public/data/telegram_registrations/${code.toUpperCase()}`).get();
+          if (regDoc.exists) targetChatIds = targetChatIds.concat(regDoc.data().chatIds || []);
+        }
+      }
+
+      // Eliminar duplicados
+      targetChatIds = [...new Set(targetChatIds)];
+
+      for (const chatId of targetChatIds) {
+        await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: `🔔 *${title}*\n\n${body}\n\n[Abrir Aplicación](${baseUrl})`,
+            parse_mode: 'Markdown'
+          })
+        });
+      }
+    } catch (teleErr) {
+      console.error("Error enviando a Telegram:", teleErr);
     }
+
+    const data = await osResponse.json();
+    if (!osResponse.ok) return res.status(osResponse.status).json({ error: 'OneSignal API Error', details: data });
     return res.status(200).json(data);
+    
   } catch (error) {
-    console.error('Error sending push notification:', error);
+    console.error('Error general de envío:', error);
     return res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 }
