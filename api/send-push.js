@@ -1,20 +1,15 @@
-import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, doc, getDoc, collection, getDocs } from 'firebase/firestore';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDpo89i5887oP6uhkzsDdIAsKAFji2OqbY",
-  authDomain: "estrellatdf---19-de-agosto.firebaseapp.com",
-  projectId: "estrellatdf---19-de-agosto",
-  storageBucket: "estrellatdf---19-de-agosto.firebasestorage.app",
-  messagingSenderId: "312841032306",
-  appId: "1:312841032306:web:bfaddeca92567b73e968eb",
-  measurementId: "G-XEPFR2H731"
-};
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
 
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
-const db = getFirestore(app);
-const auth = getAuth(app);
+if (!getApps().length) {
+  initializeApp({
+    credential: cert(serviceAccount)
+  });
+}
+
+const db = getFirestore();
 const firebaseAppId = "escuela-v1";
 const telegramToken = "8714699056:AAEMenEJAvtlpecmm6qJQ-2DtnRJ4K2siJs";
 
@@ -75,13 +70,14 @@ export default async function handler(req, res) {
     try {
       let targetChatIds = [];
       if (isGlobal) {
-        const regs = await getDocs(collection(db, 'artifacts', firebaseAppId, 'public', 'data', 'telegram_registrations'));
+        const regs = await db.collection(`artifacts/${firebaseAppId}/public/data/telegram_registrations`).get();
         regs.forEach(docSnap => { targetChatIds = targetChatIds.concat(docSnap.data().chatIds || []); });
       } else if (studentCode) {
         const codes = Array.isArray(studentCode) ? studentCode : [studentCode];
         for (const code of codes) {
-          const regDoc = await getDoc(doc(db, 'artifacts', firebaseAppId, 'public', 'data', 'telegram_registrations', code.toUpperCase()));
-          if (regDoc.exists()) targetChatIds = targetChatIds.concat(regDoc.data().chatIds || []);
+          const regDoc = await db.doc(`artifacts/${firebaseAppId}/public/data/telegram_registrations/${code.toUpperCase()}`).get();
+          const data = regDoc.data();
+          if (data) targetChatIds = targetChatIds.concat(data.chatIds || []);
         }
       }
 
