@@ -1,21 +1,19 @@
-
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-
-// Inicialización de Firebase Admin (usando variables de entorno o service account)
-// Nota: En Vercel, si ya usas firebase-admin con service account, úsalo.
-// Si no, podemos usar el SDK normal de cliente si es necesario, pero admin es mejor para APIs.
+import { initializeApp, getApps } from 'firebase/app';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 
 const firebaseConfig = {
+  apiKey: "AIzaSyDpo89i5887oP6uhkzsDdIAsKAFji2OqbY",
+  authDomain: "estrellatdf---19-de-agosto.firebaseapp.com",
   projectId: "estrellatdf---19-de-agosto",
+  storageBucket: "estrellatdf---19-de-agosto.firebasestorage.app",
+  messagingSenderId: "312841032306",
+  appId: "1:312841032306:web:bfaddeca92567b73e968eb",
+  measurementId: "G-XEPFR2H731"
 };
 
-if (!getApps().length) {
-  initializeApp(firebaseConfig);
-}
-
-const db = getFirestore();
-const appId = "escuela-v1";
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
+const db = getFirestore(app);
+const firebaseAppId = "escuela-v1";
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -41,22 +39,22 @@ export default async function handler(req, res) {
   // 2. Intentar vincular código
   if (text.length === 6) {
     try {
-      // Verificar si el código existe en perfiles de padres o materias
-      const profileDoc = await db.doc(`artifacts/${appId}/public/data/parentProfiles/${text}`).get();
+      // Verificar si el código existe
+      const profileDoc = await getDoc(doc(db, 'artifacts', firebaseAppId, 'public', 'data', 'parentProfiles', text));
       
-      if (profileDoc.exists) {
+      if (profileDoc.exists()) {
         // Guardar vinculación
-        const regRef = db.doc(`artifacts/${appId}/public/data/telegram_registrations/${text}`);
-        const regDoc = await regRef.get();
+        const regRef = doc(db, 'artifacts', firebaseAppId, 'public', 'data', 'telegram_registrations', text);
+        const regDoc = await getDoc(regRef);
         
         let chatIds = [];
-        if (regDoc.exists) {
+        if (regDoc.exists()) {
           chatIds = regDoc.data().chatIds || [];
         }
         
         if (!chatIds.includes(chatId)) {
           chatIds.push(chatId);
-          await regRef.set({ chatIds, updatedAt: new Date().toISOString() }, { merge: true });
+          await setDoc(regRef, { chatIds, updatedAt: new Date().toISOString() }, { merge: true });
         }
 
         await sendTelegramMessage(token, chatId, `✅ ¡Vinculación exitosa!\n\nDesde ahora recibirás las notificaciones de este estudiante directamente aquí.`);
