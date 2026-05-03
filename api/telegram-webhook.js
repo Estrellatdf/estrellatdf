@@ -121,15 +121,33 @@ async function handleCommand(token, chatId, cmd, menu) {
           reportBody += `📘 *${sub.name || 'Materia'}*\n`;
           const grades = sub.grades || {};
           let annualSum = 0, trimestersWithData = 0;
+          
           for (let t = 1; t <= 3; t++) {
-            const triGrades = grades[t] || {}, stuGrades = triGrades[student.id] || {};
-            const vals = Object.values(stuGrades).filter(v => typeof v === 'number');
-            if (vals.length > 0) {
-              const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-              annualSum += avg; trimestersWithData++;
-              reportBody += `   T${t}: *${avg.toFixed(2)}*`;
+            const acts = (sub.activities?.[t]) || [];
+            const triGrades = grades[t]?.[student.id] || {};
+            
+            if (acts.length > 0 || triGrades['exam_final'] || triGrades['project_final']) {
+              // 1. Promedio Actividades (70%)
+              let sumActs = 0;
+              acts.forEach(a => sumActs += (triGrades[a.id] || 0));
+              const avgActs = acts.length > 0 ? sumActs / acts.length : 0;
+              const wAct = avgActs * 0.7;
+              
+              // 2. Examen y Proyecto (30%)
+              const ex = parseFloat(triGrades['exam_final'] || 0);
+              const proj = triGrades['project_final'];
+              const hasProject = proj !== undefined && proj !== null && proj !== '';
+              const wEx = hasProject 
+                ? ((ex + parseFloat(proj)) / 2) * 0.3 
+                : ex * 0.3;
+              
+              const triTotal = wAct + wEx;
+              annualSum += triTotal;
+              trimestersWithData++;
+              reportBody += `   T${t}: *${triTotal.toFixed(2)}*`;
             }
           }
+          
           if (trimestersWithData > 0) {
             const finalAvg = annualSum / 3;
             const status = finalAvg >= 7 ? "✅ APROBADO" : "⚠️ SUPLETORIO / REMEDIAL";
