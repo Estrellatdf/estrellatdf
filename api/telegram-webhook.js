@@ -47,8 +47,9 @@ export default async function handler(req, res) {
       const studentCode = userDoc.data().studentCode;
       const subjectsSnap = await db.collection(`artifacts/${firebaseAppId}/public/data/subjects`).get();
       
-      let report = `📊 *Reporte de Calificaciones*\nCódigo: ${studentCode}\n\n`;
+      let studentName = "";
       let found = false;
+      let reportBody = "";
 
       subjectsSnap.forEach(subDoc => {
         try {
@@ -57,7 +58,9 @@ export default async function handler(req, res) {
           
           if (student) {
             found = true;
-            report += `📘 *${sub.name || 'Materia'}*\n`;
+            if (!studentName) studentName = student.name;
+            
+            reportBody += `📘 *${sub.name || 'Materia'}*\n`;
             const grades = sub.grades || {};
             let annualSum = 0;
             let trimestersWithData = 0;
@@ -70,16 +73,16 @@ export default async function handler(req, res) {
                 const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
                 annualSum += avg;
                 trimestersWithData++;
-                report += `   T${t}: *${avg.toFixed(2)}*`;
+                reportBody += `   T${t}: *${avg.toFixed(2)}*`;
               }
             }
             if (trimestersWithData > 0) {
               const finalAvg = annualSum / 3;
               const status = finalAvg >= 7 ? "✅ APROBADO" : "⚠️ SUPLETORIO / REMEDIAL";
-              report += `\n   *FINAL ANUAL: ${finalAvg.toFixed(2)}*`;
-              report += `\n   Estado: ${status}\n\n`;
+              reportBody += `\n   *FINAL ANUAL: ${finalAvg.toFixed(2)}*`;
+              reportBody += `\n   Estado: ${status}\n\n`;
             } else {
-              report += `\n   _Sin calificaciones aún_\n\n`;
+              reportBody += `\n   _Sin calificaciones aún_\n\n`;
             }
           }
         } catch (innerErr) { console.error(innerErr); }
@@ -88,6 +91,10 @@ export default async function handler(req, res) {
       if (!found) {
         await sendTelegramMessage(token, chatId, "No se encontraron materias.");
       } else {
+        let report = `📊 *Reporte de Calificaciones*\n`;
+        report += `Código: ${studentCode}\n`;
+        if (studentName) report += `Estudiante: ${studentName}\n`;
+        report += `\n` + reportBody;
         await sendTelegramMessage(token, chatId, report);
       }
     } catch (e) {
@@ -112,13 +119,25 @@ export default async function handler(req, res) {
           await regRef.set({ chatIds, updatedAt: new Date().toISOString() }, { merge: true });
         }
 
+        // Buscar el nombre del estudiante para personalizar la bienvenida
+        let studentName = "";
+        const subjectsSnap = await db.collection(`artifacts/${firebaseAppId}/public/data/subjects`).get();
+        subjectsSnap.forEach(subDoc => {
+          const s = (subDoc.data().students || []).find(st => st.code === text);
+          if (s && !studentName) studentName = s.name;
+        });
+
         // Guardar en telegram_users
         await db.doc(`artifacts/${firebaseAppId}/public/data/telegram_users/${chatId}`).set({
           studentCode: text,
           updatedAt: new Date().toISOString()
         });
 
-        await sendTelegramMessage(token, chatId, `✅ ¡Vinculación exitosa!\n\nEscribe *NOTAS* para ver las calificaciones.`);
+        const welcomeMsg = studentName 
+          ? `✅ ¡Vinculación exitosa para *${studentName}*!\n\nEscribe *NOTAS* para ver las calificaciones.`
+          : `✅ ¡Vinculación exitosa!\n\nEscribe *NOTAS* para ver las calificaciones.`;
+
+        await sendTelegramMessage(token, chatId, welcomeMsg);
       } else {
         await sendTelegramMessage(token, chatId, "❌ Código no encontrado.");
       }
