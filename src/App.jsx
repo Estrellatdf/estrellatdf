@@ -129,6 +129,7 @@ export default function UE19deAgosto() {
   const [newStudentList, setNewStudentList] = useState('');
   const [isAddingActivity, setIsAddingActivity] = useState(false);
   const [newActivityName, setNewActivityName] = useState('');
+  const [newActivityDesc, setNewActivityDesc] = useState('');
 
   // Personal
   const [isManagingStaff, setIsManagingStaff] = useState(false);
@@ -801,8 +802,14 @@ export default function UE19deAgosto() {
   const addActivity = () => {
     if (!newActivityName || !currentSubject) return;
     const acts = currentSubject.activities[currentTrimester] || [];
-    saveSubject({ ...currentSubject, activities: { ...currentSubject.activities, [currentTrimester]: [...acts, { id: "a_" + Date.now(), name: newActivityName }] } });
-    setIsAddingActivity(false); setNewActivityName('');
+    saveSubject({ 
+      ...currentSubject, 
+      activities: { 
+        ...currentSubject.activities, 
+        [currentTrimester]: [...acts, { id: "a_" + Date.now(), name: newActivityName, description: newActivityDesc }] 
+      } 
+    });
+    setIsAddingActivity(false); setNewActivityName(''); setNewActivityDesc('');
   };
 
   const deleteActivity = (actId) => {
@@ -1401,9 +1408,12 @@ export default function UE19deAgosto() {
                   {(viewingSubject.activities[currentTrimester] || []).map(act => {
                     const grade = viewingSubject.grades[currentTrimester]?.[viewingStudent.id]?.[act.id];
                     return (
-                      <li key={act.id} className="flex justify-between items-center p-3 rounded-xl border border-slate-50 bg-slate-50/30">
-                        <span className="text-sm font-bold text-slate-600">{act.name}</span>
-                        <span className={`font-mono font-black text-base ${grade < 7 ? 'text-red-500' : 'text-slate-800'}`}>{grade !== undefined ? grade : '-'}</span>
+                      <li key={act.id} className="block p-3 rounded-xl border border-slate-50 bg-slate-50/30">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-bold text-slate-600">{act.name}</span>
+                          <span className={`font-mono font-black text-base ${grade < 7 ? 'text-red-500' : 'text-slate-800'}`}>{grade !== undefined ? grade : '-'}</span>
+                        </div>
+                        {act.description && <p className="text-[10px] text-slate-400 mt-1 leading-tight italic">{act.description}</p>}
                       </li>
                     );
                   })}
@@ -2214,10 +2224,12 @@ export default function UE19deAgosto() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm">
             <h3 className="text-xl font-bold mb-4 text-gray-800">Nueva Actividad (Trimestre {currentTrimester})</h3>
-            <input className="border border-gray-300 w-full p-3 rounded-lg mb-6 focus:ring-2 focus:ring-green-500 outline-none"
-              placeholder="Nombre (ej. Lección 1)" value={newActivityName} onChange={e => setNewActivityName(e.target.value)} autoFocus />
+            <input className="border border-gray-300 w-full p-3 rounded-lg mb-2 focus:ring-2 focus:ring-green-500 outline-none"
+              placeholder="Nombre (ej. Tarea de Mate)" value={newActivityName} onChange={e => setNewActivityName(e.target.value)} autoFocus />
+            <textarea className="border border-gray-300 w-full p-3 rounded-lg mb-6 focus:ring-2 focus:ring-green-500 outline-none h-24 resize-none text-sm"
+              placeholder="Instrucciones o descripción del deber..." value={newActivityDesc} onChange={e => setNewActivityDesc(e.target.value)} />
             <div className="flex justify-end gap-2">
-              <button onClick={() => setIsAddingActivity(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">Cancelar</button>
+              <button onClick={() => { setIsAddingActivity(false); setNewActivityDesc(''); }} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">Cancelar</button>
               <button onClick={addActivity} className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold shadow transition">Guardar</button>
             </div>
           </div>

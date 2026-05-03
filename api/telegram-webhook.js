@@ -25,8 +25,8 @@ export default async function handler(req, res) {
   const inlineMenu = {
     inline_keyboard: [
       [{ text: "📊 Notas", callback_data: "NOTAS" }, { text: "📅 Asistencia", callback_data: "ASISTENCIA" }],
-      [{ text: "📢 Avisos", callback_data: "COMUNICADOS" }, { text: "👤 Perfil", callback_data: "PERFIL" }],
-      [{ text: "👥 Mis Hijos", callback_data: "HIJOS" }]
+      [{ text: "📢 Avisos", callback_data: "COMUNICADOS" }, { text: "📚 Deberes", callback_data: "DEBERES" }],
+      [{ text: "👥 Mis Hijos", callback_data: "HIJOS" }, { text: "👤 Perfil", callback_data: "PERFIL" }]
     ]
   };
 
@@ -83,11 +83,10 @@ async function handleCommand(token, chatId, cmd, menu) {
   const allCodes = userData.studentCodes || [studentCode];
 
   // 0. CAMBIAR HIJO / GESTIONAR
-  if (text.includes('HIJOS') || text.includes('PERFIL') || text.includes('CARNET')) {
+  if (text.includes('HIJOS')) {
     try {
       const subjectsSnap = await db.collection(`artifacts/${firebaseAppId}/public/data/subjects`).get();
       let studentsInfo = [];
-      
       for (const code of allCodes) {
         let name = "";
         subjectsSnap.forEach(sd => {
@@ -96,26 +95,11 @@ async function handleCommand(token, chatId, cmd, menu) {
         });
         studentsInfo.push({ code, name });
       }
-
-      if (text.includes('HIJOS')) {
-        const hijoButtons = {
-          inline_keyboard: studentsInfo.map(s => ([{ text: `👤 ${s.name || s.code}`, callback_data: `SET_ACTIVE_${s.code}` }]))
-        };
-        hijoButtons.inline_keyboard.push([{ text: "➕ Vincular otro hijo", callback_data: "HELP_LINK" }]);
-        
-        await sendTelegramMessage(token, chatId, "👥 *Mis Estudiantes Vinculados*\nToca un nombre para seleccionarlo como activo:", hijoButtons);
-      } else {
-        // Lógica de Perfil para el activo
-        const profileDoc = await db.doc(`artifacts/${firebaseAppId}/public/data/parentProfiles/${studentCode}`).get();
-        const profile = profileDoc.exists ? profileDoc.data().formData : null;
-        const currentName = studentsInfo.find(s => s.code === studentCode)?.name || "No registrado";
-        
-        let report = `👤 *Perfil del Estudiante*\nNombre: *${currentName}*\nCódigo: \`${studentCode}\`\n\n`;
-        if (profile) {
-          report += `📍 Dirección: ${profile.studentAddress || '-'}\n🩸 Tipo Sangre: ${profile.studentBloodType || '-'}\n📞 Teléfono: ${profile.studentPhone || '-'}\n👨‍👩‍👧 *Representante:* ${profile.representante1?.name || '-'}\n📱 Contacto: ${profile.representante1?.phone || '-'}`;
-        } else { report += `_Faltan datos de perfil._`; }
-        await sendTelegramMessage(token, chatId, report, menu);
-      }
+      const hijoButtons = {
+        inline_keyboard: studentsInfo.map(s => ([{ text: `👤 ${s.name || s.code}`, callback_data: `SET_ACTIVE_${s.code}` }]))
+      };
+      hijoButtons.inline_keyboard.push([{ text: "➕ Vincular otro hijo", callback_data: "HELP_LINK" }]);
+      await sendTelegramMessage(token, chatId, "👥 *Mis Estudiantes Vinculados*\nToca un nombre para seleccionarlo como activo:", hijoButtons);
     } catch (e) { await sendTelegramMessage(token, chatId, `⚠️ Error: ${e.message}`); }
     return;
   }
@@ -149,8 +133,7 @@ async function handleCommand(token, chatId, cmd, menu) {
           if (trimestersWithData > 0) {
             const finalAvg = annualSum / 3;
             const status = finalAvg >= 7 ? "✅ APROBADO" : "⚠️ SUPLETORIO / REMEDIAL";
-            reportBody += `\n   *FINAL ANUAL: ${finalAvg.toFixed(2)}*`;
-            reportBody += `\n   Estado: ${status}\n\n`;
+            reportBody += `\n   *FINAL ANUAL: ${finalAvg.toFixed(2)}*\n   Estado: ${status}\n\n`;
           } else { reportBody += `\n   _Sin calificaciones_\n\n`; }
         }
       });
@@ -219,6 +202,57 @@ async function handleCommand(token, chatId, cmd, menu) {
         let report = `📅 *Asistencia: ${studentName}*\nTotal Faltas: *${totalAbsences}*\n\n${totalAbsences === 0 ? "✅ ¡Excelente! No se registran faltas." : reportBody}`;
         await sendTelegramMessage(token, chatId, report, menu);
       }
+    } catch (e) { await sendTelegramMessage(token, chatId, `⚠️ Error: ${e.message}`); }
+  }
+
+  // 4. DEBERES (Nuevo)
+  else if (text.includes('DEBERES') || text.includes('TAREAS') || text.includes('ACTIVIDADES')) {
+    try {
+      const subjectsSnap = await db.collection(`artifacts/${firebaseAppId}/public/data/subjects`).get();
+      let studentName = "", found = false, reportBody = "";
+      subjectsSnap.forEach(subDoc => {
+        const sub = subDoc.data();
+        const student = (sub.students || []).find(s => s.code === studentCode);
+        if (student) {
+          found = true; if (!studentName) studentName = student.name;
+          let subActs = [];
+          [1, 2, 3].forEach(t => {
+            const acts = (sub.activities?.[t] || []).filter(a => a.description);
+            if (acts.length > 0) subActs = subActs.concat(acts.map(a => ({ ...a, trimester: t })));
+          });
+          if (subActs.length > 0) {
+            reportBody += `📙 *${sub.name}*\n`;
+            subActs.forEach(act => {
+              reportBody += `   • *${act.name}* (T${act.trimester})\n     _${act.description}_\n`;
+            });
+            reportBody += `\n`;
+          }
+        }
+      });
+      if (!found) await sendTelegramMessage(token, chatId, "No se encontraron materias.");
+      else {
+        let report = `📚 *Deberes y Tareas: ${studentName}*\n\n${reportBody || "✅ No hay deberes detallados registrados por ahora."}`;
+        await sendTelegramMessage(token, chatId, report, menu);
+      }
+    } catch (e) { await sendTelegramMessage(token, chatId, `⚠️ Error: ${e.message}`); }
+  }
+
+  // 5. PERFIL
+  else if (text.includes('PERFIL') || text.includes('CARNET')) {
+    try {
+      const profileDoc = await db.doc(`artifacts/${firebaseAppId}/public/data/parentProfiles/${studentCode}`).get();
+      const profile = profileDoc.exists ? profileDoc.data().formData : null;
+      let studentName = "";
+      const subjectsSnap = await db.collection(`artifacts/${firebaseAppId}/public/data/subjects`).get();
+      subjectsSnap.forEach(sd => {
+        const s = (sd.data().students || []).find(st => st.code === studentCode);
+        if (s && !studentName) studentName = s.name;
+      });
+      let report = `👤 *Perfil del Estudiante*\nNombre: *${studentName || 'No registrado'}*\nCódigo: \`${studentCode}\`\n\n`;
+      if (profile) {
+        report += `📍 Dirección: ${profile.studentAddress || '-'}\n🩸 Tipo Sangre: ${profile.studentBloodType || '-'}\n📞 Teléfono: ${profile.studentPhone || '-'}\n👨‍👩‍👧 *Representante:* ${profile.representante1?.name || '-'}\n📱 Contacto: ${profile.representante1?.phone || '-'}`;
+      } else { report += `_Faltan datos de perfil._`; }
+      await sendTelegramMessage(token, chatId, report, menu);
     } catch (e) { await sendTelegramMessage(token, chatId, `⚠️ Error: ${e.message}`); }
   }
 }
