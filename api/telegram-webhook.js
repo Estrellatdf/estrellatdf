@@ -30,12 +30,13 @@ export default async function handler(req, res) {
 
   // 1. Comandos básicos
   if (text === '/START') {
-    await sendTelegramMessage(token, chatId, "¡Bienvenido al sistema de notificaciones de la U.E. 19 de Agosto!\n\nPor favor, envíame el **CÓDIGO DE ESTUDIANTE** para vincular este chat.");
+    await sendTelegramMessage(token, chatId, "¡Bienvenido al sistema de notificaciones de la U.E. 19 de Agosto!\n\nPor favor, envíame el **CÓDIGO DE ESTUDIANTE** para vincular este chat.\n\nUna vez vinculado, podrás usar:\n*NOTAS* - Ver calificaciones\n*COMUNICADOS* - Ver avisos y circulares");
     return res.status(200).send('OK');
   }
 
   // 2. Consulta de Notas
   if (text === 'NOTAS' || text === '/NOTAS') {
+    // ... (keep existing NOTAS logic)
     try {
       const userDoc = await db.doc(`artifacts/${firebaseAppId}/public/data/telegram_users/${chatId}`).get();
       
@@ -104,6 +105,64 @@ export default async function handler(req, res) {
     return res.status(200).send('OK');
   }
 
+  // 3. Comunicados y Avisos
+  if (text === 'COMUNICADOS' || text === '/COMUNICADOS' || text === 'AVISOS') {
+    try {
+      const userDoc = await db.doc(`artifacts/${firebaseAppId}/public/data/telegram_users/${chatId}`).get();
+      if (!userDoc.exists) {
+        await sendTelegramMessage(token, chatId, "⚠️ Aún no has vinculado un estudiante.");
+        return res.status(200).send('OK');
+      }
+
+      const studentCode = userDoc.data().studentCode;
+      
+      // 1. Obtener ajustes globales (avisos globales)
+      const settingsDoc = await db.doc(`artifacts/${firebaseAppId}/public/data/settings`).get();
+      const globalAnn = settingsDoc.exists ? (settingsDoc.data().announcements || []) : [];
+
+      // 2. Obtener materias del estudiante (avisos de materias)
+      const subjectsSnap = await db.collection(`artifacts/${firebaseAppId}/public/data/subjects`).get();
+      let subjectAnn = [];
+      let studentName = "";
+
+      subjectsSnap.forEach(subDoc => {
+        const sub = subDoc.data();
+        const student = (sub.students || []).find(s => s.code === studentCode);
+        if (student) {
+          if (!studentName) studentName = student.name;
+          const anns = (sub.announcements || []).map(a => ({ ...a, subjectName: sub.name }));
+          subjectAnn = subjectAnn.concat(anns);
+        }
+      });
+
+      // 3. Combinar y filtrar
+      const allAnn = [...globalAnn, ...subjectAnn];
+      const uniqueAnn = Array.from(new Map(allAnn.map(a => [a.id, a])).values())
+        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+        .slice(0, 10);
+
+      if (uniqueAnn.length === 0) {
+        await sendTelegramMessage(token, chatId, "📭 No hay comunicados recientes.");
+      } else {
+        let report = `📢 *Comunicados y Avisos*\n`;
+        if (studentName) report += `Estudiante: ${studentName}\n\n`;
+        
+        uniqueAnn.forEach(ann => {
+          const typeIcon = ann.type === 'urgent' ? '🚨' : ann.type === 'event' ? '🗓️' : '📝';
+          const source = ann.subjectName ? `[${ann.subjectName}]` : '[Global]';
+          report += `${typeIcon} *${ann.title}* ${source}\n`;
+          report += `_${ann.date}_\n${ann.body}\n\n`;
+        });
+        
+        await sendTelegramMessage(token, chatId, report);
+      }
+    } catch (e) {
+      console.error(e);
+      await sendTelegramMessage(token, chatId, `⚠️ Error: ${e.message}`);
+    }
+    return res.status(200).send('OK');
+  }
+
   // 3. Vincular código
   if (text.length === 6 && !text.includes('/')) {
     try {
@@ -134,8 +193,8 @@ export default async function handler(req, res) {
         });
 
         const welcomeMsg = studentName 
-          ? `✅ ¡Vinculación exitosa para *${studentName}*!\n\nEscribe *NOTAS* para ver las calificaciones.`
-          : `✅ ¡Vinculación exitosa!\n\nEscribe *NOTAS* para ver las calificaciones.`;
+          ? `✅ ¡Vinculación exitosa para *${studentName}*!\n\nEscribe *NOTAS* para ver las calificaciones o *COMUNICADOS* para ver los avisos.`
+          : `✅ ¡Vinculación exitosa!\n\nEscribe *NOTAS* para ver las calificaciones o *COMUNICADOS* para ver los avisos.`;
 
         await sendTelegramMessage(token, chatId, welcomeMsg);
       } else {
