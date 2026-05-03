@@ -728,6 +728,15 @@ export default function UE19deAgosto() {
   const addStaffMember = async () => {
     if (!newStaffName || !newStaffPass) return alert("Nombre y contraseña son obligatorios.");
     const id = editingStaffId || ("staff_" + Date.now());
+    
+    // 1. Antes de guardar, capturamos el nombre antiguo si estamos editando
+    let oldName = "";
+    if (editingStaffId) {
+      const oldDoc = staff.find(s => s.id === editingStaffId);
+      oldName = oldDoc?.name || "";
+    }
+
+    // 2. Guardamos el docente (nuevo o editado)
     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', id), {
       id, name: newStaffName, email: newStaffEmail, role: newStaffRole, password: newStaffPass,
       tutoringCourse: newStaffTutoring,
@@ -735,12 +744,18 @@ export default function UE19deAgosto() {
       securityKey: newStaffRole === 'Administrativo' ? newStaffSecKey : null
     });
 
-    // Sincronizar nombre en materias vinculadas
+    // 3. Sincronización Agresiva en materias vinculadas
     if (editingStaffId) {
-      const relatedSubjects = subjects.filter(s => s.teacherId === editingStaffId);
+      // Buscamos materias por ID O por el Nombre Antiguo (para mayor seguridad)
+      const relatedSubjects = subjects.filter(s => 
+        s.teacherId === editingStaffId || (oldName && s.teacherName === oldName)
+      );
+      
       for (const sub of relatedSubjects) {
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subjects', sub.id), {
-          ...sub, teacherName: newStaffName
+          ...sub, 
+          teacherId: id, // Aseguramos que ahora sí tenga el ID
+          teacherName: newStaffName 
         });
       }
     }
