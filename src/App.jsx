@@ -734,6 +734,17 @@ export default function UE19deAgosto() {
       isAuthorized: newStaffRole === 'Administrativo' ? newStaffAuth : true,
       securityKey: newStaffRole === 'Administrativo' ? newStaffSecKey : null
     });
+
+    // Sincronizar nombre en materias vinculadas
+    if (editingStaffId) {
+      const relatedSubjects = subjects.filter(s => s.teacherId === editingStaffId);
+      for (const sub of relatedSubjects) {
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subjects', sub.id), {
+          ...sub, teacherName: newStaffName
+        });
+      }
+    }
+
     setNewStaffName(''); setNewStaffEmail(''); setNewStaffPass(''); setNewStaffTutoring('');
     setNewStaffAuth(false); setNewStaffSecKey('');
     setEditingStaffId(null);
