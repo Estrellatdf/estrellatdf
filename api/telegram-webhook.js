@@ -223,33 +223,45 @@ async function handleCommand(token, chatId, cmd, menu) {
     } catch (e) { await sendTelegramMessage(token, chatId, `⚠️ Error: ${e.message}`); }
   }
 
-  // 4. DEBERES (Nuevo)
+  // 4. DEBERES (Filtrado por pendientes)
   else if (text.includes('DEBERES') || text.includes('TAREAS') || text.includes('ACTIVIDADES')) {
     try {
       const subjectsSnap = await db.collection(`artifacts/${firebaseAppId}/public/data/subjects`).get();
       let studentName = "", found = false, reportBody = "";
+      
       subjectsSnap.forEach(subDoc => {
         const sub = subDoc.data();
         const student = (sub.students || []).find(s => s.code === studentCode);
+        
         if (student) {
           found = true; if (!studentName) studentName = student.name;
-          let subActs = [];
+          let pendingActs = [];
+          
           [1, 2, 3].forEach(t => {
-            const acts = (sub.activities?.[t] || []).filter(a => a.description);
-            if (acts.length > 0) subActs = subActs.concat(acts.map(a => ({ ...a, trimester: t })));
+            const trimesterGrades = sub.grades?.[t]?.[student.id] || {};
+            const acts = (sub.activities?.[t] || []).filter(a => {
+              // Condición: Tiene descripción Y NO tiene nota aún
+              const hasDescription = !!a.description;
+              const hasGrade = trimesterGrades[a.id] !== undefined && trimesterGrades[a.id] !== null;
+              return hasDescription && !hasGrade;
+            });
+            
+            if (acts.length > 0) pendingActs = pendingActs.concat(acts.map(a => ({ ...a, trimester: t })));
           });
-          if (subActs.length > 0) {
+
+          if (pendingActs.length > 0) {
             reportBody += `📙 *${sub.name}*\n`;
-            subActs.forEach(act => {
+            pendingActs.forEach(act => {
               reportBody += `   • *${act.name}* (T${act.trimester})\n     _${act.description}_\n`;
             });
             reportBody += `\n`;
           }
         }
       });
+
       if (!found) await sendTelegramMessage(token, chatId, "No se encontraron materias.");
       else {
-        let report = `📚 *Deberes y Tareas: ${studentName}*\n\n${reportBody || "✅ No hay deberes detallados registrados por ahora."}`;
+        let report = `📚 *Deberes Pendientes: ${studentName}*\n_Solo se muestran tareas sin calificar._\n\n${reportBody || "✅ ¡Felicidades! No hay deberes pendientes registrados."}`;
         await sendTelegramMessage(token, chatId, report, menu);
       }
     } catch (e) { await sendTelegramMessage(token, chatId, `⚠️ Error: ${e.message}`); }
