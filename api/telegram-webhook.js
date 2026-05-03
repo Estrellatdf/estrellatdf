@@ -39,6 +39,9 @@ export default async function handler(req, res) {
       const code = data.replace('SET_ACTIVE_', '');
       await db.doc(`artifacts/${firebaseAppId}/public/data/telegram_users/${chatId}`).update({ studentCode: code });
       await sendTelegramMessage(token, chatId, `🔄 Estudiante seleccionado: *${code}*\nAhora puedes consultar su información.`, inlineMenu);
+    } else if (data.startsWith('DET_NOTAS_')) {
+      const subjectId = data.replace('DET_NOTAS_', '');
+      await handleDetailedGrades(token, chatId, subjectId);
     } else {
       await handleCommand(token, chatId, data, inlineMenu);
     }
@@ -113,12 +116,17 @@ async function handleCommand(token, chatId, cmd, menu) {
     try {
       const subjectsSnap = await db.collection(`artifacts/${firebaseAppId}/public/data/subjects`).get();
       let studentName = "", found = false, reportBody = "";
+      let subjectButtons = [];
+      
       subjectsSnap.forEach(subDoc => {
         const sub = subDoc.data();
         const student = (sub.students || []).find(s => s.code === studentCode);
+        
         if (student) {
           found = true; if (!studentName) studentName = student.name;
           reportBody += `📘 *${sub.name || 'Materia'}*\n`;
+          subjectButtons.push([{ text: `🔍 Ver ${sub.name}`, callback_data: `DET_NOTAS_${subDoc.id}` }]);
+          
           const grades = sub.grades || {};
           let annualSum = 0, trimestersWithData = 0;
           
@@ -127,19 +135,14 @@ async function handleCommand(token, chatId, cmd, menu) {
             const triGrades = grades[t]?.[student.id] || {};
             
             if (acts.length > 0 || triGrades['exam_final'] || triGrades['project_final']) {
-              // 1. Promedio Actividades (70%)
+              // Cálculo resumido (Fórmula 70/30)
               let sumActs = 0;
               acts.forEach(a => sumActs += (triGrades[a.id] || 0));
               const avgActs = acts.length > 0 ? sumActs / acts.length : 0;
               const wAct = avgActs * 0.7;
-              
-              // 2. Examen y Proyecto (30%)
               const ex = parseFloat(triGrades['exam_final'] || 0);
-              const proj = triGrades['project_final'];
-              const hasProject = proj !== undefined && proj !== null && proj !== '';
-              const wEx = hasProject 
-                ? ((ex + parseFloat(proj)) / 2) * 0.3 
-                : ex * 0.3;
+              const pr = parseFloat(triGrades['project_final'] || 0);
+              const wEx = (triGrades['project_final'] !== undefined) ? ((ex + pr) / 2) * 0.3 : ex * 0.3;
               
               const triTotal = wAct + wEx;
               annualSum += triTotal;
@@ -155,10 +158,11 @@ async function handleCommand(token, chatId, cmd, menu) {
           } else { reportBody += `\n   _Sin calificaciones_\n\n`; }
         }
       });
+      
       if (!found) await sendTelegramMessage(token, chatId, "No se encontraron materias.");
       else {
-        let report = `📊 *Notas: ${studentName}*\nCódigo: ${studentCode}\n\n${reportBody}`;
-        await sendTelegramMessage(token, chatId, report, menu);
+        let report = `📊 *Resumen de Notas: ${studentName}*\nCódigo: ${studentCode}\n\n${reportBody}`;
+        await sendTelegramMessage(token, chatId, report, { inline_keyboard: subjectButtons });
       }
     } catch (e) { await sendTelegramMessage(token, chatId, `⚠️ Error: ${e.message}`); }
   }
@@ -362,6 +366,53 @@ async function handleLinking(token, chatId, studentCode, menu) {
     } else {
       await sendTelegramMessage(token, chatId, "❌ Código no encontrado.");
     }
+  } catch (e) { await sendTelegramMessage(token, chatId, `⚠️ Error: ${e.message}`); }
+}
+
+async function handleDetailedGrades(token, chatId, subjectId) {
+  try {
+    const userDoc = await db.doc(`artifacts/${firebaseAppId}/public/data/telegram_users/${chatId}`).get();
+    const studentCode = userDoc.data().studentCode;
+    const subDoc = await db.doc(`artifacts/${firebaseAppId}/public/data/subjects/${subjectId}`).get();
+    
+    if (!subDoc.exists) return await sendTelegramMessage(token, chatId, "No se encontró la materia.");
+    
+    const sub = subDoc.data();
+    const student = (sub.students || []).find(s => s.code === studentCode);
+    if (!student) return await sendTelegramMessage(token, chatId, "Estudiante no inscrito en esta materia.");
+
+    let report = `🔎 *Detalle: ${sub.name}*\nEstudiante: ${student.name}\n\n`;
+    
+    [1, 2, 3].forEach(t => {
+      const acts = (sub.activities?.[t]) || [];
+      const triGrades = sub.grades?.[t]?.[student.id] || {};
+      
+      if (acts.length > 0 || triGrades['exam_final'] || triGrades['project_final']) {
+        report += `*TRIMESTRE ${t}*\n`;
+        acts.forEach(a => {
+          const g = triGrades[a.id] !== undefined ? triGrades[a.id] : '-';
+          report += `• ${a.name}: *${g}*\n`;
+        });
+        
+        const ex = triGrades['exam_final'] !== undefined ? triGrades['exam_final'] : '-';
+        const pr = triGrades['project_final'] !== undefined ? triGrades['project_final'] : '-';
+        report += `📝 Examen: *${ex}*\n🎨 Proyecto: *${pr}*\n`;
+        
+        // Calcular total trimestral para el detalle
+        let sumActs = 0;
+        acts.forEach(a => sumActs += (triGrades[a.id] || 0));
+        const avgActs = acts.length > 0 ? sumActs / acts.length : 0;
+        const wAct = avgActs * 0.7;
+        const exVal = parseFloat(triGrades['exam_final'] || 0);
+        const prVal = parseFloat(triGrades['project_final'] || 0);
+        const wEx = (triGrades['project_final'] !== undefined) ? ((exVal + prVal) / 2) * 0.3 : exVal * 0.3;
+        report += `📉 Promedio T${t}: *${(wAct + wEx).toFixed(2)}*\n\n`;
+      }
+    });
+
+    await sendTelegramMessage(token, chatId, report, { 
+      inline_keyboard: [[{ text: "⬅️ Volver a Notas", callback_data: "NOTAS" }]] 
+    });
   } catch (e) { await sendTelegramMessage(token, chatId, `⚠️ Error: ${e.message}`); }
 }
 
