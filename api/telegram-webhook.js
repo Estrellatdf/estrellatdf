@@ -117,7 +117,7 @@ export default async function handler(req, res) {
       const studentCode = userDoc.data().studentCode;
       
       // 1. Obtener ajustes globales (avisos globales)
-      const settingsDoc = await db.doc(`artifacts/${firebaseAppId}/public/data/settings`).get();
+      const settingsDoc = await db.doc(`artifacts/${firebaseAppId}/public/data/settings/general`).get();
       const globalAnn = settingsDoc.exists ? (settingsDoc.data().announcements || []) : [];
 
       // 2. Obtener materias del estudiante (avisos de materias)
