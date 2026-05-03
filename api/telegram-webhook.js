@@ -146,8 +146,12 @@ async function handleCommand(token, chatId, cmd, menu) {
               reportBody += `   T${t}: *${avg.toFixed(2)}*`;
             }
           }
-          if (trimestersWithData > 0) reportBody += `\n   *FINAL ANUAL: ${(annualSum / 3).toFixed(2)}*\n\n`;
-          else reportBody += `\n   _Sin calificaciones_\n\n`;
+          if (trimestersWithData > 0) {
+            const finalAvg = annualSum / 3;
+            const status = finalAvg >= 7 ? "✅ APROBADO" : "⚠️ SUPLETORIO / REMEDIAL";
+            reportBody += `\n   *FINAL ANUAL: ${finalAvg.toFixed(2)}*`;
+            reportBody += `\n   Estado: ${status}\n\n`;
+          } else { reportBody += `\n   _Sin calificaciones_\n\n`; }
         }
       });
       if (!found) await sendTelegramMessage(token, chatId, "No se encontraron materias.");
