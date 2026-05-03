@@ -726,15 +726,15 @@ export default function UE19deAgosto() {
   };
 
   const addStaffMember = async () => {
-    console.log("Iniciando guardado de docente...", { newStaffName, editingStaffId });
     if (!newStaffName || !newStaffPass) return alert("Nombre y contraseña son obligatorios.");
     
     const id = editingStaffId ? String(editingStaffId) : ("staff_" + Date.now());
+    const basePath = `artifacts/escuela-v1/public/data`;
     
     try {
-      // 1. Guardar el docente (Prioridad alta)
-      const docRef = doc(db, "artifacts", "escuela-v1", "public", "data", "staff", id);
-      await setDoc(docRef, {
+      // 1. Guardar el docente usando ruta de texto única (más seguro)
+      const staffRef = doc(db, `${basePath}/staff/${id}`);
+      await setDoc(staffRef, {
         id, 
         name: String(newStaffName), 
         email: String(newStaffEmail || ''), 
@@ -744,27 +744,24 @@ export default function UE19deAgosto() {
         isAuthorized: newStaffRole === 'Administrativo' ? !!newStaffAuth : true,
         securityKey: newStaffRole === 'Administrativo' ? String(newStaffSecKey || '') : null
       });
-      console.log("Docente guardado en Firestore.");
 
-      // 2. Sincronizar materias en segundo plano (No bloquea la UI)
+      // 2. Sincronizar materias en segundo plano
       if (editingStaffId) {
-        const toUpdate = subjects.filter(s => s.teacherId === editingStaffId);
-        console.log(`Actualizando ${toUpdate.length} materias...`);
-        toUpdate.forEach(sub => {
-          setDoc(doc(db, "artifacts", "escuela-v1", "public", "data", "subjects", sub.id), { 
-            ...sub, teacherName: String(newStaffName) 
-          }).catch(e => console.error("Error sincronizando materia:", e));
+        subjects.filter(s => s.teacherId === editingStaffId).forEach(sub => {
+          const subRef = doc(db, `${basePath}/subjects/${sub.id}`);
+          setDoc(subRef, { ...sub, teacherName: String(newStaffName) })
+            .catch(e => console.error("Error sincronización:", e));
         });
       }
 
-      // 3. Limpiar estado inmediatamente
+      // 3. Limpiar y cerrar
       setNewStaffName(''); setNewStaffEmail(''); setNewStaffPass(''); setNewStaffTutoring('');
       setNewStaffAuth(false); setNewStaffSecKey('');
       setEditingStaffId(null);
       alert("✅ Docente guardado exitosamente.");
     } catch (err) {
-      console.error("Error crítico en addStaffMember:", err);
-      alert("Error: " + err.message);
+      console.error("Error en addStaffMember:", err);
+      alert("Error al guardar: " + err.message);
     }
   };
 
