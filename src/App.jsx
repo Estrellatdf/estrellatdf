@@ -727,33 +727,42 @@ export default function UE19deAgosto() {
 
   const addStaffMember = async () => {
     if (!newStaffName || !newStaffPass) return alert("Nombre y contraseña son obligatorios.");
-    const id = editingStaffId || ("staff_" + Date.now());
+    
+    // Aseguramos que el ID sea un string
+    const id = editingStaffId ? String(editingStaffId) : ("staff_" + Date.now());
     
     try {
-      // 1. Guardar el docente
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', id), {
-        id, name: newStaffName, email: newStaffEmail, role: newStaffRole, password: newStaffPass,
-        tutoringCourse: newStaffTutoring,
-        isAuthorized: newStaffRole === 'Administrativo' ? newStaffAuth : true,
-        securityKey: newStaffRole === 'Administrativo' ? newStaffSecKey : null
+      // 1. Guardar el docente con ruta absoluta explícita
+      const docRef = doc(db, "artifacts", "escuela-v1", "public", "data", "staff", id);
+      await setDoc(docRef, {
+        id, 
+        name: String(newStaffName), 
+        email: String(newStaffEmail || ''), 
+        role: String(newStaffRole), 
+        password: String(newStaffPass),
+        tutoringCourse: String(newStaffTutoring || ''),
+        isAuthorized: newStaffRole === 'Administrativo' ? !!newStaffAuth : true,
+        securityKey: newStaffRole === 'Administrativo' ? String(newStaffSecKey || '') : null
       });
 
-      // 2. Sincronizar materias de forma segura y sin bloquear
+      // 2. Sincronizar materias de forma segura
       if (editingStaffId) {
-        subjects.forEach(sub => {
+        for (const sub of subjects) {
           if (sub.teacherId === editingStaffId) {
-            setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subjects', sub.id), {
-              ...sub, teacherName: newStaffName
-            });
+            const subRef = doc(db, "artifacts", "escuela-v1", "public", "data", "subjects", sub.id);
+            await setDoc(subRef, { ...sub, teacherName: String(newStaffName) });
           }
-        });
+        }
       }
 
+      // Limpiar y cerrar
       setNewStaffName(''); setNewStaffEmail(''); setNewStaffPass(''); setNewStaffTutoring('');
       setNewStaffAuth(false); setNewStaffSecKey('');
       setEditingStaffId(null);
+      alert("✅ Datos guardados correctamente.");
     } catch (err) {
-      alert("Error al guardar: " + err.message);
+      console.error(err);
+      alert("Error al guardar docente: " + err.message);
     }
   };
 
