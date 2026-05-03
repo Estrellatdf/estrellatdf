@@ -128,6 +128,7 @@ export default function UE19deAgosto() {
   const [isAddingStudent, setIsAddingStudent] = useState(false);
   const [newStudentList, setNewStudentList] = useState('');
   const [isAddingActivity, setIsAddingActivity] = useState(false);
+  const [editingActivity, setEditingActivity] = useState(null);
   const [newActivityName, setNewActivityName] = useState('');
   const [newActivityDesc, setNewActivityDesc] = useState('');
 
@@ -828,6 +829,15 @@ export default function UE19deAgosto() {
       } 
     });
     setIsAddingActivity(false); setNewActivityName(''); setNewActivityDesc('');
+  };
+
+  const updateActivityData = () => {
+    if (!newActivityName || !currentSubject || !editingActivity) return;
+    const newActs = (currentSubject.activities[currentTrimester] || []).map(a => 
+      a.id === editingActivity.id ? { ...a, name: newActivityName, description: newActivityDesc } : a
+    );
+    saveSubject({ ...currentSubject, activities: { ...currentSubject.activities, [currentTrimester]: newActs } });
+    setEditingActivity(null); setNewActivityName(''); setNewActivityDesc('');
   };
 
   const deleteActivity = (actId) => {
@@ -1964,18 +1974,29 @@ export default function UE19deAgosto() {
                             <th className="p-3 w-10 text-center font-bold border-b border-gray-300">#</th>
                             <th className="p-3 min-w-[250px] font-bold border-b border-gray-300 border-r">Estudiante</th>
                             {(currentSubject.activities[currentTrimester] || []).map((a, i) => (
-                              <th key={a.id} className="p-0 text-center min-w-[80px] w-20 border-b border-gray-300 border-r bg-gray-50 relative group h-40 align-bottom overflow-hidden">
-                                <div className="flex flex-col items-center justify-end h-full pb-4">
-                                  <span className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Act {i + 1}</span>
-                                  <div className="font-bold text-xs mb-2 px-1 text-gray-700" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', maxHeight: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={a.name}>{a.name}</div>
-                                  {canEditGrades(currentSubject) && <button onClick={() => deleteActivity(a.id)} className="absolute top-1 right-1 text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={10} /></button>}
+                              <th key={a.id} className="p-0 text-center min-w-[50px] w-14 border-b border-gray-300 border-r bg-gray-50 relative group h-32 align-bottom overflow-hidden">
+                                <div className="flex flex-col items-center justify-end h-full pb-3">
+                                  <span className="text-[8px] uppercase tracking-wider text-gray-400 mb-1">Act {i + 1}</span>
+                                  <div className="font-bold text-[10px] mb-2 px-0.5 text-gray-700" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', maxHeight: '70px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={a.name}>{a.name}</div>
+                                  <div className="absolute top-1 right-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                    {canEditGrades(currentSubject) && (
+                                      <>
+                                        <button onClick={() => {
+                                          setEditingActivity(a);
+                                          setNewActivityName(a.name);
+                                          setNewActivityDesc(a.description || '');
+                                        }} className="p-1 bg-white/90 text-indigo-600 rounded shadow-sm hover:bg-white" title="Editar Nombre/Descripción"><Settings size={10} /></button>
+                                        <button onClick={() => deleteActivity(a.id)} className="p-1 bg-white/90 text-red-500 rounded shadow-sm hover:bg-white"><Trash2 size={10} /></button>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
                               </th>
                             ))}
                             {[['70% (D)', 'bg-indigo-50 border-indigo-100 text-indigo-700'], ['EXAMEN', 'bg-orange-50 border-orange-100 text-orange-700'], ['PROYECTO', 'bg-green-50 border-green-100 text-green-700'], ['30% (E)', 'bg-indigo-50 border-indigo-100 text-indigo-700'], ['FINAL', 'bg-gray-800 border-gray-900 text-white']].map(([h, cls]) => (
-                              <th key={h} className={`p-0 text-center min-w-[64px] border-b border-r relative h-40 align-bottom ${cls.split(' ')[0]} ${cls.split(' ')[1]}`}>
-                                <div className="flex flex-col items-center justify-end h-full w-full pb-4">
-                                  <span className={`font-bold text-xs whitespace-nowrap px-1 ${cls.split(' ')[2]}`} style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>{h}</span>
+                              <th key={h} className={`p-0 text-center min-w-[50px] border-b border-r relative h-32 align-bottom ${cls.split(' ')[0]} ${cls.split(' ')[1]}`}>
+                                <div className="flex flex-col items-center justify-end h-full w-full pb-3">
+                                  <span className={`font-bold text-[10px] whitespace-nowrap px-0.5 ${cls.split(' ')[2]}`} style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>{h}</span>
                                 </div>
                               </th>
                             ))}
@@ -1997,28 +2018,28 @@ export default function UE19deAgosto() {
                                   </div>
                                 </td>
                                 {(currentSubject.activities[currentTrimester] || []).map(a => (
-                                  <td key={a.id} className="p-1 border-r border-gray-200/50 text-center">
+                                  <td key={a.id} className="p-0.5 border-r border-gray-200/50 text-center">
                                     <input type="number" disabled={!editable}
-                                      className={`w-16 min-w-[64px] text-center p-2 text-base font-bold rounded border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white/70 shadow-sm ${!editable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                      className={`w-12 min-w-[48px] text-center p-1 text-sm font-bold rounded border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white/70 ${!editable ? 'opacity-50 cursor-not-allowed' : ''}`}
                                       value={currentSubject.grades[currentTrimester]?.[s.id]?.[a.id] ?? ''}
                                       onChange={e => updateGrade(s.id, a.id, e.target.value)} />
                                   </td>
                                 ))}
-                                <td className="p-2 text-center font-bold text-indigo-700 bg-indigo-50/50 border-r border-indigo-100">{st.wAct}</td>
-                                <td className="p-1 text-center bg-orange-50/50 border-r border-orange-100">
+                                <td className="p-1 text-center font-bold text-indigo-700 bg-indigo-50/50 border-r border-indigo-100 text-sm">{st.wAct}</td>
+                                <td className="p-0.5 text-center bg-orange-50/50 border-r border-orange-100">
                                   <input type="number" disabled={!editable}
-                                    className={`w-16 min-w-[64px] text-center p-2 text-base font-bold rounded border border-orange-200 focus:ring-2 focus:ring-orange-500 focus:outline-none bg-white shadow-sm ${!editable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`w-12 min-w-[48px] text-center p-1 text-sm font-bold rounded border border-orange-100 focus:ring-2 focus:ring-orange-500 focus:outline-none bg-white ${!editable ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     value={currentSubject.grades[currentTrimester]?.[s.id]?.['exam_final'] ?? ''}
                                     onChange={e => updateGrade(s.id, 'exam_final', e.target.value)} />
                                 </td>
-                                <td className="p-1 text-center bg-green-50/50 border-r border-green-100">
+                                <td className="p-0.5 text-center bg-green-50/50 border-r border-green-100">
                                   <input type="number" disabled={!editable} placeholder="-"
-                                    className={`w-16 min-w-[64px] text-center p-2 text-base font-bold rounded border border-green-200 focus:ring-2 focus:ring-green-500 focus:outline-none bg-white shadow-sm ${!editable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`w-12 min-w-[48px] text-center p-1 text-sm font-bold rounded border border-green-100 focus:ring-2 focus:ring-green-500 focus:outline-none bg-white ${!editable ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     value={currentSubject.grades[currentTrimester]?.[s.id]?.['project_final'] ?? ''}
                                     onChange={e => updateGrade(s.id, 'project_final', e.target.value)} />
                                 </td>
-                                <td className="p-2 text-center font-bold text-indigo-700 bg-indigo-50/50 border-r border-indigo-100">{st.wEx}</td>
-                                <td className={`p-2 text-center font-bold text-white ${parseFloat(st.fin) < 7 ? 'bg-red-500' : 'bg-gray-800'}`}>{st.fin}</td>
+                                <td className="p-1 text-center font-bold text-indigo-700 bg-indigo-50/50 border-r border-indigo-100 text-sm">{st.wEx}</td>
+                                <td className={`p-1 text-center font-bold text-white text-sm ${parseFloat(st.fin) < 7 ? 'bg-red-500' : 'bg-gray-800'}`}>{st.fin}</td>
                               </tr>
                             );
                           })}
@@ -2234,7 +2255,30 @@ export default function UE19deAgosto() {
           </div>
         </div>
       )}
-
+      {/* MODAL: Editar Actividad */}
+      {editingActivity && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm">
+            <h3 className="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2"><Settings className="text-indigo-600" /> Editar Actividad</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">Nombre</label>
+                <input className="border border-gray-300 w-full p-3 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  placeholder="Nombre de la actividad" value={newActivityName} onChange={e => setNewActivityName(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">Instrucciones / Descripción</label>
+                <textarea className="border border-gray-300 w-full p-3 rounded-lg h-32 resize-none focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                  placeholder="Describe la tarea aquí..." value={newActivityDesc} onChange={e => setNewActivityDesc(e.target.value)} />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button onClick={() => { setEditingActivity(null); setNewActivityName(''); setNewActivityDesc(''); }} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">Cancelar</button>
+              <button onClick={updateActivityData} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-bold shadow transition">Guardar Cambios</button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* MODAL: Inscribir Estudiantes */}
       {isAddingStudent && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
