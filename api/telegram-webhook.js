@@ -163,13 +163,14 @@ async function handleCommand(token, chatId, cmd, menu) {
     } catch (e) { await sendTelegramMessage(token, chatId, `⚠️ Error: ${e.message}`); }
   }
 
-  // 2. COMUNICADOS
+  // 2. COMUNICADOS (Solo vigentes: últimos 7 días o eventos futuros)
   else if (text.includes('COMUNICADOS') || text.includes('AVISOS')) {
     try {
       const settingsDoc = await db.doc(`artifacts/${firebaseAppId}/public/data/settings/general`).get();
       const globalAnn = settingsDoc.exists ? (settingsDoc.data().announcements || []) : [];
       const subjectsSnap = await db.collection(`artifacts/${firebaseAppId}/public/data/subjects`).get();
       let subjectAnn = [], studentName = "";
+      
       subjectsSnap.forEach(subDoc => {
         const sub = subDoc.data();
         const student = (sub.students || []).find(s => s.code === studentCode);
@@ -179,14 +180,24 @@ async function handleCommand(token, chatId, cmd, menu) {
           subjectAnn = subjectAnn.concat(anns);
         }
       });
-      const allAnn = [...globalAnn, ...subjectAnn];
-      const uniqueAnn = Array.from(new Map(allAnn.map(a => [a.id, a])).values())
-        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0, 10);
 
-      if (uniqueAnn.length === 0) await sendTelegramMessage(token, chatId, "📭 No hay comunicados recientes.", menu);
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+      
+      const allAnn = [...globalAnn, ...subjectAnn];
+      const activeAnn = Array.from(new Map(allAnn.map(a => [a.id, a])).values())
+        .filter(ann => {
+          const annDate = new Date(ann.date || 0);
+          const isRecent = annDate >= sevenDaysAgo;
+          const isFuture = annDate > now;
+          return isRecent || isFuture;
+        })
+        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+      if (activeAnn.length === 0) await sendTelegramMessage(token, chatId, "📭 No hay avisos nuevos o pendientes de esta semana.", menu);
       else {
-        let report = `📢 *Avisos: ${studentName}*\n\n`;
-        uniqueAnn.forEach(ann => {
+        let report = `📢 *Avisos Recientes: ${studentName}*\n\n`;
+        activeAnn.forEach(ann => {
           const typeIcon = ann.type === 'urgent' ? '🚨' : ann.type === 'event' ? '🗓️' : '📝';
           report += `${typeIcon} *${ann.title}* [${ann.subjectName || 'Global'}]\n_${ann.date}_\n${ann.body}\n\n`;
         });
@@ -195,29 +206,44 @@ async function handleCommand(token, chatId, cmd, menu) {
     } catch (e) { await sendTelegramMessage(token, chatId, `⚠️ Error: ${e.message}`); }
   }
 
-  // 3. ASISTENCIA
+  // 3. ASISTENCIA (Semanal + Acumulado)
   else if (text.includes('ASISTENCIA') || text.includes('FALTAS')) {
     try {
       const subjectsSnap = await db.collection(`artifacts/${firebaseAppId}/public/data/subjects`).get();
       let studentName = "", found = false, reportBody = "", totalAbsences = 0;
+      
+      const now = new Date();
+      const startOfWeek = new Date(now.getTime() - (now.getDay() - 1) * 24 * 60 * 60 * 1000); // Lunes
+      startOfWeek.setHours(0,0,0,0);
+
       subjectsSnap.forEach(subDoc => {
         const sub = subDoc.data();
         const student = (sub.students || []).find(s => s.code === studentCode);
         if (student) {
           found = true; if (!studentName) studentName = student.name;
           const attendance = sub.attendance?.[student.id] || {};
-          const absences = Object.entries(attendance).filter(([d, r]) => r.status === 'A').sort((a, b) => b[0].localeCompare(a[0]));
-          if (absences.length > 0) {
-            totalAbsences += absences.length;
-            reportBody += `📙 *${sub.name}*\n   Faltas: *${absences.length}*\n`;
-            absences.slice(0, 3).forEach(([d, r]) => { reportBody += `   • ${d}${r.note ? ` (${r.note})` : ''}\n`; });
+          
+          const allAbsences = Object.entries(attendance).filter(([d, r]) => r.status === 'A');
+          totalAbsences += allAbsences.length;
+
+          const weekAbsences = allAbsences.filter(([dateStr]) => {
+            const d = new Date(dateStr.split('#')[0]); // Quitar el id de sesión si existe
+            return d >= startOfWeek;
+          }).sort((a, b) => b[0].localeCompare(a[0]));
+
+          if (weekAbsences.length > 0) {
+            reportBody += `📙 *${sub.name}*\n   Faltas esta semana: *${weekAbsences.length}*\n`;
+            weekAbsences.forEach(([d, r]) => { reportBody += `   • ${d}${r.note ? ` (${r.note})` : ''}\n`; });
             reportBody += `\n`;
           }
         }
       });
+
       if (!found) await sendTelegramMessage(token, chatId, "No se encontraron materias.");
       else {
-        let report = `📅 *Asistencia: ${studentName}*\nTotal Faltas: *${totalAbsences}*\n\n${totalAbsences === 0 ? "✅ ¡Excelente! No se registran faltas." : reportBody}`;
+        let report = `📅 *Control de Asistencia: ${studentName}*\n\n`;
+        report += `📊 *Resumen Anual:* ${totalAbsences} faltas acumuladas.\n`;
+        report += `🗓️ *Esta Semana:*\n${reportBody || "✅ Sin faltas esta semana."}`;
         await sendTelegramMessage(token, chatId, report, menu);
       }
     } catch (e) { await sendTelegramMessage(token, chatId, `⚠️ Error: ${e.message}`); }
