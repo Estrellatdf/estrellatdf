@@ -729,40 +729,32 @@ export default function UE19deAgosto() {
     if (!newStaffName || !newStaffPass) return alert("Nombre y contraseña son obligatorios.");
     const id = editingStaffId || ("staff_" + Date.now());
     
-    // 1. Antes de guardar, capturamos el nombre antiguo si estamos editando
-    let oldName = "";
-    if (editingStaffId) {
-      const oldDoc = staff.find(s => s.id === editingStaffId);
-      oldName = oldDoc?.name || "";
-    }
+    try {
+      // 1. Guardar el docente
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', id), {
+        id, name: newStaffName, email: newStaffEmail, role: newStaffRole, password: newStaffPass,
+        tutoringCourse: newStaffTutoring,
+        isAuthorized: newStaffRole === 'Administrativo' ? newStaffAuth : true,
+        securityKey: newStaffRole === 'Administrativo' ? newStaffSecKey : null
+      });
 
-    // 2. Guardamos el docente (nuevo o editado)
-    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', id), {
-      id, name: newStaffName, email: newStaffEmail, role: newStaffRole, password: newStaffPass,
-      tutoringCourse: newStaffTutoring,
-      isAuthorized: newStaffRole === 'Administrativo' ? newStaffAuth : true,
-      securityKey: newStaffRole === 'Administrativo' ? newStaffSecKey : null
-    });
-
-    // 3. Sincronización Agresiva en materias vinculadas
-    if (editingStaffId) {
-      // Buscamos materias por ID O por el Nombre Antiguo (para mayor seguridad)
-      const relatedSubjects = subjects.filter(s => 
-        s.teacherId === editingStaffId || (oldName && s.teacherName === oldName)
-      );
-      
-      for (const sub of relatedSubjects) {
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subjects', sub.id), {
-          ...sub, 
-          teacherId: id, // Aseguramos que ahora sí tenga el ID
-          teacherName: newStaffName 
+      // 2. Sincronizar materias de forma segura y sin bloquear
+      if (editingStaffId) {
+        subjects.forEach(sub => {
+          if (sub.teacherId === editingStaffId) {
+            setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subjects', sub.id), {
+              ...sub, teacherName: newStaffName
+            });
+          }
         });
       }
-    }
 
-    setNewStaffName(''); setNewStaffEmail(''); setNewStaffPass(''); setNewStaffTutoring('');
-    setNewStaffAuth(false); setNewStaffSecKey('');
-    setEditingStaffId(null);
+      setNewStaffName(''); setNewStaffEmail(''); setNewStaffPass(''); setNewStaffTutoring('');
+      setNewStaffAuth(false); setNewStaffSecKey('');
+      setEditingStaffId(null);
+    } catch (err) {
+      alert("Error al guardar: " + err.message);
+    }
   };
 
   const addStudentsBulk = () => {
