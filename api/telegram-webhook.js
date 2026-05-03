@@ -188,7 +188,7 @@ async function handleCommand(token, chatId, cmd, menu) {
         if (student) {
           found = true; if (!studentName) studentName = student.name;
           const attendance = sub.attendance?.[student.id] || {};
-          const absences = Object.entries(attendance).filter(([d, r]) => r.status === 'F').sort((a, b) => b[0].localeCompare(a[0]));
+          const absences = Object.entries(attendance).filter(([d, r]) => r.status === 'A').sort((a, b) => b[0].localeCompare(a[0]));
           if (absences.length > 0) {
             totalAbsences += absences.length;
             reportBody += `📙 *${sub.name}*\n   Faltas: *${absences.length}*\n`;

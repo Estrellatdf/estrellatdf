@@ -477,6 +477,24 @@ export default function UE19deAgosto() {
     alert(`✅ Nuevo año lectivo "${newYearName.trim()}" iniciado. El año anterior fue archivado.`);
   };
 
+  const notifyPush = async (title, body, studentCode) => {
+    try {
+      await fetch('/api/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, body, studentCode })
+      });
+    } catch (e) { console.error("Error enviando notificación:", e); }
+  };
+
+  const notifyAbsence = (student, subjectName) => {
+    notifyPush(
+      "Alerta de Asistencia",
+      `Se ha registrado una FALTA para ${student.name} en la materia de ${subjectName} hoy.`,
+      student.code
+    );
+  };
+
   // ── LOGIN DOCENTE ─────────────────────────────────────────────────────────
   const handleTeacherLogin = () => {
     if (staff.length === 0) {
@@ -933,6 +951,12 @@ export default function UE19deAgosto() {
     const stu = att[sId] || {};
     const day = stu[d] || { status: 'P', note: '' };
     saveSubject({ ...currentSubject, attendance: { ...att, [sId]: { ...stu, [d]: { ...day, [f]: v } } } });
+
+    // Alerta automática si es falta
+    if (f === 'status' && v === 'A') {
+      const student = currentSubject.students.find(s => s.id === sId);
+      if (student) notifyAbsence(student, currentSubject.name);
+    }
   };
 
   const calculateStats = (sub, tri, sId) => {
@@ -1859,6 +1883,14 @@ export default function UE19deAgosto() {
                       {currentTrimester !== 'Anual' && (
                         <>
                           <button onClick={exportGradesCSV} className="text-sm bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition"><Download size={16} /> Excel</button>
+                          <button onClick={() => {
+                            if (!confirm("¿Deseas enviar una notificación a todos los padres de esta materia informando sobre actualizaciones en las notas?")) return;
+                            const codes = currentSubject.students.map(s => s.code);
+                            notifyPush(`Notas: ${currentSubject.name}`, `Se han actualizado las calificaciones del Trimestre ${currentTrimester}. Ya puedes consultarlas en el bot.`, codes);
+                            alert("Notificación enviada correctamente.");
+                          }} className="text-sm bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition">
+                            <Megaphone size={16} /> Notificar
+                          </button>
                           {canEditGrades(currentSubject) && (
                             <>
                               <button onClick={() => setIsAddingActivity(true)} className="text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition"><Plus size={16} /> Actividad</button>
