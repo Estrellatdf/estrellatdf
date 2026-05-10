@@ -1808,22 +1808,33 @@ export default function UE19deAgosto() {
 
             {/* Lista de materias */}
             {isRector ? (() => {
-              const parallels = [...new Set(visibleSubjects.map(s => s.parallel))].sort();
+              const subjectsByCourse = visibleSubjects.reduce((acc, s) => {
+                const c = s.course || 'Sin Curso';
+                if (!acc[c]) acc[c] = [];
+                acc[c].push(s);
+                return acc;
+              }, {});
+              const sortedCourses = Object.keys(subjectsByCourse).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+              
               return (
-                <div className="space-y-5">
-                  {parallels.map(p => (
-                    <div key={p}>
+                <div className="space-y-6">
+                  {sortedCourses.map(courseName => (
+                    <div key={courseName}>
                       <div className="flex items-center gap-2 mb-2 px-1">
                         <div className="h-px flex-1 bg-indigo-100" />
-                        <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">{p || 'Sin Paralelo'}</span>
+                        <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">{courseName}</span>
                         <div className="h-px flex-1 bg-indigo-100" />
                       </div>
-                      {[...visibleSubjects].filter(s => s.parallel === p).sort((a, b) => a.name.localeCompare(b.name)).map(s => (
+                      {subjectsByCourse[courseName].sort((a, b) => {
+                        const p = (a.parallel || "").localeCompare(b.parallel || "");
+                        if (p !== 0) return p;
+                        return a.name.localeCompare(b.name);
+                      }).map(s => (
                         <button key={s.id} onClick={() => { setCurrentSubjectId(s.id); setShowMenu(false); }}
                           className={`w-full text-left p-3 rounded-xl flex justify-between items-center transition-all mb-1 ${currentSubjectId === s.id ? 'bg-indigo-600 text-white shadow-lg translate-x-1' : 'hover:bg-slate-50 text-slate-600 hover:translate-x-1'}`}>
                           <div className="flex-1 min-w-0 pr-2">
                             <div className="font-bold text-sm truncate">{s.name}</div>
-                            <div className={`text-[10px] ${currentSubjectId === s.id ? 'text-indigo-200' : 'text-slate-400'}`}>{s.teacherName || 'Sin docente'}</div>
+                            <div className={`text-[10px] ${currentSubjectId === s.id ? 'text-indigo-200' : 'text-slate-400'}`}>{s.parallel}{s.teacherName ? ` • ${s.teacherName}` : ''}</div>
                           </div>
                           <Eye size={14} className={currentSubjectId === s.id ? 'text-white' : 'text-slate-300'} />
                         </button>
@@ -1836,31 +1847,57 @@ export default function UE19deAgosto() {
             })() : (() => {
               const mySubjects = visibleSubjects.filter(s => s.teacherId === currentUser?.id);
               const otherSubjects = visibleSubjects.filter(s => s.teacherId !== currentUser?.id);
+              
+              const myGrouped = mySubjects.reduce((acc, s) => {
+                const c = s.course || 'Sin Curso';
+                if (!acc[c]) acc[c] = [];
+                acc[c].push(s);
+                return acc;
+              }, {});
+              const adminGrouped = visibleSubjects.reduce((acc, s) => {
+                const c = s.course || 'Sin Curso';
+                if (!acc[c]) acc[c] = [];
+                acc[c].push(s);
+                return acc;
+              }, {});
+              
+              const targetGrouped = isAdmin ? adminGrouped : myGrouped;
+              const sortedCourses = Object.keys(targetGrouped).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
               return (
                 <>
-                  <div className="px-2 mb-1">
+                  <div className="px-2 mb-4">
                     <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                       {isAdmin ? 'Todas las Asignaturas' : 'Mis Asignaturas'}
                     </h3>
                   </div>
-                  {[...(isAdmin ? visibleSubjects : mySubjects)].sort((a, b) => {
-                    const c = (a.course || "").localeCompare(b.course || "", undefined, { numeric: true });
-                    if (c !== 0) return c;
-                    const p = (a.parallel || "").localeCompare(b.parallel || "");
-                    if (p !== 0) return p;
-                    return a.name.localeCompare(b.name);
-                  }).map(s => (
-                    <button key={s.id} onClick={() => { setCurrentSubjectId(s.id); setShowMenu(false); }}
-                      className={`w-full text-left p-4 rounded-2xl flex justify-between items-center transition-all duration-300 ${currentSubjectId === s.id ? 'bg-indigo-600 text-white shadow-xl translate-x-1' : 'hover:bg-slate-50 text-slate-600 hover:translate-x-1'}`}>
-                      <div className="flex-1 min-w-0 pr-3">
-                        <div className="font-bold text-base truncate">{s.name}</div>
-                        <div className={`text-xs ${currentSubjectId === s.id ? 'text-indigo-200' : 'text-slate-400'} font-medium`}>
-                          {s.course} {s.parallel}{s.teacherName ? ` • ${s.teacherName}` : ''}
-                        </div>
+                  
+                  {sortedCourses.map(courseName => (
+                    <div key={courseName} className="mb-6">
+                      <div className="flex items-center gap-2 mb-2 px-1">
+                        <div className="h-px flex-1 bg-slate-200" />
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">{courseName}</span>
+                        <div className="h-px flex-1 bg-slate-200" />
                       </div>
-                      {currentSubjectId === s.id && <ChevronRight size={18} />}
-                    </button>
+                      {targetGrouped[courseName].sort((a, b) => {
+                        const p = (a.parallel || "").localeCompare(b.parallel || "");
+                        if (p !== 0) return p;
+                        return a.name.localeCompare(b.name);
+                      }).map(s => (
+                        <button key={s.id} onClick={() => { setCurrentSubjectId(s.id); setShowMenu(false); }}
+                          className={`w-full text-left p-4 rounded-2xl flex justify-between items-center transition-all duration-300 mb-2 ${currentSubjectId === s.id ? 'bg-indigo-600 text-white shadow-xl translate-x-1' : 'hover:bg-slate-50 text-slate-600 hover:translate-x-1'}`}>
+                          <div className="flex-1 min-w-0 pr-3">
+                            <div className="font-bold text-base truncate">{s.name}</div>
+                            <div className={`text-xs ${currentSubjectId === s.id ? 'text-indigo-200' : 'text-slate-400'} font-medium`}>
+                              {s.parallel}{s.teacherName ? ` • ${s.teacherName}` : ''}
+                            </div>
+                          </div>
+                          {currentSubjectId === s.id && <ChevronRight size={18} />}
+                        </button>
+                      ))}
+                    </div>
                   ))}
+                  
                   {!isAdmin && mySubjects.length === 0 && <div className="text-xs text-slate-400 px-3 py-2 italic">No tienes materias asignadas.</div>}
 
                   {isDocente && otherSubjects.length > 0 && (
@@ -1869,22 +1906,37 @@ export default function UE19deAgosto() {
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-indigo-600 transition-colors">Materias de Tutoría</h3>
                         <span className="text-xs text-slate-400 font-bold group-hover:text-indigo-600 px-2 py-0.5 bg-gray-100 rounded-md">{showOtherSubjects ? 'Ocultar ▲' : 'Ver ▼'}</span>
                       </button>
-                      {showOtherSubjects && [...otherSubjects].sort((a, b) => {
-                        const c = (a.course || "").localeCompare(b.course || "", undefined, { numeric: true });
-                        if (c !== 0) return c;
-                        const p = (a.parallel || "").localeCompare(b.parallel || "");
-                        if (p !== 0) return p;
-                        return a.name.localeCompare(b.name);
-                      }).map(s => (
-                        <button key={s.id} onClick={() => { setCurrentSubjectId(s.id); setShowMenu(false); }}
-                          className={`w-full text-left p-3 rounded-xl flex justify-between items-center transition-all mb-1 ${currentSubjectId === s.id ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100' : 'hover:bg-slate-50 text-slate-500'}`}>
-                          <div className="flex-1 min-w-0 pr-2">
-                            <div className="font-bold text-sm truncate">{s.name}</div>
-                            <div className="text-[10px] text-slate-400 font-medium">{s.course} {s.parallel}</div>
+                      {showOtherSubjects && (() => {
+                        const otherGrouped = otherSubjects.reduce((acc, s) => {
+                          const c = s.course || 'Sin Curso';
+                          if (!acc[c]) acc[c] = [];
+                          acc[c].push(s);
+                          return acc;
+                        }, {});
+                        const sortedOtherCourses = Object.keys(otherGrouped).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+                        
+                        return sortedOtherCourses.map(courseName => (
+                          <div key={courseName} className="mb-4">
+                            <div className="text-[9px] font-bold text-slate-400 uppercase px-2 mb-2 flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full" /> {courseName}
+                            </div>
+                            {otherGrouped[courseName].sort((a, b) => {
+                              const p = (a.parallel || "").localeCompare(b.parallel || "");
+                              if (p !== 0) return p;
+                              return a.name.localeCompare(b.name);
+                            }).map(s => (
+                              <button key={s.id} onClick={() => { setCurrentSubjectId(s.id); setShowMenu(false); }}
+                                className={`w-full text-left p-3 rounded-xl flex justify-between items-center transition-all mb-1 ${currentSubjectId === s.id ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100' : 'hover:bg-slate-50 text-slate-500'}`}>
+                                <div className="flex-1 min-w-0 pr-2">
+                                  <div className="font-bold text-sm truncate">{s.name}</div>
+                                  <div className="text-[10px] text-slate-400 font-medium">{s.parallel}</div>
+                                </div>
+                                <Eye size={14} className="text-gray-400" />
+                              </button>
+                            ))}
                           </div>
-                          <Eye size={14} className="text-gray-400" />
-                        </button>
-                      ))}
+                        ));
+                      })()}
                     </div>
                   )}
                 </>
