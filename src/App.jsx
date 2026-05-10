@@ -1809,7 +1809,7 @@ export default function UE19deAgosto() {
             {/* Lista de materias */}
             {isRector ? (() => {
               const subjectsByCourse = visibleSubjects.reduce((acc, s) => {
-                const c = s.course || 'Sin Curso';
+                const c = s.courseName || s.course || 'Sin Curso';
                 if (!acc[c]) acc[c] = [];
                 acc[c].push(s);
                 return acc;
@@ -1849,13 +1849,13 @@ export default function UE19deAgosto() {
               const otherSubjects = visibleSubjects.filter(s => s.teacherId !== currentUser?.id);
               
               const myGrouped = mySubjects.reduce((acc, s) => {
-                const c = s.course || 'Sin Curso';
+                const c = s.courseName || s.course || 'Sin Curso';
                 if (!acc[c]) acc[c] = [];
                 acc[c].push(s);
                 return acc;
               }, {});
               const adminGrouped = visibleSubjects.reduce((acc, s) => {
-                const c = s.course || 'Sin Curso';
+                const c = s.courseName || s.course || 'Sin Curso';
                 if (!acc[c]) acc[c] = [];
                 acc[c].push(s);
                 return acc;
@@ -1908,7 +1908,7 @@ export default function UE19deAgosto() {
                       </button>
                       {showOtherSubjects && (() => {
                         const otherGrouped = otherSubjects.reduce((acc, s) => {
-                          const c = s.course || 'Sin Curso';
+                          const c = s.courseName || s.course || 'Sin Curso';
                           if (!acc[c]) acc[c] = [];
                           acc[c].push(s);
                           return acc;
