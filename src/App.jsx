@@ -517,14 +517,13 @@ export default function UE19deAgosto() {
     
     const matches = staff.filter(s => s.password === authPassword);
 
-    if (matches.length > 0) {
-      const found = matches.find(m => m.role === 'Rector')
-        || matches.find(m => m.role === 'Administrativo')
-        || matches[0];
-      setCurrentUser({ ...found });
+    if (matches.length === 1) {
+      setCurrentUser({ ...matches[0] });
       setViewMode('teacher');
+    } else if (matches.length > 1) {
+      alert("⚠️ Error de Seguridad: Múltiples usuarios tienen esta misma contraseña. Por favor, solicite al Administrador que le asigne una clave única.");
     } else {
-      alert("Contraseña no válida o usuario no registrado.");
+      alert("Contraseña incorrecta o usuario no registrado.");
     }
   };
 
@@ -727,6 +726,12 @@ export default function UE19deAgosto() {
 
   const addStaffMember = async () => {
     if (!newStaffName || !newStaffPass) return alert("Nombre y contraseña son obligatorios.");
+    
+    // Validar que la contraseña sea única
+    const passExists = staff.some(s => s.password === newStaffPass && s.id !== editingStaffId);
+    if (passExists) {
+      return alert("⚠️ Esta contraseña ya la tiene otra persona. Por seguridad, agregue un carácter o número adicional para que sea única.");
+    }
     
     const id = editingStaffId ? String(editingStaffId) : ("staff_" + Date.now());
     const basePath = `artifacts/escuela-v1/public/data`;
