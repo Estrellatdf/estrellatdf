@@ -114,7 +114,7 @@ export default function UE19deAgosto() {
   const [currentSubjectId, setCurrentSubjectId] = useState(null);
   const [currentTrimester, setCurrentTrimester] = useState(1);
   const [activeTab, setActiveTab] = useState('grades');
-  const [attendanceSession, setAttendanceSession] = useState('');
+  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Formularios materias
   const [isAddingSubject, setIsAddingSubject] = useState(false);
@@ -995,6 +995,23 @@ export default function UE19deAgosto() {
     }
   };
 
+  const updateDayTopic = (date, topic) => {
+    if (isRector || !currentSubject) return;
+    const att = currentSubject.attendance || {};
+    const dayData = att['_dayData'] || {};
+    const currentDay = dayData[date] || {};
+    saveSubject({ 
+      ...currentSubject, 
+      attendance: { 
+        ...att, 
+        '_dayData': { 
+          ...dayData, 
+          [date]: { ...currentDay, topic } 
+        } 
+      } 
+    });
+  };
+
   const calculateStats = (sub, tri, sId) => {
     if (!sub) return { wAct: '0.00', wEx: '0.00', fin: '0.00' };
     const acts = (sub.activities?.[tri]) || [];
@@ -1033,7 +1050,11 @@ export default function UE19deAgosto() {
     const allDates = new Set();
     currentSubject.students.forEach(s => Object.keys(currentSubject?.attendance?.[s.id] || {}).forEach(d => allDates.add(d)));
     const sortedDates = Array.from(allDates).sort();
-    let csv = "Estudiante;Codigo;" + sortedDates.map(d => d.replace('#', ' ')).join(";") + ";% Asistencia\n";
+    let csv = "Estudiante;Codigo;" + sortedDates.map(d => {
+      const topic = currentSubject.attendance?.['_dayData']?.[d]?.topic;
+      const label = d.replace('#', ' ');
+      return topic ? `${label} (${topic})` : label;
+    }).join(";") + ";% Asistencia\n";
     currentSubject.students.forEach(s => {
       const att = currentSubject?.attendance?.[s.id] || {};
       let presentCount = 0, totalRecorded = 0;
@@ -1705,6 +1726,7 @@ export default function UE19deAgosto() {
   // el render llegaba a JSX que usaba <LayoutList> y <ShieldCheck> que NO estaban importados,
   // causando un ReferenceError que aparece como pantalla en blanco.
   // Solución: se agregaron al import en la línea 2.
+  // Se eliminó la constante 'today' estática para usar 'attendanceDate' dinámica en asistencia.
   const today = new Date().toISOString().split('T')[0];
 
   return (
@@ -1821,13 +1843,19 @@ export default function UE19deAgosto() {
                       {isAdmin ? 'Todas las Asignaturas' : 'Mis Asignaturas'}
                     </h3>
                   </div>
-                  {[...(isAdmin ? visibleSubjects : mySubjects)].sort((a, b) => a.name.localeCompare(b.name)).map(s => (
+                  {[...(isAdmin ? visibleSubjects : mySubjects)].sort((a, b) => {
+                    const c = (a.course || "").localeCompare(b.course || "", undefined, { numeric: true });
+                    if (c !== 0) return c;
+                    const p = (a.parallel || "").localeCompare(b.parallel || "");
+                    if (p !== 0) return p;
+                    return a.name.localeCompare(b.name);
+                  }).map(s => (
                     <button key={s.id} onClick={() => { setCurrentSubjectId(s.id); setShowMenu(false); }}
                       className={`w-full text-left p-4 rounded-2xl flex justify-between items-center transition-all duration-300 ${currentSubjectId === s.id ? 'bg-indigo-600 text-white shadow-xl translate-x-1' : 'hover:bg-slate-50 text-slate-600 hover:translate-x-1'}`}>
                       <div className="flex-1 min-w-0 pr-3">
                         <div className="font-bold text-base truncate">{s.name}</div>
                         <div className={`text-xs ${currentSubjectId === s.id ? 'text-indigo-200' : 'text-slate-400'} font-medium`}>
-                          {s.parallel}{s.teacherName ? ` • ${s.teacherName}` : ''}
+                          {s.course} {s.parallel}{s.teacherName ? ` • ${s.teacherName}` : ''}
                         </div>
                       </div>
                       {currentSubjectId === s.id && <ChevronRight size={18} />}
@@ -1841,12 +1869,18 @@ export default function UE19deAgosto() {
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-indigo-600 transition-colors">Materias de Tutoría</h3>
                         <span className="text-xs text-slate-400 font-bold group-hover:text-indigo-600 px-2 py-0.5 bg-gray-100 rounded-md">{showOtherSubjects ? 'Ocultar ▲' : 'Ver ▼'}</span>
                       </button>
-                      {showOtherSubjects && [...otherSubjects].sort((a, b) => a.name.localeCompare(b.name)).map(s => (
+                      {showOtherSubjects && [...otherSubjects].sort((a, b) => {
+                        const c = (a.course || "").localeCompare(b.course || "", undefined, { numeric: true });
+                        if (c !== 0) return c;
+                        const p = (a.parallel || "").localeCompare(b.parallel || "");
+                        if (p !== 0) return p;
+                        return a.name.localeCompare(b.name);
+                      }).map(s => (
                         <button key={s.id} onClick={() => { setCurrentSubjectId(s.id); setShowMenu(false); }}
                           className={`w-full text-left p-3 rounded-xl flex justify-between items-center transition-all mb-1 ${currentSubjectId === s.id ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100' : 'hover:bg-slate-50 text-slate-500'}`}>
                           <div className="flex-1 min-w-0 pr-2">
                             <div className="font-bold text-sm truncate">{s.name}</div>
-                            <div className="text-[10px] text-slate-400 font-medium">{s.parallel}</div>
+                            <div className="text-[10px] text-slate-400 font-medium">{s.course} {s.parallel}</div>
                           </div>
                           <Eye size={14} className="text-gray-400" />
                         </button>
@@ -2084,18 +2118,23 @@ export default function UE19deAgosto() {
                     <div className="flex flex-wrap items-center gap-4">
                       <h3 className="font-bold flex items-center gap-2 text-gray-700">
                         <Calendar className="text-indigo-600" /> Asistencia: 
-                        <span className="bg-white px-3 py-1 rounded border shadow-sm text-indigo-700 font-mono text-sm">{today}</span>
+                        <input 
+                          type="date" 
+                          className="bg-white px-3 py-1 rounded border shadow-sm text-indigo-700 font-mono text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                          value={attendanceDate}
+                          onChange={e => setAttendanceDate(e.target.value)}
+                        />
                       </h3>
                       <div className="relative group">
-                        <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400" />
+                        <ClipboardList size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400" />
                         <input 
                           type="text" 
-                          placeholder="Nombre de la clase/clase 2..." 
+                          placeholder="Tema de la clase (ej. Fracciones)..." 
                           className="pl-9 pr-4 py-2 text-sm bg-white border border-indigo-100 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none w-64 shadow-sm"
-                          value={attendanceSession}
-                          onChange={e => setAttendanceSession(e.target.value)}
+                          value={currentSubject.attendance?.['_dayData']?.[attendanceDate]?.topic || ''}
+                          onChange={e => updateDayTopic(attendanceDate, e.target.value)}
                         />
-                        <div className="absolute -top-6 left-0 text-[9px] font-black text-indigo-400 uppercase tracking-tighter opacity-0 group-focus-within:opacity-100 transition-opacity">Identificador de Clase</div>
+                        <div className="absolute -top-6 left-0 text-[9px] font-black text-indigo-400 uppercase tracking-tighter opacity-0 group-focus-within:opacity-100 transition-opacity">Tema del Día</div>
                       </div>
                     </div>
                     <button onClick={exportAttendanceCSV} className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow transition"><Download size={16} /> Exportar Historial</button>
@@ -2118,8 +2157,15 @@ export default function UE19deAgosto() {
                       </div>
                     )}
                     {[...currentSubject.students].sort((a, b) => a.name.localeCompare(b.name)).map((s, i) => {
-                      const attendanceKey = today + (attendanceSession.trim() ? '#' + attendanceSession.trim() : '');
-                      const att = (currentSubject?.attendance?.[s.id] || {})[attendanceKey] || { status: 'P', note: '' };
+                      const attendanceKey = attendanceDate;
+                      // Fallback para leer datos antiguos que usaban el formato fecha#sesion
+                      const getOldData = () => {
+                        const studentAtt = currentSubject?.attendance?.[s.id] || {};
+                        if (studentAtt[attendanceKey]) return studentAtt[attendanceKey];
+                        const oldKey = Object.keys(studentAtt).find(k => k.startsWith(attendanceDate + '#'));
+                        return oldKey ? studentAtt[oldKey] : null;
+                      };
+                      const att = getOldData() || { status: 'P', note: '' };
                       const editable = canEditGrades(currentSubject);
                       return (
                         <div key={s.id} className={`flex flex-col md:flex-row md:items-center gap-3 p-4 rounded-xl border border-gray-200 shadow-sm ${PALETTE[i % PALETTE.length]}`}>
@@ -2210,7 +2256,11 @@ export default function UE19deAgosto() {
                     <div className="text-center min-w-[80px]">
                       <div className="text-xs font-bold text-gray-400">{datePart.split('-')[0]}</div>
                       <div className="text-sm font-bold text-gray-700">{datePart.split('-').slice(1).join('/')}</div>
-                      {sessionPart && <div className="text-[10px] font-black text-indigo-500 uppercase mt-1 leading-tight">{sessionPart}</div>}
+                      {(sessionPart || currentSubject.attendance?.['_dayData']?.[datePart]?.topic) && (
+                        <div className="text-[10px] font-black text-indigo-500 uppercase mt-1 leading-tight">
+                          {sessionPart || currentSubject.attendance?.['_dayData']?.[datePart]?.topic}
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1">
                       <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${v.status === 'P' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{v.status === 'P' ? 'Presente' : 'Ausente'}</span>
