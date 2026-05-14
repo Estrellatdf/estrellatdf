@@ -320,9 +320,23 @@ async function handleCommand(token, chatId, cmd, menu) {
 // Función auxiliar para vinculación
 async function handleLinking(token, chatId, studentCode, menu) {
   try {
-    const profileDoc = await db.doc(`artifacts/${firebaseAppId}/public/data/parentProfiles/${studentCode}`).get();
-    if (profileDoc.exists) {
-      // 1. Actualizar registros de emisión de notificaciones
+    // 1. Buscar el nombre del estudiante en todas las materias para validar el código
+    let studentName = "";
+    const subjectsSnap = await db.collection(`artifacts/${firebaseAppId}/public/data/subjects`).get();
+    subjectsSnap.forEach(subDoc => {
+      const s = (subDoc.data().students || []).find(st => st.code === studentCode);
+      if (s && !studentName) studentName = s.name;
+    });
+
+    // 2. Si no se encontró el nombre en materias, verificar si existe al menos el perfil
+    let codeIsValid = !!studentName;
+    if (!codeIsValid) {
+      const profileDoc = await db.doc(`artifacts/${firebaseAppId}/public/data/parentProfiles/${studentCode}`).get();
+      codeIsValid = profileDoc.exists;
+    }
+
+    if (codeIsValid) {
+      // 3. Actualizar registros de emisión de notificaciones
       const regRef = db.doc(`artifacts/${firebaseAppId}/public/data/telegram_registrations/${studentCode}`);
       const regDoc = await regRef.get();
       let chatIds = regDoc.exists ? (regDoc.data().chatIds || []) : [];
@@ -331,15 +345,7 @@ async function handleLinking(token, chatId, studentCode, menu) {
         await regRef.set({ chatIds, updatedAt: new Date().toISOString() }, { merge: true });
       }
 
-      // 2. Buscar nombre del estudiante
-      let studentName = "";
-      const subjectsSnap = await db.collection(`artifacts/${firebaseAppId}/public/data/subjects`).get();
-      subjectsSnap.forEach(subDoc => {
-        const s = (subDoc.data().students || []).find(st => st.code === studentCode);
-        if (s && !studentName) studentName = s.name;
-      });
-
-      // 3. Actualizar perfil de usuario Telegram (Soporte Multi-Hijo)
+      // 4. Actualizar perfil de usuario Telegram (Soporte Multi-Hijo)
       const userRef = db.doc(`artifacts/${firebaseAppId}/public/data/telegram_users/${chatId}`);
       const userDoc = await userRef.get();
       let studentCodes = userDoc.exists ? (userDoc.data().studentCodes || []) : [];
@@ -360,11 +366,11 @@ async function handleLinking(token, chatId, studentCode, menu) {
 
       const welcomeMsg = studentName 
         ? `✅ ¡Vinculación exitosa para *${studentName}*!\n\nSe ha añadido a tu lista. Ahora puedes consultar su información o cambiar de estudiante en el menú.`
-        : `✅ ¡Vinculación exitosa!`;
+        : `✅ ¡Vinculación exitosa!\n\nSe ha añadido a tu lista. Recuerda completar los datos del representante en el portal web para ver el perfil completo.`;
 
       await sendTelegramMessage(token, chatId, welcomeMsg, menu);
     } else {
-      await sendTelegramMessage(token, chatId, "❌ Código no encontrado.");
+      await sendTelegramMessage(token, chatId, "❌ Código no encontrado. Asegúrate de que el docente ya haya registrado al estudiante y te haya proporcionado el código correcto.");
     }
   } catch (e) { await sendTelegramMessage(token, chatId, `⚠️ Error: ${e.message}`); }
 }
