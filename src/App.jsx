@@ -100,6 +100,10 @@ export default function UE19deAgosto() {
   const [staff, setStaff] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [appSettings, setAppSettings] = useState({ teacherPassword: null, courses: {} });
+  
+  const [subjectsLoaded, setSubjectsLoaded] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [staffLoaded, setStaffLoaded] = useState(false);
 
   const [viewMode, setViewMode] = useState('portal');
   const [portalSelection, setPortalSelection] = useState(null);
@@ -275,11 +279,11 @@ export default function UE19deAgosto() {
           return { id: d.id, ...sub };
         });
         setSubjects(data);
-        setLoading(false);
+        setSubjectsLoaded(true);
       },
       (error) => {
         if (error.code === 'permission-denied') setErrorMsg("⚠️ Acceso denegado: Revisa las Reglas de Firestore.");
-        setLoading(false);
+        setSubjectsLoaded(true);
       }
     );
 
@@ -293,12 +297,16 @@ export default function UE19deAgosto() {
         } else {
           setAppSettings({ teacherPassword: null, courses: {} });
         }
+        setSettingsLoaded(true);
       }
     );
 
     const unsubStaff = onSnapshot(
       collection(db, 'artifacts', appId, 'public', 'data', 'staff'),
-      (snapshot) => setStaff(snapshot.docs.map(d => ({ id: d.id, ...d.data() })))
+      (snapshot) => {
+        setStaff(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        setStaffLoaded(true);
+      }
     );
 
     const unsubParent = onSnapshot(
@@ -321,6 +329,12 @@ export default function UE19deAgosto() {
 
     return () => { unsubSub(); unsubSettings(); unsubStaff(); unsubParent(); unsubYears(); };
   }, [user]);
+
+  useEffect(() => {
+    if (subjectsLoaded && settingsLoaded && staffLoaded) {
+      setLoading(false);
+    }
+  }, [subjectsLoaded, settingsLoaded, staffLoaded]);
 
   // ── DB HELPERS ────────────────────────────────────────────────────────────
   const logAudit = async (action, target, details) => {
@@ -498,10 +512,14 @@ export default function UE19deAgosto() {
 
   // ── LOGIN DOCENTE ─────────────────────────────────────────────────────────
   const handleTeacherLogin = () => {
+    if (loading) {
+      return alert("Cargando datos del sistema, por favor espere...");
+    }
+
     if (staff.length === 0) {
       if (!appSettings.teacherPassword) {
         if (authPassword.length < 4) return alert("Mínimo 4 caracteres para la clave maestra inicial");
-        updateSettings({ teacherPassword: authPassword, courses: {} });
+        updateSettings({ ...appSettings, teacherPassword: authPassword });
         const firstRector = { id: 'rector_init', name: 'Administrador Inicial', role: 'Rector', password: authPassword };
         setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', 'rector_init'), firstRector);
         setCurrentUser(firstRector);
@@ -515,6 +533,18 @@ export default function UE19deAgosto() {
       return;
     }
     
+    // Si la contraseña ingresada coincide con la contraseña del Administrador / Master Key
+    if (authPassword === appSettings.teacherPassword) {
+      const adminInStaff = staff.find(s => s.role === 'Rector' && s.password === authPassword);
+      if (adminInStaff) {
+        setCurrentUser({ ...adminInStaff });
+      } else {
+        setCurrentUser({ name: 'Admin Temporal', role: 'Rector' });
+      }
+      setViewMode('teacher');
+      return;
+    }
+
     const matches = staff.filter(s => s.password === authPassword);
 
     if (matches.length === 1) {
@@ -543,9 +573,22 @@ export default function UE19deAgosto() {
   const handleChangePassword = async () => {
     if (!currentUser?.id) return;
     if (newPassInput.length < 4) return alert("❌ La nueva contraseña debe tener mínimo 4 caracteres.");
+    
+    // Validar que la nueva contraseña sea única entre el personal
+    const passExists = staff.some(s => s.password === newPassInput && s.id !== currentUser.id);
+    if (passExists || (currentUser.role !== 'Rector' && newPassInput === appSettings.teacherPassword)) {
+      return alert("⚠️ Esta contraseña ya está en uso por otro usuario (o coincide con la clave del Administrador). Por favor, elija una diferente.");
+    }
+    
     try {
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', currentUser.id),
         { ...currentUser, password: newPassInput }, { merge: true });
+      
+      // Si el usuario actual es Rector, también actualizamos la clave maestra en la configuración general
+      if (currentUser.role === 'Rector') {
+        await updateSettings({ ...appSettings, teacherPassword: newPassInput });
+      }
+      
       setCurrentUser({ ...currentUser, password: newPassInput });
       alert("✅ ¡Contraseña actualizada!");
       setIsChangingPass(false); setOldPassInput(''); setNewPassInput('');
@@ -729,8 +772,8 @@ export default function UE19deAgosto() {
     
     // Validar que la contraseña sea única
     const passExists = staff.some(s => s.password === newStaffPass && s.id !== editingStaffId);
-    if (passExists) {
-      return alert("⚠️ Esta contraseña ya la tiene otra persona. Por seguridad, agregue un carácter o número adicional para que sea única.");
+    if (passExists || newStaffPass === appSettings.teacherPassword) {
+      return alert("⚠️ Esta contraseña ya está en uso (o coincide con la clave del Administrador). Por seguridad, elija una contraseña única.");
     }
     
     const id = editingStaffId ? String(editingStaffId) : ("staff_" + Date.now());
@@ -1196,7 +1239,7 @@ export default function UE19deAgosto() {
           </>
         ) : portalSelection === 'teacher' ? (
           <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-            <button onClick={() => setPortalSelection(null)} className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 mb-6 font-bold text-sm transition-colors">
+            <button onClick={() => { setPortalSelection(null); setAuthPassword(''); }} className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 mb-6 font-bold text-sm transition-colors">
                ← Volver al inicio
             </button>
             <div className="bg-indigo-500/20 p-4 rounded-2xl inline-block mb-6 shadow-xl text-indigo-400 border border-indigo-500/30">
