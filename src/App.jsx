@@ -533,27 +533,24 @@ export default function UE19deAgosto() {
       return;
     }
     
-    // Si la contraseña ingresada coincide con la contraseña del Administrador / Master Key
-    if (authPassword === appSettings.teacherPassword) {
-      const adminInStaff = staff.find(s => s.role === 'Rector' && s.password === authPassword);
-      if (adminInStaff) {
-        setCurrentUser({ ...adminInStaff });
-      } else {
-        setCurrentUser({ name: 'Admin Temporal', role: 'Rector' });
-      }
-      setViewMode('teacher');
-      return;
-    }
-
+    // Primero, buscar coincidencias exactas en la lista de personal registrado
     const matches = staff.filter(s => s.password === authPassword);
 
     if (matches.length === 1) {
+      // Si hay un único usuario registrado con esta contraseña, ingresa con su perfil y rol asignado
       setCurrentUser({ ...matches[0] });
       setViewMode('teacher');
     } else if (matches.length > 1) {
+      // Bloquear ingreso si hay conflicto de contraseñas entre personal
       alert("⚠️ Error de Seguridad: Múltiples usuarios tienen esta misma contraseña. Por favor, solicite al Administrador que le asigne una clave única.");
     } else {
-      alert("Contraseña incorrecta o usuario no registrado.");
+      // Si no hay coincidencias en staff, verificar si es la clave maestra de administrador/rector
+      if (authPassword === appSettings.teacherPassword) {
+        setCurrentUser({ name: 'Admin Temporal', role: 'Rector' });
+        setViewMode('teacher');
+      } else {
+        alert("Contraseña incorrecta o usuario no registrado.");
+      }
     }
   };
 
@@ -772,7 +769,7 @@ export default function UE19deAgosto() {
     
     // Validar que la contraseña sea única
     const passExists = staff.some(s => s.password === newStaffPass && s.id !== editingStaffId);
-    if (passExists || newStaffPass === appSettings.teacherPassword) {
+    if (passExists || (newStaffRole !== 'Rector' && newStaffPass === appSettings.teacherPassword)) {
       return alert("⚠️ Esta contraseña ya está en uso (o coincide con la clave del Administrador). Por seguridad, elija una contraseña única.");
     }
     
@@ -793,6 +790,11 @@ export default function UE19deAgosto() {
         securityKey: newStaffRole === 'Administrativo' ? String(newStaffSecKey || '') : null
       });
 
+      // Si el miembro guardado es Rector, sincronizar su contraseña con la clave maestra general
+      if (newStaffRole === 'Rector') {
+        await updateSettings({ ...appSettings, teacherPassword: String(newStaffPass) });
+      }
+
       // 2. Sincronizar materias en segundo plano
       if (editingStaffId) {
         subjects.filter(s => s.teacherId === editingStaffId).forEach(sub => {
@@ -806,7 +808,7 @@ export default function UE19deAgosto() {
       setNewStaffName(''); setNewStaffEmail(''); setNewStaffPass(''); setNewStaffTutoring('');
       setNewStaffAuth(false); setNewStaffSecKey('');
       setEditingStaffId(null);
-      alert("✅ Docente guardado exitosamente.");
+      alert("✅ Miembro del personal guardado exitosamente.");
     } catch (err) {
       console.error("Error en addStaffMember:", err);
       alert("Error al guardar: " + err.message);
