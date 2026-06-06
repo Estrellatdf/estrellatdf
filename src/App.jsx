@@ -971,10 +971,15 @@ export default function UE19deAgosto() {
       // Si no es global y no hay materia, entonces sí salimos
       if (!isGlobal && !currentSubject) return;
 
-      let recipName = isGlobal ? "Todos los Cursos" : "Todos";
-      if (newAnnounceRecipient !== 'all' && currentSubject) {
-        const s = currentSubject.students.find(st => st.id === newAnnounceRecipient);
-        if (s) recipName = s.name;
+      // Label for who receives this announcement
+      let recipName;
+      if (isGlobal) {
+        recipName = "Toda la Institución";
+      } else if (newAnnounceRecipient === 'all') {
+        recipName = `Todo el Curso (${currentSubject?.parallel || 'Curso'})`;
+      } else {
+        const s = currentSubject?.students.find(st => st.id === newAnnounceRecipient);
+        recipName = s ? s.name : "Desconocido";
       }
 
       const newAnn = {
@@ -1297,10 +1302,12 @@ export default function UE19deAgosto() {
   if (viewMode === 'student_view' && viewingStudent && viewingSubject) {
     const st = calculateStats(viewingSubject, typeof currentTrimester === 'number' ? currentTrimester : 1, viewingStudent.id);
 
-    const allAnnouncements = subjects.flatMap(sub => (sub.announcements || []).map(ann => ({ ...ann, sourceSubject: sub.name })));
+    // Track both subject name and ID to avoid cross-course leakage when subjects share the same name
+    const allAnnouncements = subjects.flatMap(sub => (sub.announcements || []).map(ann => ({ ...ann, sourceSubject: sub.name, sourceSubjectId: sub.id })));
     const filteredAnnouncements = allAnnouncements.filter(ann => {
       if (ann.isGlobal) return true;
-      if (ann.sourceSubject === viewingSubject.name)
+      // Match by subject ID to prevent announcements from other courses with the same subject name from leaking through
+      if (ann.sourceSubjectId === viewingSubject.id)
         return !ann.recipient || ann.recipient === 'all' || ann.recipient === viewingStudent.id;
       return false;
     });
@@ -2589,10 +2596,20 @@ export default function UE19deAgosto() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-md">
             <h3 className="text-xl font-bold mb-4 text-gray-800">Publicar Comunicado</h3>
+            {isRector && (
+              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 font-medium flex items-center gap-2">
+                <span>👑</span>
+                <span>Como Rector puede enviar comunicados globales a <strong>toda la institución</strong> o a un curso específico.</span>
+              </div>
+            )}
             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Destinatario</label>
             <select className="w-full border border-gray-300 rounded-lg p-2 mb-3 focus:ring-2 focus:ring-orange-500 outline-none bg-white"
               value={newAnnounceRecipient} onChange={e => setNewAnnounceRecipient(e.target.value)}>
-              <option value="all">📢 Todos los estudiantes</option>
+              {/* Rector can broadcast to ALL institution; teachers only to their own course */}
+              {isRector
+                ? <option value="all">🏫 Toda la Institución (Global)</option>
+                : <option value="all">📋 Todo el Curso ({currentSubject?.parallel})</option>
+              }
               <optgroup label="Estudiante Específico">
                 {[...currentSubject.students].sort((a, b) => a.name.localeCompare(b.name)).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </optgroup>
