@@ -1,19 +1,33 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
+let db;
+let initError = null;
 
-if (!getApps().length) {
-  initializeApp({
-    credential: cert(serviceAccount)
-  });
+try {
+  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
+  if (!getApps().length) {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      initializeApp({
+        credential: cert(serviceAccount)
+      });
+    } else {
+      initializeApp();
+    }
+  }
+  db = getFirestore();
+} catch (err) {
+  initError = err;
 }
 
-const db = getFirestore();
 const firebaseAppId = "escuela-v1";
 const telegramToken = "8714699056:AAEMenEJAvtlpecmm6qJQ-2DtnRJ4K2siJs";
 
 export default async function handler(req, res) {
+  if (initError) {
+    console.error("Firebase Admin Initialization Error:", initError);
+    return res.status(500).json({ error: 'Database Connection Error', details: initError.message });
+  }
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }

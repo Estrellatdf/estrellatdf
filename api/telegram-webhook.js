@@ -2,15 +2,25 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
+let db;
+let initError = null;
 
-if (!getApps().length) {
-  initializeApp({
-    credential: cert(serviceAccount)
-  });
+try {
+  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
+  if (!getApps().length) {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      initializeApp({
+        credential: cert(serviceAccount)
+      });
+    } else {
+      initializeApp();
+    }
+  }
+  db = getFirestore();
+} catch (err) {
+  initError = err;
 }
 
-const db = getFirestore();
 const firebaseAppId = "escuela-v1";
 
 export default async function handler(req, res) {
@@ -20,6 +30,19 @@ export default async function handler(req, res) {
 
   const token = "8714699056:AAEMenEJAvtlpecmm6qJQ-2DtnRJ4K2siJs";
   const { message, callback_query } = req.body;
+
+  if (initError) {
+    console.error("Firebase Admin Initialization Error:", initError);
+    const chatId = message?.chat?.id || callback_query?.message?.chat?.id;
+    if (chatId) {
+      try {
+        await sendTelegramMessage(token, chatId, `⚠️ *Error de Servidor*\nNo se pudo inicializar la base de datos (Firebase Admin).\n\n*Detalles:* \`${initError.message}\`\n\nPor favor, verifica la variable de entorno \`FIREBASE_SERVICE_ACCOUNT\` en tu panel de Vercel.`);
+      } catch (sendErr) {
+        console.error("Failed to send initialization error to Telegram:", sendErr);
+      }
+    }
+    return res.status(200).send('OK');
+  }
 
   // Menu Inline
   const inlineMenu = {
