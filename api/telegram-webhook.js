@@ -56,7 +56,24 @@ export default async function handler(req, res) {
   const text = message.text.trim().toUpperCase();
 
   // --- MANEJO DE MENSAJES DE TEXTO ---
-  if (text === '/START' || text === 'MENU' || text === 'INICIO') {
+  const isMenuCommand = text === '/START' || text === 'MENU' || text === 'INICIO';
+  
+  // Lista de comandos conocidos para evitar que se interpreten como códigos
+  const knownCommands = [
+    'NOTAS', 'ASISTENCIA', 'FALTAS', 
+    'COMUNICADOS', 'AVISOS', 
+    'DEBERES', 'TAREAS', 'ACTIVIDADES', 
+    'HIJOS', 'PERFIL', 'CARNET', 
+    'HELP_LINK'
+  ];
+  const isKnownCommand = knownCommands.some(cmd => text.includes(cmd));
+
+  // Intentar extraer un código de estudiante de 6 dígitos del texto
+  // Usamos límites de palabra (\b) para extraer exactamente un token de 6 caracteres con el alfabeto del bot
+  const codeMatch = text.match(/\b[A-HJ-NP-Z2-9]{6}\b/);
+  const extractedCode = (!isMenuCommand && !isKnownCommand && codeMatch) ? codeMatch[0] : null;
+
+  if (isMenuCommand) {
     const userDoc = await db.doc(`artifacts/${firebaseAppId}/public/data/telegram_users/${chatId}`).get();
     
     if (!userDoc.exists) {
@@ -66,8 +83,8 @@ export default async function handler(req, res) {
       const activeCode = userData.studentCode;
       await sendTelegramMessage(token, chatId, `🏠 *Menú Principal*\nEstudiante activo: \`${activeCode}\`\nSelecciona una opción:`, inlineMenu);
     }
-  } else if (text.length === 6 && !text.includes('/')) {
-    await handleLinking(token, chatId, text, inlineMenu);
+  } else if (extractedCode) {
+    await handleLinking(token, chatId, extractedCode, inlineMenu);
   } else {
     await handleCommand(token, chatId, text, inlineMenu);
   }

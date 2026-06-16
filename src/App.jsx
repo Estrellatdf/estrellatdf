@@ -730,7 +730,7 @@ export default function UE19deAgosto() {
       const norm = normalizeText(n);
       if (existingStudentsMap.has(norm)) {
         const ex = existingStudentsMap.get(norm);
-        return { id: ex.id, name: ex.name, code: ex.code };
+        return { id: ex.id, name: ex.name, code: ex.code || generateStudentCode() };
       }
       return { id: "s_" + Date.now() + Math.random().toString(36).substr(2, 5), name: n.trim(), code: generateStudentCode() };
     });
@@ -829,7 +829,7 @@ export default function UE19deAgosto() {
       const norm = normalizeText(n);
       if (existingStudentsMap.has(norm)) {
         const ex = existingStudentsMap.get(norm);
-        return { id: ex.id, name: ex.name, code: ex.code };
+        return { id: ex.id, name: ex.name, code: ex.code || generateStudentCode() };
       }
       return { id: "s_" + Date.now() + Math.random().toString(36).substr(2, 5), name: n, code: generateStudentCode() };
     });
@@ -863,7 +863,7 @@ export default function UE19deAgosto() {
         if (currentNormNames.has(norm)) return null;
         if (existingStudentsMap.has(norm)) {
           const ex = existingStudentsMap.get(norm);
-          return { id: ex.id, name: ex.name, code: ex.code };
+          return { id: ex.id, name: ex.name, code: ex.code || generateStudentCode() };
         }
         return { id: "s_" + Date.now() + Math.random().toString(36).substr(2, 5), name: n.trim(), code: generateStudentCode() };
       }).filter(s => s !== null);
