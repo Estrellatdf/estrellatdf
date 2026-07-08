@@ -4,7 +4,7 @@ import {
   GraduationCap, FileSpreadsheet, Lock, Eye, Calendar,
   CheckCircle, XCircle, MessageSquare, LogOut, AlertTriangle, Bug, Download, BarChart2,
   Bell, Megaphone, Clock, Settings, ShieldAlert, RefreshCw, ClipboardList, Phone, MapPin, UserCheck,
-  LayoutList, ShieldCheck, Printer
+  LayoutList, ShieldCheck, Printer, CornerUpRight
 } from 'lucide-react';
 
 // Importaciones de Firebase
@@ -162,6 +162,7 @@ export default function UE19deAgosto() {
 
   // Comunicados
   const [isAddingAnnouncement, setIsAddingAnnouncement] = useState(false);
+  const [isPublishingAnnouncement, setIsPublishingAnnouncement] = useState(false);
   const [newAnnounceTitle, setNewAnnounceTitle] = useState('');
   const [newAnnounceBody, setNewAnnounceBody] = useState('');
   const [newAnnounceType, setNewAnnounceType] = useState('info');
@@ -506,6 +507,22 @@ export default function UE19deAgosto() {
     notifyPush(
       "Alerta de Asistencia",
       `Se ha registrado una FALTA para ${student.name} en la materia de ${subjectName} hoy.`,
+      student.code
+    );
+  };
+
+  const notifyFuga = (student, subjectName) => {
+    notifyPush(
+      "Alerta de Asistencia (Fuga)",
+      `Se ha registrado una FUGA para ${student.name} en la materia de ${subjectName} hoy.`,
+      student.code
+    );
+  };
+
+  const notifyAtraso = (student, subjectName) => {
+    notifyPush(
+      "Alerta de Asistencia (Atraso)",
+      `Se ha registrado un ATRASO para ${student.name} en la materia de ${subjectName} hoy.`,
       student.code
     );
   };
@@ -964,12 +981,15 @@ export default function UE19deAgosto() {
   };
 
   const addAnnouncement = async () => {
+    if (isPublishingAnnouncement) return;
     try {
       if (!newAnnounceTitle) return;
       const isGlobal = newAnnounceRecipient === 'all' && isRector;
       
       // Si no es global y no hay materia, entonces sí salimos
       if (!isGlobal && !currentSubject) return;
+
+      setIsPublishingAnnouncement(true);
 
       // Label for who receives this announcement
       let recipName;
@@ -1009,14 +1029,15 @@ export default function UE19deAgosto() {
       // ── GUARDAR EN BASE DE DATOS ──
       if (isGlobal) {
         const currentList = Array.isArray(appSettings.announcements) ? appSettings.announcements : [];
-        await saveSettings({ ...appSettings, announcements: [newAnn, ...currentList] });
+        saveSettings({ ...appSettings, announcements: [newAnn, ...currentList] });
       } else if (currentSubject) {
         const currentList = Array.isArray(currentSubject.announcements) ? currentSubject.announcements : [];
-        await saveSubject({ ...currentSubject, announcements: [newAnn, ...currentList] });
+        saveSubject({ ...currentSubject, announcements: [newAnn, ...currentList] });
       }
     } catch (err) {
       console.error("Error en addAnnouncement:", err);
     } finally {
+      setIsPublishingAnnouncement(false);
       setIsAddingAnnouncement(false); 
       setNewAnnounceTitle(''); 
       setNewAnnounceBody(''); 
@@ -1043,10 +1064,14 @@ export default function UE19deAgosto() {
     const day = stu[d] || { status: 'P', note: '' };
     saveSubject({ ...currentSubject, attendance: { ...att, [sId]: { ...stu, [d]: { ...day, [f]: v } } } });
 
-    // Alerta automática si es falta
-    if (f === 'status' && v === 'A') {
+    // Alerta automática si es falta, fuga o atraso
+    if (f === 'status') {
       const student = currentSubject.students.find(s => s.id === sId);
-      if (student) notifyAbsence(student, currentSubject.name);
+      if (student) {
+        if (v === 'A') notifyAbsence(student, currentSubject.name);
+        else if (v === 'F') notifyFuga(student, currentSubject.name);
+        else if (v === 'T') notifyAtraso(student, currentSubject.name);
+      }
     }
   };
 
@@ -1116,8 +1141,9 @@ export default function UE19deAgosto() {
       const rowData = sortedDates.map(date => {
         const r = att[date];
         if (!r) return "-";
-        totalRecorded++; if (r.status === 'P') presentCount++;
-        return `"${r.status === 'P' ? 'P' : 'F'}${r.note ? ` (${r.note.replace(/"/g, "'")})` : ''}"`;
+        totalRecorded++; 
+        if (r.status === 'P' || r.status === 'T') presentCount++;
+        return `"${r.status}${r.note ? ` (${r.note.replace(/"/g, "'")})` : ''}"`;
       });
       const pct = totalRecorded > 0 ? Math.round((presentCount / totalRecorded) * 100) : 0;
       csv += `"${s.name}";"${s.code}";` + rowData.join(";") + `;"${pct}%"\n`;
@@ -1570,8 +1596,16 @@ export default function UE19deAgosto() {
                         <div className="font-bold text-slate-700 text-sm">{d}</div>
                         {v.note && <div className="text-[10px] text-slate-400 italic">Nota: {v.note}</div>}
                       </div>
-                      <span className={`text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-tighter ${v.status === 'P' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                        {v.status === 'P' ? 'Presente' : 'Falta'}
+                      <span className={`text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-tighter ${
+                        v.status === 'P' ? 'bg-emerald-50 text-emerald-600' :
+                        v.status === 'F' ? 'bg-orange-50 text-orange-600' :
+                        v.status === 'T' ? 'bg-amber-50 text-amber-600' :
+                        'bg-red-50 text-red-600'
+                      }`}>
+                        {v.status === 'P' ? 'Presente' :
+                         v.status === 'F' ? 'Fuga' :
+                         v.status === 'T' ? 'Atraso' :
+                         'Falta'}
                       </span>
                     </div>
                   ))}
@@ -2285,9 +2319,11 @@ export default function UE19deAgosto() {
                             </div>
                             <div className="text-xs text-gray-500 font-mono">Cód: {s.code}</div>
                           </div>
-                          <div className="flex items-center gap-2 bg-white/80 p-1.5 rounded-lg border border-gray-200 shadow-sm">
-                            <button disabled={!editable} onClick={() => updateAttendance(s.id, attendanceKey, 'status', 'P')} className={`px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${att.status === 'P' ? 'bg-green-600 text-white shadow' : 'text-gray-400 hover:bg-gray-100'} ${!editable ? 'opacity-50' : ''}`}><CheckCircle size={16} /> Asistió</button>
-                            <button disabled={!editable} onClick={() => updateAttendance(s.id, attendanceKey, 'status', 'A')} className={`px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${att.status === 'A' ? 'bg-red-600 text-white shadow' : 'text-gray-400 hover:bg-gray-100'} ${!editable ? 'opacity-50' : ''}`}><XCircle size={16} /> Falta</button>
+                          <div className="flex flex-wrap items-center gap-1.5 bg-white/80 p-1.5 rounded-lg border border-gray-200 shadow-sm">
+                            <button disabled={!editable} onClick={() => updateAttendance(s.id, attendanceKey, 'status', 'P')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${att.status === 'P' ? 'bg-green-600 text-white shadow' : 'text-slate-500 hover:bg-gray-100'} ${!editable ? 'opacity-50' : ''}`}><CheckCircle size={14} /> Asistió</button>
+                            <button disabled={!editable} onClick={() => updateAttendance(s.id, attendanceKey, 'status', 'A')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${att.status === 'A' ? 'bg-red-600 text-white shadow' : 'text-slate-500 hover:bg-gray-100'} ${!editable ? 'opacity-50' : ''}`}><XCircle size={14} /> Falta</button>
+                            <button disabled={!editable} onClick={() => updateAttendance(s.id, attendanceKey, 'status', 'F')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${att.status === 'F' ? 'bg-orange-600 text-white shadow' : 'text-slate-500 hover:bg-gray-100'} ${!editable ? 'opacity-50' : ''}`}><CornerUpRight size={14} /> Fuga</button>
+                            <button disabled={!editable} onClick={() => updateAttendance(s.id, attendanceKey, 'status', 'T')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${att.status === 'T' ? 'bg-amber-500 text-white shadow' : 'text-slate-500 hover:bg-gray-100'} ${!editable ? 'opacity-50' : ''}`}><Clock size={14} /> Atraso</button>
                           </div>
                           <div className="flex-1 relative">
                             <MessageSquare size={16} className="absolute top-3 left-3 text-gray-400" />
@@ -2372,7 +2408,17 @@ export default function UE19deAgosto() {
                       )}
                     </div>
                     <div className="flex-1">
-                      <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${v.status === 'P' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{v.status === 'P' ? 'Presente' : 'Ausente'}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
+                        v.status === 'P' ? 'bg-green-100 text-green-700' :
+                        v.status === 'F' ? 'bg-orange-100 text-orange-700' :
+                        v.status === 'T' ? 'bg-amber-100 text-amber-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {v.status === 'P' ? 'Presente' :
+                         v.status === 'F' ? 'Fuga' :
+                         v.status === 'T' ? 'Atraso' :
+                         'Ausente'}
+                      </span>
                       {v.note && <p className="text-xs text-gray-600 mt-1 italic border-l-2 border-indigo-200 pl-2">"{v.note}"</p>}
                     </div>
                   </div>
@@ -2624,8 +2670,10 @@ export default function UE19deAgosto() {
               ))}
             </div>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setIsAddingAnnouncement(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">Cancelar</button>
-              <button onClick={addAnnouncement} className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-lg font-bold shadow transition">Publicar</button>
+              <button disabled={isPublishingAnnouncement} onClick={() => setIsAddingAnnouncement(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition disabled:opacity-50">Cancelar</button>
+              <button disabled={isPublishingAnnouncement} onClick={addAnnouncement} className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-lg font-bold shadow transition disabled:opacity-50 flex items-center gap-2">
+                {isPublishingAnnouncement ? 'Publicando...' : 'Publicar'}
+              </button>
             </div>
           </div>
         </div>
@@ -2672,12 +2720,27 @@ export default function UE19deAgosto() {
       {isManagingCourses && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-[95vw] lg:max-w-7xl h-[90vh] flex flex-col">
-            <div className="flex justify-between items-center mb-4 border-b pb-4">
-              <h3 className="text-xl font-bold flex items-center gap-2 text-slate-800"><BookOpen className="text-orange-500" /> Gestión Académica: Cursos y Materias</h3>
-              <div className="flex items-center gap-4">
-                <button onClick={recoverCoursesFromSubjects} className="bg-orange-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-orange-600 shadow-lg active:scale-95 transition-all text-sm flex items-center gap-2"><RefreshCw size={16}/> Recuperar Datos</button>
-                <button onClick={() => saveSettings(appSettings)} className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-emerald-700 shadow-lg active:scale-95 transition-all">Guardar Todo</button>
-                <button onClick={() => setIsManagingCourses(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500">Cerrar</button>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 border-b pb-4 shrink-0">
+              <div>
+                <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2 text-slate-800">
+                  <BookOpen className="text-orange-500 shrink-0" />
+                  <span>Gestión Académica: Cursos y Materias</span>
+                </h3>
+                <p className="text-xs text-slate-400">Configuración de cursos, paralelos y materias</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                <button onClick={recoverCoursesFromSubjects} className="bg-orange-500 text-white px-3 py-1.5 rounded-xl font-bold hover:bg-orange-600 shadow-md active:scale-95 transition-all text-xs flex items-center gap-1.5">
+                  <RefreshCw size={14}/> Recuperar Datos
+                </button>
+                <button onClick={async () => {
+                  await saveSettings(appSettings);
+                  setIsManagingCourses(false);
+                }} className="bg-emerald-600 text-white px-4 py-1.5 rounded-xl font-bold hover:bg-emerald-700 shadow-md active:scale-95 transition-all text-xs flex items-center gap-1.5">
+                  Guardar y Cerrar
+                </button>
+                <button onClick={() => setIsManagingCourses(false)} className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-1.5 rounded-xl font-bold transition-all text-xs">
+                  Regresar
+                </button>
               </div>
             </div>
             <div className="flex-1 overflow-auto grid grid-cols-1 md:grid-cols-4 gap-4 p-1 text-xs">
@@ -2839,6 +2902,19 @@ export default function UE19deAgosto() {
                   </>
                 ) : <div className="text-center text-gray-400 mt-10 p-6 bg-white rounded-xl border border-dashed">Selecciona un paralelo para gestionar sus estudiantes</div>}
               </div>
+            </div>
+            
+            {/* Pie de modal: Botones de acción rápida y regreso en móviles */}
+            <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-end gap-2 shrink-0">
+              <button onClick={() => setIsManagingCourses(false)} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-xl font-bold transition-all text-sm w-full sm:w-auto">
+                Regresar
+              </button>
+              <button onClick={async () => {
+                await saveSettings(appSettings);
+                setIsManagingCourses(false);
+              }} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-600/20 active:scale-95 transition-all text-sm w-full sm:w-auto">
+                Guardar y Cerrar
+              </button>
             </div>
           </div>
         </div>
