@@ -100,6 +100,7 @@ export default function UE19deAgosto() {
   const [staff, setStaff] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [appSettings, setAppSettings] = useState({ teacherPassword: null, courses: {} });
+  const [duplicateLoginMatches, setDuplicateLoginMatches] = useState(null);
   
   const [subjectsLoaded, setSubjectsLoaded] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -201,6 +202,12 @@ export default function UE19deAgosto() {
   const [schoolYears, setSchoolYears] = useState([]);
   const [viewingArchivedYear, setViewingArchivedYear] = useState(null);
   const [viewingArchivedSubject, setViewingArchivedSubject] = useState(null);
+
+  // Sincronización Total (Admin)
+  const [showBulkSync, setShowBulkSync] = useState(false);
+  const [bulkSyncProgress, setBulkSyncProgress] = useState([]);
+  const [bulkSyncRunning, setBulkSyncRunning] = useState(false);
+  const [bulkSyncDone, setBulkSyncDone] = useState(false);
   // ── AUTH ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (initError) { setLoading(false); return; }
@@ -391,13 +398,16 @@ export default function UE19deAgosto() {
   };
 
   const updateSettings = async (data) => {
-    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general'), data);
+    setAppSettings(data);
+    try {
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general'), data);
+    } catch (e) { console.error("Error updateSettings:", e); }
   };
 
   const saveSettings = async (newSet) => {
     try {
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general'), newSet);
       setAppSettings(newSet);
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general'), newSet);
     } catch (e) { alert("Error al guardar: " + e.message); }
   };
 
@@ -550,24 +560,33 @@ export default function UE19deAgosto() {
       return;
     }
     
-    // Primero, buscar coincidencias exactas en la lista de personal registrado
-    const matches = staff.filter(s => s.password === authPassword);
+    // ── PRIORIDAD 1: Clave maestra del Rector (teacherPassword) ──────────────
+    // Se verifica PRIMERO, antes del filtro de staff. Esto garantiza que el
+    // Rector SIEMPRE entra como Rector, sin importar si algún docente tiene
+    // accidentalmente la misma clave almacenada en Firestore.
+    if (authPassword === appSettings.teacherPassword) {
+      const rectorInit = staff.find(s => s.id === 'rector_init');
+      if (rectorInit) {
+        setCurrentUser({ ...rectorInit });
+      } else {
+        setCurrentUser({ name: 'Admin Temporal', role: 'Rector' });
+      }
+      setViewMode('teacher');
+      return;
+    }
+
+    // ── PRIORIDAD 2: Buscar Docente / Administrativo por su clave ─────────
+    // Solo llega aquí si la clave NO es la clave maestra.
+    // reactor_init se excluye porque ya fue manejado arriba.
+    const matches = staff.filter(s => s.password === authPassword && s.id !== 'rector_init');
 
     if (matches.length === 1) {
-      // Si hay un único usuario registrado con esta contraseña, ingresa con su perfil y rol asignado
       setCurrentUser({ ...matches[0] });
       setViewMode('teacher');
     } else if (matches.length > 1) {
-      // Bloquear ingreso si hay conflicto de contraseñas entre personal
-      alert("⚠️ Error de Seguridad: Múltiples usuarios tienen esta misma contraseña. Por favor, solicite al Administrador que le asigne una clave única.");
+      setDuplicateLoginMatches(matches);
     } else {
-      // Si no hay coincidencias en staff, verificar si es la clave maestra de administrador/rector
-      if (authPassword === appSettings.teacherPassword) {
-        setCurrentUser({ name: 'Admin Temporal', role: 'Rector' });
-        setViewMode('teacher');
-      } else {
-        alert("Contraseña incorrecta o usuario no registrado.");
-      }
+      alert("Contraseña incorrecta o usuario no registrado.");
     }
   };
 
@@ -588,7 +607,8 @@ export default function UE19deAgosto() {
     if (!currentUser?.id) return;
     if (newPassInput.length < 4) return alert("❌ La nueva contraseña debe tener mínimo 4 caracteres.");
     
-    // Validar que la nueva contraseña sea única entre el personal
+    // Validar unicidad contra TODOS los miembros del staff, incluyendo rector_init.
+    // El Docente no debe poder tomar la clave de rector_init aunque haya divergido de teacherPassword.
     const passExists = staff.some(s => s.password === newPassInput && s.id !== currentUser.id);
     if (passExists || (currentUser.role !== 'Rector' && newPassInput === appSettings.teacherPassword)) {
       return alert("⚠️ Esta contraseña ya está en uso por otro usuario (o coincide con la clave del Administrador). Por favor, elija una diferente.");
@@ -598,9 +618,18 @@ export default function UE19deAgosto() {
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', currentUser.id),
         { ...currentUser, password: newPassInput }, { merge: true });
       
-      // Si el usuario actual es Rector, también actualizamos la clave maestra en la configuración general
+      // Si el usuario actual es Rector, actualizamos la clave maestra
+      // Y sincronizamos rector_init.password para evitar divergencia futura.
       if (currentUser.role === 'Rector') {
         await updateSettings({ ...appSettings, teacherPassword: newPassInput });
+        // Si el rector que cambia clave NO es rector_init, sincronizar rector_init también
+        if (currentUser.id !== 'rector_init') {
+          const rectorInitRef = doc(db, 'artifacts', appId, 'public', 'data', 'staff', 'rector_init');
+          const rectorInitDoc = staff.find(s => s.id === 'rector_init');
+          if (rectorInitDoc) {
+            await setDoc(rectorInitRef, { ...rectorInitDoc, password: newPassInput }, { merge: true });
+          }
+        }
       }
       
       setCurrentUser({ ...currentUser, password: newPassInput });
@@ -784,17 +813,25 @@ export default function UE19deAgosto() {
   const addStaffMember = async () => {
     if (!newStaffName || !newStaffPass) return alert("Nombre y contraseña son obligatorios.");
     
-    // Validar que la contraseña sea única
-    const passExists = staff.some(s => s.password === newStaffPass && s.id !== editingStaffId);
-    if (passExists || (newStaffRole !== 'Rector' && newStaffPass === appSettings.teacherPassword)) {
-      return alert("⚠️ Esta contraseña ya está en uso (o coincide con la clave del Administrador). Por seguridad, elija una contraseña única.");
+    // Validar que la contraseña sea única.
+    // Se verifica contra TODOS los miembros del staff (incluyendo rector_init)
+    // excepto el propio usuario que se está editando.
+    const rectorInitDoc = staff.find(s => s.id === 'rector_init');
+    const existingUser = staff.find(s => s.password === newStaffPass && s.id !== editingStaffId);
+    const matchesRectorInitPass = rectorInitDoc && rectorInitDoc.password === newStaffPass && editingStaffId !== 'rector_init';
+    
+    if (existingUser) {
+      return alert(`⚠️ Error al guardar: La contraseña ingresada ya está siendo usada por el usuario "${existingUser.name}" (${existingUser.role}). Por favor, elija una diferente.`);
+    }
+    if (matchesRectorInitPass || (newStaffRole !== 'Rector' && newStaffPass === appSettings.teacherPassword)) {
+      return alert("⚠️ Error al guardar: Esta contraseña coincide con la Clave Maestra del Rector. Un docente no puede tener la misma clave que el Administrador.");
     }
     
     const id = editingStaffId ? String(editingStaffId) : ("staff_" + Date.now());
     const basePath = `artifacts/escuela-v1/public/data`;
     
     try {
-      // 1. Guardar el docente usando ruta de texto única (más seguro)
+      // 1. Guardar el miembro del personal
       const staffRef = doc(db, `${basePath}/staff/${id}`);
       await setDoc(staffRef, {
         id, 
@@ -808,8 +845,19 @@ export default function UE19deAgosto() {
       });
 
       // Si el miembro guardado es Rector, sincronizar su contraseña con la clave maestra general
+      // Y también actualizar rector_init.password para evitar divergencia.
+      // La divergencia es la causa raíz: rector_init queda con clave vieja y un Docente
+      // puede ser creado con esa misma clave sin que la validación lo detecte.
       if (newStaffRole === 'Rector') {
         await updateSettings({ ...appSettings, teacherPassword: String(newStaffPass) });
+        // Sincronizar rector_init solo si quien se está guardando NO es rector_init mismo
+        if (id !== 'rector_init' && rectorInitDoc) {
+          await setDoc(
+            doc(db, `${basePath}/staff/rector_init`),
+            { ...rectorInitDoc, password: String(newStaffPass) },
+            { merge: true }
+          );
+        }
       }
 
       // 2. Sincronizar materias en segundo plano
@@ -909,6 +957,103 @@ export default function UE19deAgosto() {
       logAudit("SYNC_STUDENTS", currentSubject.id, `Sincronización completa: +${toAdd.length} -${toRemove.length}`);
       if (msg) alert(msg);
     });
+  };
+
+  // ── SINCRONIZACIÓN TOTAL (ADMINISTRADOR) ─────────────────────────────────
+  // Sincroniza TODAS las materias con la lista oficial del administrativo,
+  // curso por curso. Preserva IDs y códigos existentes (sin pérdida de datos).
+  const syncAllSubjects = async () => {
+    setBulkSyncProgress([]);
+    setBulkSyncRunning(true);
+    setBulkSyncDone(false);
+
+    // Construir mapa global de estudiantes por nombre normalizado (para reutilizar códigos)
+    const globalStudentsMap = new Map();
+    subjects.forEach(sub => {
+      (sub.students || []).forEach(st => {
+        const norm = normalizeText(st.name);
+        if (!globalStudentsMap.has(norm)) globalStudentsMap.set(norm, st);
+      });
+    });
+
+    const results = [];
+
+    for (const sub of subjects) {
+      const courseName = sub.courseName;
+      const parallelName = sub.parallelName;
+      if (!courseName || !parallelName) {
+        results.push({ subjectName: sub.name, parallel: sub.parallel || '?', status: 'skip', msg: 'Sin curso/paralelo definido' });
+        setBulkSyncProgress([...results]);
+        continue;
+      }
+
+      const masterStudents = getParallelStudents(courseName, parallelName).filter(n => n.trim());
+      if (masterStudents.length === 0) {
+        results.push({ subjectName: sub.name, parallel: sub.parallel || '?', status: 'skip', msg: 'Sin lista maestra definida' });
+        setBulkSyncProgress([...results]);
+        continue;
+      }
+
+      const masterNorms = new Set(masterStudents.map(n => normalizeText(n)));
+      const currentNormNames = new Set((sub.students || []).map(s => normalizeText(s.name)));
+
+      // Estudiantes a añadir (están en lista maestra pero no en la materia)
+      const toAdd = masterStudents.map(n => {
+        const norm = normalizeText(n);
+        if (currentNormNames.has(norm)) return null;
+        if (globalStudentsMap.has(norm)) {
+          const ex = globalStudentsMap.get(norm);
+          return { id: ex.id, name: ex.name, code: ex.code || generateStudentCode() };
+        }
+        const newSt = { id: 's_' + Date.now() + Math.random().toString(36).substr(2, 5), name: n.trim(), code: generateStudentCode() };
+        globalStudentsMap.set(norm, newSt);
+        return newSt;
+      }).filter(s => s !== null);
+
+      // Estudiantes a retirar (están en la materia pero ya no en la lista maestra)
+      const toRemove = (sub.students || []).filter(s => !masterNorms.has(normalizeText(s.name)));
+
+      if (toAdd.length === 0 && toRemove.length === 0) {
+        results.push({ subjectName: sub.name, parallel: sub.parallel || '?', status: 'ok', msg: 'Ya está al día ✅', added: 0, removed: 0 });
+        setBulkSyncProgress([...results]);
+        continue;
+      }
+
+      // Aplicar añadidos — siempre seguros (no se pierden datos)
+      let finalStudents = [...(sub.students || []), ...toAdd];
+
+      // Retirar solo los que ya no están en la lista maestra (automático, sin confirmación individual)
+      // NOTA: Las notas y asistencias de retirados se conservan en el documento de la materia
+      // hasta que un admin los elimine manualmente. Solo se quitan de la lista visible.
+      if (toRemove.length > 0) {
+        const toRemoveIds = new Set(toRemove.map(s => s.id));
+        finalStudents = finalStudents.filter(s => !toRemoveIds.has(s.id));
+      }
+
+      try {
+        await saveSubject({ ...sub, students: finalStudents });
+        logAudit('BULK_SYNC', sub.id, `Bulk sync: +${toAdd.length} -${toRemove.length}`);
+        results.push({
+          subjectName: sub.name,
+          parallel: sub.parallel || '?',
+          status: 'synced',
+          msg: `+${toAdd.length} añadidos, -${toRemove.length} retirados`,
+          added: toAdd.length,
+          removed: toRemove.length,
+          addedNames: toAdd.map(s => s.name),
+          removedNames: toRemove.map(s => s.name)
+        });
+      } catch (err) {
+        results.push({ subjectName: sub.name, parallel: sub.parallel || '?', status: 'error', msg: 'Error: ' + err.message });
+      }
+
+      setBulkSyncProgress([...results]);
+      // Pequeña pausa para no saturar Firestore
+      await new Promise(r => setTimeout(r, 200));
+    }
+
+    setBulkSyncRunning(false);
+    setBulkSyncDone(true);
   };
 
   const addActivity = () => {
@@ -1882,6 +2027,10 @@ export default function UE19deAgosto() {
                     className="w-full bg-violet-600 text-white py-3 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-violet-700 transition-all font-bold shadow active:scale-95">
                     <Calendar size={18} /> Años Lectivos
                   </button>
+                  <button onClick={() => { setBulkSyncProgress([]); setBulkSyncDone(false); setShowBulkSync(true); setShowMenu(false); }}
+                    className="w-full bg-teal-600 text-white py-3 px-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-teal-700 transition-all font-bold shadow active:scale-95">
+                    <RefreshCw size={18} /> Sincronización Total
+                  </button>
                 </>
               )}
               {(isDocente || isAdmin || isRector) && (
@@ -2543,6 +2692,127 @@ export default function UE19deAgosto() {
         </div>
       )}
 
+      {/* MODAL: Sincronización Total (Admin) */}
+      {showBulkSync && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-teal-600 to-teal-700 p-6 text-white flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-2 rounded-xl">
+                  <RefreshCw size={22} className={bulkSyncRunning ? 'animate-spin' : ''} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black">Sincronización Total de Listas</h3>
+                  <p className="text-teal-100 text-xs">Actualiza todas las materias con la lista oficial</p>
+                </div>
+              </div>
+              {!bulkSyncRunning && (
+                <button onClick={() => setShowBulkSync(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-xl transition">
+                  <X size={20} />
+                </button>
+              )}
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {!bulkSyncRunning && !bulkSyncDone && (
+                <div className="space-y-4">
+                  <div className="bg-teal-50 border border-teal-200 rounded-2xl p-4 text-sm text-teal-800">
+                    <p className="font-bold mb-2">📋 ¿Qué hace esta función?</p>
+                    <ul className="space-y-1 text-xs list-disc pl-4">
+                      <li>Recorre <strong>todas las materias ({subjects.length})</strong> registradas en el sistema.</li>
+                      <li>Compara cada materia con la lista oficial de Administración para ese curso y paralelo.</li>
+                      <li>Añade automáticamente los estudiantes nuevos, <strong>conservando sus códigos e historial</strong>.</li>
+                      <li>Retira de la lista visible a estudiantes que ya no están en la lista maestra (sus notas no se borran).</li>
+                    </ul>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800 font-medium">
+                    ⚠️ <strong>Esta acción es segura y reversible.</strong> Las notas y asistencias nunca se eliminan automáticamente. Solo los estudiantes retirados desaparecen de la lista visible de la materia.
+                  </div>
+                  <div className="bg-gray-50 border rounded-xl p-3 text-xs text-gray-600">
+                    <strong>Materias a procesar:</strong> {subjects.length} en total
+                    {subjects.filter(s => !s.courseName || !s.parallelName).length > 0 && (
+                      <span className="text-amber-600 ml-2">({subjects.filter(s => !s.courseName || !s.parallelName).length} sin curso/paralelo → se omitirán)</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Progreso en tiempo real */}
+              {(bulkSyncRunning || bulkSyncDone) && (
+                <div className="space-y-2">
+                  {bulkSyncProgress.map((r, i) => (
+                    <div key={i} className={`flex items-start gap-3 p-3 rounded-xl border text-sm ${
+                      r.status === 'ok' ? 'bg-green-50 border-green-200' :
+                      r.status === 'synced' ? 'bg-teal-50 border-teal-200' :
+                      r.status === 'skip' ? 'bg-gray-50 border-gray-200' :
+                      'bg-red-50 border-red-200'
+                    }`}>
+                      <span className="text-lg leading-none mt-0.5">
+                        {r.status === 'ok' ? '✅' : r.status === 'synced' ? '🔄' : r.status === 'skip' ? '⏭️' : '❌'}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold truncate">{r.subjectName}</span>
+                          <span className="text-xs bg-white/60 px-2 py-0.5 rounded-full border font-medium text-gray-500">{r.parallel}</span>
+                        </div>
+                        <div className="text-xs mt-0.5 text-gray-600">{r.msg}</div>
+                        {r.addedNames?.length > 0 && (
+                          <div className="text-[10px] text-teal-700 mt-1">+ {r.addedNames.join(', ')}</div>
+                        )}
+                        {r.removedNames?.length > 0 && (
+                          <div className="text-[10px] text-red-600 mt-0.5">- {r.removedNames.join(', ')}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {bulkSyncRunning && (
+                    <div className="flex items-center gap-2 text-teal-600 text-sm font-bold p-3 animate-pulse">
+                      <RefreshCw size={16} className="animate-spin" /> Procesando materias...
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {bulkSyncDone && (
+                <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-4 text-center">
+                  <div className="text-3xl mb-1">🎉</div>
+                  <p className="font-black text-emerald-700 text-lg">¡Sincronización Completa!</p>
+                  <p className="text-emerald-600 text-xs mt-1">
+                    {bulkSyncProgress.filter(r => r.status === 'synced').length} materias actualizadas •{' '}
+                    {bulkSyncProgress.filter(r => r.status === 'ok').length} ya estaban al día •{' '}
+                    {bulkSyncProgress.filter(r => r.status === 'skip').length} omitidas
+                  </p>
+                  <p className="text-xs text-emerald-500 mt-2">
+                    Total añadidos: <strong>{bulkSyncProgress.reduce((s, r) => s + (r.added || 0), 0)}</strong> •
+                    Total retirados: <strong>{bulkSyncProgress.reduce((s, r) => s + (r.removed || 0), 0)}</strong>
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 border-t bg-gray-50 shrink-0 flex justify-end gap-3">
+              {!bulkSyncRunning && (
+                <button onClick={() => setShowBulkSync(false)}
+                  className="px-5 py-2.5 text-gray-600 hover:bg-gray-200 rounded-xl transition font-bold">
+                  {bulkSyncDone ? 'Cerrar' : 'Cancelar'}
+                </button>
+              )}
+              {!bulkSyncDone && (
+                <button onClick={syncAllSubjects} disabled={bulkSyncRunning}
+                  className="bg-teal-600 hover:bg-teal-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition shadow-lg">
+                  {bulkSyncRunning
+                    ? <><RefreshCw size={16} className="animate-spin" /> Sincronizando...</>
+                    : <><RefreshCw size={16} /> Iniciar Sincronización</>}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL: Gestionar Personal */}
       {isManagingStaff && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -2554,9 +2824,9 @@ export default function UE19deAgosto() {
             {isAdmin && (
               <div className="bg-gray-50 p-4 rounded-xl mb-4 grid grid-cols-1 md:grid-cols-2 gap-3 relative">
                 {editingStaffId && <div className="md:col-span-2 text-[10px] font-bold text-indigo-600 uppercase mb-1">Editando miembro: {newStaffName} <button onClick={() => { setEditingStaffId(null); setNewStaffName(''); setNewStaffEmail(''); setNewStaffPass(''); setNewStaffSecKey(''); }} className="text-red-500 underline ml-2">Cancelar</button></div>}
-                <input className="border p-2 rounded text-sm" placeholder="Nombre completo" value={newStaffName} onChange={e => setNewStaffName(e.target.value)} />
-                <input className="border p-2 rounded text-sm" placeholder="Contraseña de acceso" value={newStaffPass} onChange={e => setNewStaffPass(e.target.value)} />
-                <input className="border p-2 rounded text-sm" placeholder="Correo institucional" value={newStaffEmail} onChange={e => setNewStaffEmail(e.target.value)} />
+                <input autoComplete="off" spellCheck="false" data-lpignore="true" data-1p-ignore="true" className="border p-2 rounded text-sm" placeholder="Nombre completo" value={newStaffName} onChange={e => setNewStaffName(e.target.value)} />
+                <input autoComplete="new-password" spellCheck="false" data-lpignore="true" data-1p-ignore="true" className="border p-2 rounded text-sm" placeholder="Contraseña de acceso" value={newStaffPass} onChange={e => setNewStaffPass(e.target.value)} />
+                <input autoComplete="off" spellCheck="false" data-lpignore="true" data-1p-ignore="true" className="border p-2 rounded text-sm" placeholder="Correo institucional" value={newStaffEmail} onChange={e => setNewStaffEmail(e.target.value)} />
                 <select className="border p-2 rounded text-sm" value={newStaffRole} onChange={e => setNewStaffRole(e.target.value)}>
                   <option value="Docente">Docente</option>
                   <option value="Rector">Rector</option>
