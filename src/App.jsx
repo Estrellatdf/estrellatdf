@@ -136,6 +136,7 @@ export default function UE19deAgosto() {
   const [editingActivity, setEditingActivity] = useState(null);
   const [newActivityName, setNewActivityName] = useState('');
   const [newActivityDesc, setNewActivityDesc] = useState('');
+  const [newActivityType, setNewActivityType] = useState('individual');
 
   // Personal
   const [isManagingStaff, setIsManagingStaff] = useState(false);
@@ -919,8 +920,18 @@ export default function UE19deAgosto() {
         });
       });
 
+      // Unificar codes de estudiantes ya existentes en esta materia
+      const unifiedCurrent = currentSubject.students.map(st => {
+        const norm = normalizeText(st.name);
+        const canonical = existingStudentsMap.get(norm);
+        if (canonical && canonical.code !== st.code) {
+          return { ...st, code: canonical.code };
+        }
+        return st;
+      });
+
       const masterNorms = new Set(masterStudents.map(n => normalizeText(n)));
-      const currentNormNames = new Set(currentSubject.students.map(s => normalizeText(s.name)));
+      const currentNormNames = new Set(unifiedCurrent.map(s => normalizeText(s.name)));
 
       // Estudiantes a añadir
       const toAdd = masterStudents.map(n => {
@@ -934,15 +945,18 @@ export default function UE19deAgosto() {
       }).filter(s => s !== null);
 
       // Estudiantes a retirar (están en la materia pero no en la lista maestra)
-      const toRemove = currentSubject.students.filter(s => !masterNorms.has(normalizeText(s.name)));
+      const toRemove = unifiedCurrent.filter(s => !masterNorms.has(normalizeText(s.name)));
 
-      if (toAdd.length === 0 && toRemove.length === 0) {
+      const hadCodeChanges = currentSubject.students.some((st, idx) => unifiedCurrent[idx]?.code !== st.code);
+
+      if (toAdd.length === 0 && toRemove.length === 0 && !hadCodeChanges) {
         alert("La lista ya está al día con los registros de Administración.");
         return;
       }
 
-      let finalStudents = [...currentSubject.students, ...toAdd];
+      let finalStudents = [...unifiedCurrent, ...toAdd];
       let msg = "";
+      if (hadCodeChanges) msg += "🔗 Se unificaron códigos de acceso duplicados.\n";
       if (toAdd.length > 0) msg += `✅ Se añadieron ${toAdd.length} estudiantes nuevos.\n`;
 
       if (toRemove.length > 0) {
@@ -994,8 +1008,18 @@ export default function UE19deAgosto() {
         continue;
       }
 
+      // Unificar codes de estudiantes ya existentes en esta materia con el mapa global
+      const unifiedCurrent = (sub.students || []).map(st => {
+        const norm = normalizeText(st.name);
+        const canonical = globalStudentsMap.get(norm);
+        if (canonical && canonical.code !== st.code) {
+          return { ...st, code: canonical.code };
+        }
+        return st;
+      });
+
       const masterNorms = new Set(masterStudents.map(n => normalizeText(n)));
-      const currentNormNames = new Set((sub.students || []).map(s => normalizeText(s.name)));
+      const currentNormNames = new Set(unifiedCurrent.map(s => normalizeText(s.name)));
 
       // Estudiantes a añadir (están en lista maestra pero no en la materia)
       const toAdd = masterStudents.map(n => {
@@ -1011,20 +1035,21 @@ export default function UE19deAgosto() {
       }).filter(s => s !== null);
 
       // Estudiantes a retirar (están en la materia pero ya no en la lista maestra)
-      const toRemove = (sub.students || []).filter(s => !masterNorms.has(normalizeText(s.name)));
+      const toRemove = unifiedCurrent.filter(s => !masterNorms.has(normalizeText(s.name)));
 
-      if (toAdd.length === 0 && toRemove.length === 0) {
+      // Detectar si hubo cambios de unificación de codes
+      const hadCodeChanges = (sub.students || []).some((st, idx) => unifiedCurrent[idx]?.code !== st.code);
+
+      if (toAdd.length === 0 && toRemove.length === 0 && !hadCodeChanges) {
         results.push({ subjectName: sub.name, parallel: sub.parallel || '?', status: 'ok', msg: 'Ya está al día ✅', added: 0, removed: 0 });
         setBulkSyncProgress([...results]);
         continue;
       }
 
       // Aplicar añadidos — siempre seguros (no se pierden datos)
-      let finalStudents = [...(sub.students || []), ...toAdd];
+      let finalStudents = [...unifiedCurrent, ...toAdd];
 
-      // Retirar solo los que ya no están en la lista maestra (automático, sin confirmación individual)
-      // NOTA: Las notas y asistencias de retirados se conservan en el documento de la materia
-      // hasta que un admin los elimine manualmente. Solo se quitan de la lista visible.
+      // Retirar solo los que ya no están en la lista maestra
       if (toRemove.length > 0) {
         const toRemoveIds = new Set(toRemove.map(s => s.id));
         finalStudents = finalStudents.filter(s => !toRemoveIds.has(s.id));
@@ -1063,19 +1088,19 @@ export default function UE19deAgosto() {
       ...currentSubject, 
       activities: { 
         ...currentSubject.activities, 
-        [currentTrimester]: [...acts, { id: "a_" + Date.now(), name: newActivityName, description: newActivityDesc }] 
+        [currentTrimester]: [...acts, { id: "a_" + Date.now(), name: newActivityName, description: newActivityDesc, type: newActivityType }] 
       } 
     });
-    setIsAddingActivity(false); setNewActivityName(''); setNewActivityDesc('');
+    setIsAddingActivity(false); setNewActivityName(''); setNewActivityDesc(''); setNewActivityType('individual');
   };
 
   const updateActivityData = () => {
     if (!newActivityName || !currentSubject || !editingActivity) return;
     const newActs = (currentSubject.activities[currentTrimester] || []).map(a => 
-      a.id === editingActivity.id ? { ...a, name: newActivityName, description: newActivityDesc } : a
+      a.id === editingActivity.id ? { ...a, name: newActivityName, description: newActivityDesc, type: newActivityType } : a
     );
     saveSubject({ ...currentSubject, activities: { ...currentSubject.activities, [currentTrimester]: newActs } });
-    setEditingActivity(null); setNewActivityName(''); setNewActivityDesc('');
+    setEditingActivity(null); setNewActivityName(''); setNewActivityDesc(''); setNewActivityType('individual');
   };
 
   const deleteActivity = (actId) => {
@@ -1256,6 +1281,356 @@ export default function UE19deAgosto() {
   };
 
   // ── EXPORTAR ──────────────────────────────────────────────────────────────
+  const handlePrintTeacherReport = () => {
+    if (!currentSubject || !currentSubject.students) return;
+    const acts = currentSubject.activities[currentTrimester] || [];
+    // Separar actividades por tipo (individual / grupal)
+    const indivActs = acts.filter(a => (a.type || 'individual') === 'individual');
+    const grupalActs = acts.filter(a => (a.type || 'individual') === 'grupal');
+    const sortedActs = [...indivActs, ...grupalActs];
+    const totalActCols = Math.max(sortedActs.length, 6);
+    const indivCount = indivActs.length || Math.ceil(totalActCols / 2);
+    const grupalCount = totalActCols - indivCount;
+    
+    // Estadísticas
+    let domina = 0, alcanza = 0, proximo = 0, noAlcanza = 0;
+    const rowsHtml = currentSubject.students.map((s, i) => {
+      const st = calculateStats(currentSubject, currentTrimester, s.id);
+      const gr = currentSubject.grades[currentTrimester]?.[s.id] || {};
+      
+      const finNum = parseFloat(st.fin) || 0;
+      if (finNum >= 9) domina++;
+      else if (finNum >= 7) alcanza++;
+      else if (finNum >= 5) proximo++;
+      else noAlcanza++;
+
+      const rowBg = i % 2 === 0 ? '#ffffff' : '#f1f5f9';
+      const activitiesCols = sortedActs.map(a => '<td style="background:' + rowBg + ';width:15px;">' + (gr[a.id] || 0) + '</td>').join('');
+      const emptyCols = Array(Math.max(0, totalActCols - sortedActs.length)).fill('<td style="background:' + rowBg + ';width:15px;"></td>').join('');
+      const ced = parentProfiles[s.code]?.formData?.studentCedula || '';
+
+      return '<tr style="background:' + rowBg + ';">'
+        + '<td>' + (i+1) + '</td>'
+        + '<td style="font-size:6px;">' + ced + '</td>'
+        + '<td class="name-cell">' + s.name + '</td>'
+        + activitiesCols + emptyCols
+        + '<td style="font-weight:bold;background:#0f172a;color:white;">' + st.wAct + '</td>'
+        + '<td style="background:#059669;color:white;">' + (gr['exam_final'] || 0) + '</td>'
+        + '<td style="background:#059669;color:white;">' + (gr['project_final'] || '') + '</td>'
+        + '<td style="font-weight:bold;background:#059669;color:white;">' + st.wEx + '</td>'
+        + '<td style="font-weight:900;background:#0f172a;color:#fbbf24;">' + st.fin + '</td>'
+        + '</tr>';
+    }).join('');
+
+    // Segunda hoja - resumen
+    const summaryRows = currentSubject.students.map((s, i) => {
+      const st = calculateStats(currentSubject, currentTrimester, s.id);
+      const rowBg = i % 2 === 0 ? '#ffffff' : '#f1f5f9';
+      const finNum = parseFloat(st.fin) || 0;
+      const finColor = finNum >= 9 ? '#2563eb' : finNum >= 7 ? '#059669' : finNum >= 5 ? '#d97706' : '#dc2626';
+      return '<tr style="background:' + rowBg + ';">'
+        + '<td>' + (i+1) + '</td>'
+        + '<td class="name-cell" style="font-size:9px;white-space:normal;overflow:visible;">' + s.name + '</td>'
+        + '<td style="font-size:10px;font-weight:bold;">' + st.wAct + '</td>'
+        + '<td style="font-size:10px;font-weight:bold;">' + st.wEx + '</td>'
+        + '<td style="font-size:11px;font-weight:900;color:' + finColor + ';">' + st.fin + '</td>'
+        + '</tr>';
+    }).join('');
+
+    // Preparar el encabezado de las actividades
+    let actHeadersHtml2 = '';
+    for (let i = 0; i < totalActCols; i++) {
+      const aName = sortedActs[i] ? sortedActs[i].name : `Insumo ${i+1}`;
+      actHeadersHtml2 += '<th style="border:1px solid #cbd5e1;padding:2px;writing-mode:vertical-rl;transform:rotate(180deg);font-size:7px;background:#f8fafc;color:#334155;height:60px;max-height:60px;white-space:nowrap;overflow:hidden;width:15px;">' + aName + '</th>';
+    }
+
+    const totalStudents = currentSubject.students.length || 1;
+    const chartHtml = `
+      <div style="display: flex; gap: 40px; margin-top: 30px; page-break-inside: avoid;">
+        <div style="flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; background: white;">
+          <h3 style="margin-top: 0; color: #0f172a; font-size: 12px; text-transform: uppercase;">Estadísticas de Rendimiento</h3>
+          <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+            <tr><td style="padding: 4px; font-weight: bold; color: #2563eb;">Domina (9-10)</td><td style="text-align: right; font-weight: bold;">${domina}</td></tr>
+            <tr><td style="padding: 4px; font-weight: bold; color: #059669;">Alcanza (7-8.99)</td><td style="text-align: right; font-weight: bold;">${alcanza}</td></tr>
+            <tr><td style="padding: 4px; font-weight: bold; color: #d97706;">Próximo (5-6.99)</td><td style="text-align: right; font-weight: bold;">${proximo}</td></tr>
+            <tr><td style="padding: 4px; font-weight: bold; color: #dc2626;">No Alcanza (< 5)</td><td style="text-align: right; font-weight: bold;">${noAlcanza}</td></tr>
+          </table>
+        </div>
+        <div style="flex: 2; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; background: white; display: flex; align-items: center; gap: 30px;">
+          <div style="width: 120px; height: 120px; border-radius: 50%; background: conic-gradient(
+            #2563eb 0% ${(domina/totalStudents)*100}%, 
+            #059669 ${(domina/totalStudents)*100}% ${((domina+alcanza)/totalStudents)*100}%, 
+            #d97706 ${((domina+alcanza)/totalStudents)*100}% ${((domina+alcanza+proximo)/totalStudents)*100}%, 
+            #dc2626 ${((domina+alcanza+proximo)/totalStudents)*100}% 100%);">
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+             <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 15px; height: 15px; background: #2563eb;"></div><span style="font-size: 11px;">Domina (${((domina/totalStudents)*100).toFixed(1)}%)</span></div>
+             <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 15px; height: 15px; background: #059669;"></div><span style="font-size: 11px;">Alcanza (${((alcanza/totalStudents)*100).toFixed(1)}%)</span></div>
+             <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 15px; height: 15px; background: #d97706;"></div><span style="font-size: 11px;">Próximo (${((proximo/totalStudents)*100).toFixed(1)}%)</span></div>
+             <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 15px; height: 15px; background: #dc2626;"></div><span style="font-size: 11px;">No Alcanza (${((noAlcanza/totalStudents)*100).toFixed(1)}%)</span></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Reporte Docente - ${currentSubject.name}</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 10px; margin: 0; color: #0f172a; font-size: 9px; }
+            @page { size: portrait; margin: 15mm; }
+            .report-container { width: max-content; max-width: 100%; margin: 0 auto; }
+            .header-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; border: 2px solid #0f172a; }
+            .header-table td { padding: 4px 6px; font-size: 10px; border: 1px solid #cbd5e1; font-weight: bold; text-transform: uppercase; }
+            .header-table .bg-dark { background: #0f172a; color: white; white-space: nowrap; }
+            .main-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; border: 2px solid #0f172a; table-layout: auto; }
+            .main-table th { border: 1px solid #cbd5e1; padding: 2px; font-size: 7px; font-weight: bold; text-transform: uppercase; }
+            .main-table td { border: 1px solid #cbd5e1; padding: 2px 2px; font-size: 8px; text-align: center; }
+            .main-table td.name-cell { text-align: left !important; font-size: 8px; font-weight: bold; white-space: nowrap; padding-left: 4px; }
+            @media print {
+              body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="no-print" style="margin-bottom: 20px; text-align: center; background: #f8fafc; padding: 20px; border-radius: 12px; border: 2px dashed #cbd5e1;">
+            <button onclick="window.print()" style="background: #4f46e5; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px;">🖨️ Imprimir / Guardar PDF</button>
+          </div>
+          
+          <div class="report-container">
+            <table class="header-table">
+              <tr>
+              <td colspan="4" style="background:#0f172a;color:white;text-align:center;padding:6px 10px;">
+                <div style="display:flex;align-items:center;justify-content:center;gap:15px;">
+                   <img src="${window.location.origin}/logo_ministerio.png" height="60" alt="Ministerio" onerror="this.style.display='none'" />
+                   <div style="text-align:center;">
+                     <div style="font-size:10px;font-weight:bold;letter-spacing:1px;">MINISTERIO DE EDUCACIÓN</div>
+                     <div style="font-size:13px;font-weight:900;letter-spacing:1px;margin-top:2px;">UNIDAD EDUCATIVA 19 DE AGOSTO</div>
+                   </div>
+                   <img src="${window.location.origin}/logo_colegio.png" height="60" alt="Colegio" onerror="this.style.display='none'" />
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="bg-dark">DOCENTE:</td>
+              <td colspan="3" style="font-size:9px;">${currentUser?.name || ''}</td>
+            </tr>
+            <tr>
+              <td class="bg-dark">GRADO:</td>
+              <td style="font-size:9px;">${currentSubject.courseName || ''}</td>
+              <td class="bg-dark">PARALELO:</td>
+              <td style="font-size:9px;">${currentSubject.parallelName || currentSubject.parallel}</td>
+            </tr>
+            <tr>
+              <td colspan="4" style="text-align:center;background:#0f172a;color:white;font-size:12px;padding:5px;">${currentSubject.name} — TRIMESTRE ${currentTrimester}</td>
+            </tr>
+          </table>
+
+          <table class="main-table">
+            <thead>
+              <tr>
+                <th rowspan="3" style="background:#1e293b;color:white;width:15px;">N°</th>
+                <th rowspan="3" style="background:#1e293b;color:white;width:35px;">CÉDULA</th>
+                <th rowspan="3" style="background:#1e293b;color:white;text-align:left;padding-left:4px;min-width:180px;">ESTUDIANTES</th>
+                <th colspan="${totalActCols}" style="background:#334155;color:white;font-size:10px;">EVALUACIÓN FORMATIVA</th>
+                <th rowspan="3" style="background:#0f172a;color:white;font-size:7px;">70%</th>
+                <th rowspan="3" style="background:#059669;color:white;font-size:7px;">EXAM</th>
+                <th rowspan="3" style="background:#059669;color:white;font-size:7px;">PROY</th>
+                <th rowspan="3" style="background:#059669;color:white;font-size:7px;">30%</th>
+                <th rowspan="3" style="background:#0f172a;color:#fbbf24;font-size:8px;">TOTAL</th>
+              </tr>
+              <tr>
+                <th colspan="${indivCount}" style="background:#eff6ff;color:#1e3a8a;font-size:7px;">Individuales</th>
+                <th colspan="${grupalCount}" style="background:#f0fdf4;color:#14532d;font-size:7px;">Grupales</th>
+              </tr>
+              <tr>
+                ${actHeadersHtml2}
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+
+            <div style="display: flex; justify-content: space-around; margin-top: 60px; page-break-inside: avoid; width: 100%;">
+              <div style="border-top: 1px solid #475569; width: 250px; padding-top: 8px; text-align: center; font-weight: bold; font-size: 11px; text-transform: uppercase;">Docente<br>${currentUser?.name || ''}</div>
+              <div style="border-top: 1px solid #475569; width: 250px; padding-top: 8px; text-align: center; font-weight: bold; font-size: 11px; text-transform: uppercase;">Vicerrectorado</div>
+            </div>
+          </div>
+
+          <!-- ═══════ SEGUNDA PÁGINA: RESUMEN ═══════ -->
+          <div style="page-break-before: always;"></div>
+          <div class="report-container">
+            <table class="header-table">
+              <tr>
+                <td colspan="5" style="background:#0f172a;color:white;text-align:center;padding:6px 10px;">
+                  <div style="display:flex;align-items:center;justify-content:center;gap:15px;">
+                     <img src="${window.location.origin}/logo_ministerio.png" height="60" alt="Ministerio" onerror="this.style.display='none'" />
+                     <div style="text-align:center;">
+                       <div style="font-size:10px;font-weight:bold;letter-spacing:1px;">MINISTERIO DE EDUCACIÓN</div>
+                       <div style="font-size:13px;font-weight:900;letter-spacing:1px;margin-top:2px;">UNIDAD EDUCATIVA 19 DE AGOSTO</div>
+                     </div>
+                     <img src="${window.location.origin}/logo_colegio.png" height="60" alt="Colegio" onerror="this.style.display='none'" />
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td colspan="5" style="text-align:center;background:#334155;color:white;font-size:14px;padding:6px;letter-spacing:1px;">RESUMEN DE CALIFICACIONES — ${currentSubject.name} — TRIMESTRE ${currentTrimester}</td>
+              </tr>
+            </table>
+            <table class="main-table" style="border:2px solid #0f172a;table-layout:auto;">
+            <thead>
+              <tr>
+                <th style="background:#1e293b;color:white;width:30px;">N°</th>
+                <th style="background:#1e293b;color:white;text-align:left;padding-left:4px;min-width:180px;">ESTUDIANTE</th>
+                <th style="background:#334155;color:white;width:80px;">FORMATIVA<br>(70%)</th>
+                <th style="background:#059669;color:white;width:80px;">SUMATIVA<br>(30%)</th>
+                <th style="background:#0f172a;color:#fbbf24;width:80px;">TOTAL<br>(100%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${summaryRows}
+            </tbody>
+          </table>
+
+          ${chartHtml}
+
+            <div style="display: flex; justify-content: space-around; margin-top: 80px; page-break-inside: avoid; width: 100%;">
+              <div style="border-top: 1px solid #475569; width: 250px; text-align: center; font-weight: bold; font-size: 11px; text-transform: uppercase;">Docente<br>${currentUser?.name || ''}</div>
+              <div style="border-top: 1px solid #475569; width: 250px; text-align: center; font-weight: bold; font-size: 11px; text-transform: uppercase;">Rectorado / Secretaría</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+    } else {
+      alert("⚠️ Tu navegador bloqueó la ventana emergente.");
+    }
+  };
+
+  const handlePrintTutorReport = () => {
+    if (!currentUser || !currentUser.tutoringCourse) return;
+    const targetParallel = currentUser.tutoringCourse.trim().toLowerCase();
+    const tutorSubjects = subjects.filter(s => (s.parallel || '').trim().toLowerCase() === targetParallel);
+    if (tutorSubjects.length === 0) return alert("No hay materias registradas para tu curso de tutoría.");
+
+    const studentsMap = new Map();
+    tutorSubjects.forEach(sub => {
+      (sub.students || []).forEach(st => {
+        const key = normalizeText(st.name);
+        if (!studentsMap.has(key)) studentsMap.set(key, { ...st, gradesBySubject: {} });
+        const sData = studentsMap.get(key);
+        const s1 = calculateStats(sub, 1, st.id).fin;
+        const s2 = calculateStats(sub, 2, st.id).fin;
+        const s3 = calculateStats(sub, 3, st.id).fin;
+        sData.gradesBySubject[sub.id] = {
+          t1: parseFloat(s1) || 0, t2: parseFloat(s2) || 0, t3: parseFloat(s3) || 0,
+          total: (parseFloat(s1) || 0) + (parseFloat(s2) || 0) + (parseFloat(s3) || 0)
+        };
+      });
+    });
+    const studentsList = Array.from(studentsMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+    // Incluir todas las materias en la misma hoja (formato horizontal)
+    const maxSubsPerPage = 15;
+    const subjectChunks = [];
+    for (let i = 0; i < tutorSubjects.length; i += maxSubsPerPage) {
+      subjectChunks.push(tutorSubjects.slice(i, i + maxSubsPerPage));
+    }
+
+    const headerBlock = '<div style="background:#0f172a;color:white;text-align:center;padding:6px 10px;border:2px solid #0f172a;border-bottom:none;">'
+      + '<div style="display:flex;align-items:center;justify-content:center;gap:15px;">'
+      + '<img src="' + window.location.origin + '/logo_ministerio.png" height="60" alt="Ministerio" onerror="this.style.display=\'none\'" />'
+      + '<div style="text-align:center;">'
+      + '<div style="font-size:10px;font-weight:bold;letter-spacing:1px;">MINISTERIO DE EDUCACIÓN</div>'
+      + '<div style="font-size:13px;font-weight:900;letter-spacing:1px;margin-top:2px;">UNIDAD EDUCATIVA 19 DE AGOSTO</div>'
+      + '</div>'
+      + '<img src="' + window.location.origin + '/logo_colegio.png" height="60" alt="Colegio" onerror="this.style.display=\'none\'" />'
+      + '</div></div>';
+
+    const infoBlock = '<div style="background:#334155;color:white;text-align:center;padding:6px;font-size:12px;font-weight:bold;border:2px solid #0f172a;border-top:none;margin-bottom:10px;letter-spacing:1px;">'
+      + 'REPORTE GENERAL DE RENDIMIENTO ANUAL — CURSO: ' + currentUser.tutoringCourse.toUpperCase() + ' — TUTOR: ' + currentUser.name
+      + '</div>';
+
+    let pagesHtml = '';
+    subjectChunks.forEach((chunk, pi) => {
+      if (pi > 0) pagesHtml += '<div style="page-break-before:always;"></div>';
+      pagesHtml += '<div class="report-container">';
+      pagesHtml += headerBlock + infoBlock;
+      if (subjectChunks.length > 1) {
+        pagesHtml += '<div style="text-align:right;font-size:10px;color:#64748b;margin-bottom:5px;">Página ' + (pi+1) + ' de ' + subjectChunks.length + ' — Materias ' + (pi*maxSubsPerPage+1) + ' a ' + Math.min((pi+1)*maxSubsPerPage, tutorSubjects.length) + ' de ' + tutorSubjects.length + '</div>';
+      }
+
+      // Build table for this chunk
+      let thead = '<tr><th rowspan="2" style="background:#1e293b;color:white;width:30px;padding:6px;">N°</th>'
+        + '<th rowspan="2" style="background:#1e293b;color:white;padding:6px;text-align:left;white-space:nowrap;padding-left:4px;min-width:180px;">ESTUDIANTE</th>';
+      chunk.forEach(sub => { thead += '<th colspan="4" style="border:1px solid #cbd5e1;padding:6px;background:#334155;color:white;text-align:center;">' + sub.name + '</th>'; });
+      thead += '<th rowspan="2" style="background:#0f172a;color:#fbbf24;width:60px;padding:6px;">PROM.</th></tr><tr>';
+      chunk.forEach(() => {
+        thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T1</th>'
+          + '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T2</th>'
+          + '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T3</th>'
+          + '<th style="border:1px solid #cbd5e1;padding:4px;background:#e2e8f0;font-size:9px;font-weight:bold;width:30px;">SUMA</th>';
+      });
+      thead += '</tr>';
+
+      let tbody = '';
+      studentsList.forEach((st, i) => {
+        const rowBg = i % 2 === 0 ? '#ffffff' : '#f1f5f9';
+        let gHtml = '';
+        let chunkTotal = 0;
+        chunk.forEach(sub => {
+          const g = st.gradesBySubject[sub.id] || { t1: 0, t2: 0, t3: 0, total: 0 };
+          chunkTotal += g.total;
+          const pc = g.total >= 21 ? '#059669' : '#dc2626';
+          gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t1.toFixed(2) + '</td>'
+            + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t2.toFixed(2) + '</td>'
+            + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t3.toFixed(2) + '</td>'
+            + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:' + pc + ';">' + g.total.toFixed(2) + '</td>';
+        });
+        const avg = (chunkTotal / (chunk.length || 1)).toFixed(2);
+        tbody += '<tr style="background:' + rowBg + ';">'
+          + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + (i+1) + '</td>'
+          + '<td style="border:1px solid #cbd5e1;padding:4px;font-size:10px;text-align:left;white-space:nowrap;">' + st.name + '</td>'
+          + gHtml
+          + '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + avg + '</td>'
+          + '</tr>';
+      });
+
+      pagesHtml += '<table style="width:100%;border-collapse:collapse;border:2px solid #0f172a;margin-bottom:20px;table-layout:auto;">'
+        + '<thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>';
+      pagesHtml += '</div>'; // close .report-container
+    });
+
+    const html = '<!DOCTYPE html><html><head><title>Reporte de Tutoría - ' + currentUser.tutoringCourse + '</title>'
+      + '<style>body{font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;padding:15px;margin:0;color:#0f172a;}'
+      + '@page{size:landscape;margin:20mm;}th{font-size:10px;text-transform:uppercase;}'
+      + '.report-container{width:max-content;max-width:100%;margin:0 auto;}'
+      + '@media print{body{padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.no-print{display:none;}}</style>'
+      + '</head><body>'
+      + '<div class="no-print" style="margin-bottom:20px;text-align:center;background:#f8fafc;padding:20px;border-radius:12px;border:2px dashed #cbd5e1;">'
+      + '<button onclick="window.print()" style="background:#059669;color:white;border:none;padding:12px 24px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:16px;">🖨️ Imprimir Resumen Anual (Tutor)</button></div>'
+      + pagesHtml
+      + '<div style="display:flex;justify-content:space-around;margin-top:60px;page-break-inside:avoid;">'
+      + '<div style="border-top:1px solid #475569;width:250px;padding-top:8px;text-align:center;font-weight:bold;font-size:11px;text-transform:uppercase;">Tutor(a)<br>' + currentUser.name + '</div>'
+      + '<div style="border-top:1px solid #475569;width:250px;padding-top:8px;text-align:center;font-weight:bold;font-size:11px;text-transform:uppercase;">Vicerrectorado</div>'
+      + '</div>'
+      + '</body></html>';
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) { printWindow.document.open(); printWindow.document.write(html); printWindow.document.close(); }
+    else { alert("⚠️ Tu navegador bloqueó la ventana emergente."); }
+  };
+
   const exportGradesCSV = () => {
     const acts = currentSubject.activities[currentTrimester] || [];
     let csv = "Estudiante;Codigo;" + acts.map(a => `"${a.name}"`).join(";") + ";70%;Examen;Proyecto;30%;Final\n";
@@ -2146,6 +2521,16 @@ export default function UE19deAgosto() {
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-indigo-600 transition-colors">Materias de Tutoría</h3>
                         <span className="text-xs text-slate-400 font-bold group-hover:text-indigo-600 px-2 py-0.5 bg-gray-100 rounded-md">{showOtherSubjects ? 'Ocultar ▲' : 'Ver ▼'}</span>
                       </button>
+                      
+                      {currentUser?.tutoringCourse && (
+                        <div className="px-2 mb-4">
+                          <button onClick={handlePrintTutorReport} className="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 py-2 rounded-xl font-bold text-[11px] flex justify-center items-center gap-2 transition-all shadow-sm">
+                            <Printer size={14} /> 
+                            IMPRIMIR REPORTE ANUAL DEL CURSO ({currentUser.tutoringCourse})
+                          </button>
+                        </div>
+                      )}
+
                       {showOtherSubjects && (() => {
                         const otherGrouped = otherSubjects.reduce((acc, s) => {
                           const c = s.courseName || s.course || 'Sin Curso';
@@ -2244,6 +2629,7 @@ export default function UE19deAgosto() {
                     <div className="flex items-center gap-2">
                       {currentTrimester !== 'Anual' && (
                         <>
+                          <button onClick={handlePrintTeacherReport} className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition"><Printer size={16} /> PDF Elaborado</button>
                           <button onClick={exportGradesCSV} className="text-sm bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition"><Download size={16} /> Excel</button>
                           <button onClick={() => {
                             if (!confirm("¿Deseas enviar una notificación a todos los padres de esta materia informando sobre actualizaciones en las notas?")) return;
@@ -2256,13 +2642,15 @@ export default function UE19deAgosto() {
                           {canEditGrades(currentSubject) && (
                             <>
                               <button onClick={() => setIsAddingActivity(true)} className="text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition"><Plus size={16} /> Actividad</button>
-                              <button onClick={syncStudentsWithMasterList} className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition" title="Sincronizar con la lista oficial de Administración"><RefreshCw size={16} /> Sincronizar Lista</button>
                             </>
                           )}
                         </>
                       )}
                       {(isAdmin || isRector) && (
-                        <button onClick={() => setIsAddingStudent(true)} className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition" title="Inscribir manualmente (Solo Admin)"><Plus size={16} /> Estudiante</button>
+                        <>
+                          <button onClick={syncStudentsWithMasterList} className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition" title="Sincronizar con la lista oficial de Administración"><RefreshCw size={16} /> Sincronizar</button>
+                          <button onClick={() => setIsAddingStudent(true)} className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 shadow-sm transition" title="Inscribir manualmente (Solo Admin)"><Plus size={16} /> Estudiante</button>
+                        </>
                       )}
                       {(isAdmin || isRector) && (
                         <button onClick={() => deleteSubjectDB(currentSubject.id)} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition" title="Borrar Clase"><Trash2 size={18} /></button>
@@ -2337,6 +2725,7 @@ export default function UE19deAgosto() {
                                           setEditingActivity(a);
                                           setNewActivityName(a.name);
                                           setNewActivityDesc(a.description || '');
+                                          setNewActivityType(a.type || 'individual');
                                         }} className="p-1 bg-white/90 text-indigo-600 rounded shadow-sm hover:bg-white" title="Editar Nombre/Descripción"><Settings size={10} /></button>
                                         <button onClick={() => deleteActivity(a.id)} className="p-1 bg-white/90 text-red-500 rounded shadow-sm hover:bg-white"><Trash2 size={10} /></button>
                                       </>
@@ -2648,12 +3037,19 @@ export default function UE19deAgosto() {
               </div>
               <div>
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">Instrucciones / Descripción</label>
-                <textarea className="border border-gray-300 w-full p-3 rounded-lg h-32 resize-none focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                <textarea className="border border-gray-300 w-full p-3 rounded-lg h-24 resize-none focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                   placeholder="Describe la tarea aquí..." value={newActivityDesc} onChange={e => setNewActivityDesc(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">Tipo de Aporte</label>
+                <div className="flex gap-2">
+                  <button onClick={() => setNewActivityType('individual')} className={`flex-1 py-2 rounded-lg font-bold text-sm border transition ${newActivityType === 'individual' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>Individual</button>
+                  <button onClick={() => setNewActivityType('grupal')} className={`flex-1 py-2 rounded-lg font-bold text-sm border transition ${newActivityType === 'grupal' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>Grupal</button>
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => { setEditingActivity(null); setNewActivityName(''); setNewActivityDesc(''); }} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">Cancelar</button>
+              <button onClick={() => { setEditingActivity(null); setNewActivityName(''); setNewActivityDesc(''); setNewActivityType('individual'); }} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">Cancelar</button>
               <button onClick={updateActivityData} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-bold shadow transition">Guardar Cambios</button>
             </div>
           </div>
@@ -2682,10 +3078,14 @@ export default function UE19deAgosto() {
             <h3 className="text-xl font-bold mb-4 text-gray-800">Nueva Actividad (Trimestre {currentTrimester})</h3>
             <input className="border border-gray-300 w-full p-3 rounded-lg mb-2 focus:ring-2 focus:ring-green-500 outline-none"
               placeholder="Nombre (ej. Tarea de Mate)" value={newActivityName} onChange={e => setNewActivityName(e.target.value)} autoFocus />
-            <textarea className="border border-gray-300 w-full p-3 rounded-lg mb-6 focus:ring-2 focus:ring-green-500 outline-none h-24 resize-none text-sm"
+            <textarea className="border border-gray-300 w-full p-3 rounded-lg mb-3 focus:ring-2 focus:ring-green-500 outline-none h-20 resize-none text-sm"
               placeholder="Instrucciones o descripción del deber..." value={newActivityDesc} onChange={e => setNewActivityDesc(e.target.value)} />
+            <div className="flex gap-2 mb-4">
+              <button onClick={() => setNewActivityType('individual')} className={`flex-1 py-2 rounded-lg font-bold text-sm border transition ${newActivityType === 'individual' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>Individual</button>
+              <button onClick={() => setNewActivityType('grupal')} className={`flex-1 py-2 rounded-lg font-bold text-sm border transition ${newActivityType === 'grupal' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>Grupal</button>
+            </div>
             <div className="flex justify-end gap-2">
-              <button onClick={() => { setIsAddingActivity(false); setNewActivityDesc(''); }} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">Cancelar</button>
+              <button onClick={() => { setIsAddingActivity(false); setNewActivityDesc(''); setNewActivityType('individual'); }} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">Cancelar</button>
               <button onClick={addActivity} className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold shadow transition">Guardar</button>
             </div>
           </div>
