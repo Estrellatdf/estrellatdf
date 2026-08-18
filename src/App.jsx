@@ -1663,43 +1663,27 @@ export default function UE19deAgosto() {
         avg = avg.toFixed(2);
         let nameCellBg = 'inherit';
         let medalStr = '';
-        let highestBg = 'inherit';
-        let highestRank = 99;
-        
-        const updateBg = (rank, color) => {
-          if (rank < highestRank) {
-            highestRank = rank;
-            highestBg = color;
-          }
-        };
-
         if (trimLimit === 1) {
-          if (rankT1 === 0) { medalStr += '🥇(T1) '; updateBg(0, t1Bg); }
-          else if (rankT1 === 1) { medalStr += '🥈(T1) '; updateBg(1, t1Bg); }
-          else if (rankT1 === 2) { medalStr += '🥉(T1) '; updateBg(2, t1Bg); }
+          if (rankT1 === 0) { medalStr = '🥇(T1) '; nameCellBg = t1Bg; }
+          else if (rankT1 === 1) { medalStr = '🥈(T1) '; nameCellBg = t1Bg; }
+          else if (rankT1 === 2) { medalStr = '🥉(T1) '; nameCellBg = t1Bg; }
         }
         else if (trimLimit === 2) {
-          if (rankT2 === 0) { medalStr += '🥇(T2) '; updateBg(0, t2Bg); }
-          else if (rankT2 === 1) { medalStr += '🥈(T2) '; updateBg(1, t2Bg); }
-          else if (rankT2 === 2) { medalStr += '🥉(T2) '; updateBg(2, t2Bg); }
+          if (rankT2 === 0) { medalStr = '🥇(T2) '; nameCellBg = t2Bg; }
+          else if (rankT2 === 1) { medalStr = '🥈(T2) '; nameCellBg = t2Bg; }
+          else if (rankT2 === 2) { medalStr = '🥉(T2) '; nameCellBg = t2Bg; }
         }
         else if (trimLimit === 3) {
-          if (rankT3 === 0) { medalStr += '🥇(T3) '; updateBg(0, t3Bg); }
-          else if (rankT3 === 1) { medalStr += '🥈(T3) '; updateBg(1, t3Bg); }
-          else if (rankT3 === 2) { medalStr += '🥉(T3) '; updateBg(2, t3Bg); }
-          
-          if (rankTotal === 0) { medalStr += '🏆(Año) '; updateBg(0, totalBg); }
-          else if (rankTotal === 1) { medalStr += '🥈(Año) '; updateBg(1, totalBg); }
-          else if (rankTotal === 2) { medalStr += '🥉(Año) '; updateBg(2, totalBg); }
+          if (rankT3 === 0) { medalStr = '🥇(T3) '; nameCellBg = t3Bg; }
+          else if (rankT3 === 1) { medalStr = '🥈(T3) '; nameCellBg = t3Bg; }
+          else if (rankT3 === 2) { medalStr = '🥉(T3) '; nameCellBg = t3Bg; }
         }
-        
-        nameCellBg = highestBg;
 
         tbody += '<tr style="background:' + rowBg + ';">'
           + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + (i+1) + '</td>'
           + '<td style="border:1px solid #cbd5e1;padding:4px;font-size:10px;text-align:left;white-space:nowrap;background:' + nameCellBg + ';">' + medalStr + st.name + '</td>'
           + gHtml
-          + '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:' + totalBg + ';">' + avg + '</td>'
+          + '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + avg + '</td>'
           + '</tr>';
       });
 
