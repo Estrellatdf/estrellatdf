@@ -1664,19 +1664,17 @@ export default function UE19deAgosto() {
           }
         };
 
-        if (trimLimit >= 1) {
+        if (trimLimit === 1) {
           if (rankT1 === 0) { medalStr += '🥇(T1) '; updateBg(0, t1Bg); }
           else if (rankT1 === 1) { medalStr += '🥈(T1) '; updateBg(1, t1Bg); }
           else if (rankT1 === 2) { medalStr += '🥉(T1) '; updateBg(2, t1Bg); }
         }
-        
-        if (trimLimit >= 2) {
+        else if (trimLimit === 2) {
           if (rankT2 === 0) { medalStr += '🥇(T2) '; updateBg(0, t2Bg); }
           else if (rankT2 === 1) { medalStr += '🥈(T2) '; updateBg(1, t2Bg); }
           else if (rankT2 === 2) { medalStr += '🥉(T2) '; updateBg(2, t2Bg); }
         }
-        
-        if (trimLimit >= 3) {
+        else if (trimLimit === 3) {
           if (rankT3 === 0) { medalStr += '🥇(T3) '; updateBg(0, t3Bg); }
           else if (rankT3 === 1) { medalStr += '🥈(T3) '; updateBg(1, t3Bg); }
           else if (rankT3 === 2) { medalStr += '🥉(T3) '; updateBg(2, t3Bg); }
