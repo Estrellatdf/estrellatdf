@@ -1546,19 +1546,23 @@ export default function UE19deAgosto() {
       });
     });
     const studentsList = Array.from(studentsMap.values()).map(st => {
-      let globalSum = 0;
+      let currentTrimSum = 0;
+      let totalTrimSum = 0;
       tutorSubjects.forEach(sub => {
         const g = st.gradesBySubject[sub.id] || { t1: 0, t2: 0, t3: 0, total: 0 };
-        if (trimLimit >= 1) globalSum += g.t1;
-        if (trimLimit >= 2) globalSum += g.t2;
-        if (trimLimit >= 3) globalSum += g.t3;
+        totalTrimSum += g.total;
+        if (trimLimit === 1) currentTrimSum += g.t1;
+        if (trimLimit === 2) currentTrimSum += g.t2;
+        if (trimLimit === 3) currentTrimSum += g.t3;
       });
-      st.globalAvg = parseFloat((globalSum / (tutorSubjects.length || 1)).toFixed(2));
+      st.currentTrimAvg = parseFloat((currentTrimSum / (tutorSubjects.length || 1)).toFixed(2));
+      st.totalAvg = parseFloat((totalTrimSum / (tutorSubjects.length || 1)).toFixed(2));
       return st;
     }).sort((a, b) => a.name.localeCompare(b.name));
 
     // Determinar los 3 mejores promedios únicos (mayores a 0)
-    const sortedAverages = [...new Set(studentsList.map(s => s.globalAvg).filter(v => v > 0))].sort((a, b) => b - a);
+    const sortedCurrentAverages = [...new Set(studentsList.map(s => s.currentTrimAvg).filter(v => v > 0))].sort((a, b) => b - a);
+    const sortedTotalAverages = [...new Set(studentsList.map(s => s.totalAvg).filter(v => v > 0))].sort((a, b) => b - a);
 
     // Incluir todas las materias en la misma hoja (formato horizontal)
     const maxSubsPerPage = 15;
@@ -1630,13 +1634,28 @@ export default function UE19deAgosto() {
           }
         });
         const avg = (chunkTotal / (chunk.length || 1)).toFixed(2);
-        const rank = sortedAverages.indexOf(st.globalAvg);
-        const medal = rank === 0 ? '🥇 ' : rank === 1 ? '🥈 ' : rank === 2 ? '🥉 ' : '';
+        
+        let nameCellBg = '';
+        let avgCellBg = '#f8fafc';
+        let medalStr = '';
+        
+        const rankCurrent = sortedCurrentAverages.indexOf(st.currentTrimAvg);
+        if (rankCurrent === 0) { nameCellBg = '#fef08a'; medalStr += '🥇(T' + trimLimit + ') '; }
+        else if (rankCurrent === 1) { nameCellBg = '#e2e8f0'; medalStr += '🥈(T' + trimLimit + ') '; }
+        else if (rankCurrent === 2) { nameCellBg = '#fed7aa'; medalStr += '🥉(T' + trimLimit + ') '; }
+
+        if (trimLimit === 3) {
+          const rankTotal = sortedTotalAverages.indexOf(st.totalAvg);
+          if (rankTotal === 0) { avgCellBg = '#fef08a'; medalStr += '🏆(Año) '; }
+          else if (rankTotal === 1) { avgCellBg = '#e2e8f0'; medalStr += '🥈(Año) '; }
+          else if (rankTotal === 2) { avgCellBg = '#fed7aa'; medalStr += '🥉(Año) '; }
+        }
+
         tbody += '<tr style="background:' + rowBg + ';">'
           + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + (i+1) + '</td>'
-          + '<td style="border:1px solid #cbd5e1;padding:4px;font-size:10px;text-align:left;white-space:nowrap;">' + medal + st.name + '</td>'
+          + '<td style="border:1px solid #cbd5e1;padding:4px;font-size:10px;text-align:left;white-space:nowrap;background:' + (nameCellBg || 'inherit') + ';">' + medalStr + st.name + '</td>'
           + gHtml
-          + '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + avg + '</td>'
+          + '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:' + avgCellBg + ';">' + avg + '</td>'
           + '</tr>';
       });
 
