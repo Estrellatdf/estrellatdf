@@ -1656,8 +1656,11 @@ export default function UE19deAgosto() {
               + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:' + pc + ';">' + g.total.toFixed(2) + '</td>';
           }
         });
-        const avg = (chunkTotal / (chunk.length || 1)).toFixed(2);
         
+        let avg = st.cum1;
+        if (trimLimit === 2) avg = st.cum2;
+        if (trimLimit === 3) avg = st.cum3;
+        avg = avg.toFixed(2);
         let nameCellBg = 'inherit';
         let medalStr = '';
         let highestBg = 'inherit';
