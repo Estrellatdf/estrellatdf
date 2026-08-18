@@ -1530,6 +1530,13 @@ export default function UE19deAgosto() {
     const tutorSubjects = subjects.filter(s => (s.parallel || '').trim().toLowerCase() === targetParallel);
     if (tutorSubjects.length === 0) return alert("No hay materias registradas para tu curso de tutoría.");
 
+    const p = window.prompt("¿Hasta qué trimestre deseas imprimir? (Ingresa 1, 2, o 3)\n\n1 = Solo 1er Trimestre\n2 = 1er y 2do Trimestre\n3 = Año Completo", "3");
+    if (!p) return;
+    const trimLimit = parseInt(p.trim());
+    if (trimLimit < 1 || trimLimit > 3 || isNaN(trimLimit)) {
+      return alert("Opción no válida. Ingresa 1, 2 o 3.");
+    }
+
     const studentsMap = new Map();
     tutorSubjects.forEach(sub => {
       (sub.students || []).forEach(st => {
