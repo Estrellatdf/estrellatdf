@@ -1552,7 +1552,20 @@ export default function UE19deAgosto() {
         };
       });
     });
-    const studentsList = Array.from(studentsMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    const studentsList = Array.from(studentsMap.values()).map(st => {
+      let globalSum = 0;
+      tutorSubjects.forEach(sub => {
+        const g = st.gradesBySubject[sub.id] || { t1: 0, t2: 0, t3: 0, total: 0 };
+        if (trimLimit >= 1) globalSum += g.t1;
+        if (trimLimit >= 2) globalSum += g.t2;
+        if (trimLimit >= 3) globalSum += g.t3;
+      });
+      st.globalAvg = parseFloat((globalSum / (tutorSubjects.length || 1)).toFixed(2));
+      return st;
+    }).sort((a, b) => a.name.localeCompare(b.name));
+
+    // Determinar los 3 mejores promedios únicos
+    const sortedAverages = [...new Set(studentsList.map(s => s.globalAvg))].sort((a, b) => b - a);
 
     // Incluir todas las materias en la misma hoja (formato horizontal)
     const maxSubsPerPage = 15;
@@ -1624,9 +1637,11 @@ export default function UE19deAgosto() {
           }
         });
         const avg = (chunkTotal / (chunk.length || 1)).toFixed(2);
+        const rank = sortedAverages.indexOf(st.globalAvg);
+        const medal = rank === 0 ? '🥇 ' : rank === 1 ? '🥈 ' : rank === 2 ? '🥉 ' : '';
         tbody += '<tr style="background:' + rowBg + ';">'
           + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + (i+1) + '</td>'
-          + '<td style="border:1px solid #cbd5e1;padding:4px;font-size:10px;text-align:left;white-space:nowrap;">' + st.name + '</td>'
+          + '<td style="border:1px solid #cbd5e1;padding:4px;font-size:10px;text-align:left;white-space:nowrap;">' + medal + st.name + '</td>'
           + gHtml
           + '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + avg + '</td>'
           + '</tr>';
