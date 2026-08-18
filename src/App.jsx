@@ -1524,18 +1524,11 @@ export default function UE19deAgosto() {
     }
   };
 
-  const handlePrintTutorReport = () => {
+  const handlePrintTutorReport = (trimLimit = 3) => {
     if (!currentUser || !currentUser.tutoringCourse) return;
     const targetParallel = currentUser.tutoringCourse.trim().toLowerCase();
     const tutorSubjects = subjects.filter(s => (s.parallel || '').trim().toLowerCase() === targetParallel);
     if (tutorSubjects.length === 0) return alert("No hay materias registradas para tu curso de tutoría.");
-
-    const p = window.prompt("¿Hasta qué trimestre deseas imprimir? (Ingresa 1, 2, o 3)\n\n1 = Solo 1er Trimestre\n2 = 1er y 2do Trimestre\n3 = Año Completo", "3");
-    if (!p) return;
-    const trimLimit = parseInt(p.trim());
-    if (trimLimit < 1 || trimLimit > 3 || isNaN(trimLimit)) {
-      return alert("Opción no válida. Ingresa 1, 2 o 3.");
-    }
 
     const studentsMap = new Map();
     tutorSubjects.forEach(sub => {
@@ -1564,8 +1557,8 @@ export default function UE19deAgosto() {
       return st;
     }).sort((a, b) => a.name.localeCompare(b.name));
 
-    // Determinar los 3 mejores promedios únicos
-    const sortedAverages = [...new Set(studentsList.map(s => s.globalAvg))].sort((a, b) => b - a);
+    // Determinar los 3 mejores promedios únicos (mayores a 0)
+    const sortedAverages = [...new Set(studentsList.map(s => s.globalAvg).filter(v => v > 0))].sort((a, b) => b - a);
 
     // Incluir todas las materias en la misma hoja (formato horizontal)
     const maxSubsPerPage = 15;
@@ -2568,10 +2561,18 @@ export default function UE19deAgosto() {
                       </button>
                       
                       {currentUser?.tutoringCourse && (
-                        <div className="px-2 mb-4">
-                          <button onClick={handlePrintTutorReport} className="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 py-2 rounded-xl font-bold text-[11px] flex justify-center items-center gap-2 transition-all shadow-sm">
-                            <Printer size={14} /> 
-                            IMPRIMIR REPORTE ANUAL DEL CURSO ({currentUser.tutoringCourse})
+                        <div className="px-2 mb-4 space-y-2">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <Printer size={12} /> IMPRIMIR REPORTE ANUAL ({currentUser.tutoringCourse})
+                          </div>
+                          <button onClick={() => handlePrintTutorReport(1)} className="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 py-2 rounded-xl font-bold text-[11px] flex justify-center items-center transition-all shadow-sm">
+                            1er Trimestre
+                          </button>
+                          <button onClick={() => handlePrintTutorReport(2)} className="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 py-2 rounded-xl font-bold text-[11px] flex justify-center items-center transition-all shadow-sm">
+                            1er y 2do Trimestre
+                          </button>
+                          <button onClick={() => handlePrintTutorReport(3)} className="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 py-2 rounded-xl font-bold text-[11px] flex justify-center items-center transition-all shadow-sm">
+                            Año Completo (Medallas)
                           </button>
                         </div>
                       )}
