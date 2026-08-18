@@ -544,19 +544,14 @@ export default function UE19deAgosto() {
       return alert("Cargando datos del sistema, por favor espere...");
     }
 
+    // BUG FIX: Evitar sobreescritura accidental en dispositivos nuevos sin caché / offline.
+    // Nunca inicializar la base de datos automáticamente con la clave de un docente al azar.
     if (staff.length === 0) {
-      if (!appSettings.teacherPassword) {
-        if (authPassword.length < 4) return alert("Mínimo 4 caracteres para la clave maestra inicial");
-        updateSettings({ ...appSettings, teacherPassword: authPassword });
-        const firstRector = { id: 'rector_init', name: 'Administrador Inicial', role: 'Rector', password: authPassword };
-        setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', 'rector_init'), firstRector);
-        setCurrentUser(firstRector);
+      if (appSettings.teacherPassword && authPassword === appSettings.teacherPassword) {
+        setCurrentUser({ name: 'Admin Temporal', role: 'Rector' });
         setViewMode('teacher');
       } else {
-        if (authPassword === appSettings.teacherPassword) {
-          setCurrentUser({ name: 'Admin Temporal', role: 'Rector' });
-          setViewMode('teacher');
-        } else alert("Contraseña incorrecta.");
+        alert("⚠️ Base de datos vacía o cargando (sin conexión). Verifique su internet o espere a que sincronicen los datos.");
       }
       return;
     }
