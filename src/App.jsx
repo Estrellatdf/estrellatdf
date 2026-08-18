@@ -1580,13 +1580,18 @@ export default function UE19deAgosto() {
       // Build table for this chunk
       let thead = '<tr><th rowspan="2" style="background:#1e293b;color:white;width:30px;padding:6px;">N°</th>'
         + '<th rowspan="2" style="background:#1e293b;color:white;padding:6px;text-align:left;white-space:nowrap;padding-left:4px;min-width:180px;">ESTUDIANTE</th>';
-      chunk.forEach(sub => { thead += '<th colspan="4" style="border:1px solid #cbd5e1;padding:6px;background:#334155;color:white;text-align:center;">' + sub.name + '</th>'; });
+      chunk.forEach(sub => { 
+        let colSpan = trimLimit === 3 ? 4 : trimLimit;
+        thead += '<th colspan="' + colSpan + '" style="border:1px solid #cbd5e1;padding:6px;background:#334155;color:white;text-align:center;">' + sub.name + '</th>'; 
+      });
       thead += '<th rowspan="2" style="background:#0f172a;color:#fbbf24;width:60px;padding:6px;">PROM.</th></tr><tr>';
       chunk.forEach(() => {
-        thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T1</th>'
-          + '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T2</th>'
-          + '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T3</th>'
-          + '<th style="border:1px solid #cbd5e1;padding:4px;background:#e2e8f0;font-size:9px;font-weight:bold;width:30px;">SUMA</th>';
+        if (trimLimit >= 1) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T1</th>';
+        if (trimLimit >= 2) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T2</th>';
+        if (trimLimit >= 3) {
+          thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T3</th>'
+            + '<th style="border:1px solid #cbd5e1;padding:4px;background:#e2e8f0;font-size:9px;font-weight:bold;width:30px;">SUMA</th>';
+        }
       });
       thead += '</tr>';
 
@@ -1597,12 +1602,19 @@ export default function UE19deAgosto() {
         let chunkTotal = 0;
         chunk.forEach(sub => {
           const g = st.gradesBySubject[sub.id] || { t1: 0, t2: 0, t3: 0, total: 0 };
-          chunkTotal += g.total;
+          let partialSum = g.t1;
+          if (trimLimit >= 2) partialSum += g.t2;
+          if (trimLimit >= 3) partialSum += g.t3;
+          
+          chunkTotal += partialSum;
           const pc = g.total >= 21 ? '#059669' : '#dc2626';
-          gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t1.toFixed(2) + '</td>'
-            + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t2.toFixed(2) + '</td>'
-            + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t3.toFixed(2) + '</td>'
-            + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:' + pc + ';">' + g.total.toFixed(2) + '</td>';
+          
+          if (trimLimit >= 1) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t1.toFixed(2) + '</td>';
+          if (trimLimit >= 2) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t2.toFixed(2) + '</td>';
+          if (trimLimit >= 3) {
+            gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t3.toFixed(2) + '</td>'
+              + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:' + pc + ';">' + g.total.toFixed(2) + '</td>';
+          }
         });
         const avg = (chunkTotal / (chunk.length || 1)).toFixed(2);
         tbody += '<tr style="background:' + rowBg + ';">'
@@ -1933,8 +1945,12 @@ export default function UE19deAgosto() {
                 <div><span class="info-label">Código:</span> <span class="info-value">${viewingStudent.code}</span></div>
               </div>
               <div class="info-row">
+                <div><span class="info-label">Curso/Paralelo:</span> <span class="info-value">${viewingSubject.courseName} "${viewingSubject.parallelName}"</span></div>
                 <div><span class="info-label">Año Lectivo:</span> <span class="info-value">${appSettings.schoolYear || 'Oficial'}</span></div>
+              </div>
+              <div class="info-row">
                 <div><span class="info-label">Fecha Emisión:</span> <span class="info-value">${new Date().toLocaleDateString('es-ES')}</span></div>
+                <div></div>
               </div>
             </div>
 
