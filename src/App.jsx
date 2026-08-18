@@ -1546,23 +1546,27 @@ export default function UE19deAgosto() {
       });
     });
     const studentsList = Array.from(studentsMap.values()).map(st => {
-      let currentTrimSum = 0;
-      let totalTrimSum = 0;
+      let t1Sum = 0, t2Sum = 0, t3Sum = 0, totalSum = 0;
       tutorSubjects.forEach(sub => {
         const g = st.gradesBySubject[sub.id] || { t1: 0, t2: 0, t3: 0, total: 0 };
-        totalTrimSum += g.total;
-        if (trimLimit === 1) currentTrimSum += g.t1;
-        if (trimLimit === 2) currentTrimSum += g.t2;
-        if (trimLimit === 3) currentTrimSum += g.t3;
+        t1Sum += g.t1;
+        t2Sum += g.t2;
+        t3Sum += g.t3;
+        totalSum += g.total;
       });
-      st.currentTrimAvg = parseFloat((currentTrimSum / (tutorSubjects.length || 1)).toFixed(2));
-      st.totalAvg = parseFloat((totalTrimSum / (tutorSubjects.length || 1)).toFixed(2));
+      const len = tutorSubjects.length || 1;
+      st.t1Avg = parseFloat((t1Sum / len).toFixed(2));
+      st.t2Avg = parseFloat((t2Sum / len).toFixed(2));
+      st.t3Avg = parseFloat((t3Sum / len).toFixed(2));
+      st.totalAvg = parseFloat((totalSum / len).toFixed(2));
       return st;
     }).sort((a, b) => a.name.localeCompare(b.name));
 
-    // Determinar los 3 mejores promedios únicos (mayores a 0)
-    const sortedCurrentAverages = [...new Set(studentsList.map(s => s.currentTrimAvg).filter(v => v > 0))].sort((a, b) => b - a);
-    const sortedTotalAverages = [...new Set(studentsList.map(s => s.totalAvg).filter(v => v > 0))].sort((a, b) => b - a);
+    // Determinar los 3 mejores promedios únicos para cada columna
+    const sortedT1 = [...new Set(studentsList.map(s => s.t1Avg).filter(v => v > 0))].sort((a, b) => b - a);
+    const sortedT2 = [...new Set(studentsList.map(s => s.t2Avg).filter(v => v > 0))].sort((a, b) => b - a);
+    const sortedT3 = [...new Set(studentsList.map(s => s.t3Avg).filter(v => v > 0))].sort((a, b) => b - a);
+    const sortedTotal = [...new Set(studentsList.map(s => s.totalAvg).filter(v => v > 0))].sort((a, b) => b - a);
 
     // Incluir todas las materias en la misma hoja (formato horizontal)
     const maxSubsPerPage = 15;
@@ -1617,6 +1621,19 @@ export default function UE19deAgosto() {
         const rowBg = i % 2 === 0 ? '#ffffff' : '#f1f5f9';
         let gHtml = '';
         let chunkTotal = 0;
+        
+        const rankT1 = sortedT1.indexOf(st.t1Avg);
+        const rankT2 = sortedT2.indexOf(st.t2Avg);
+        const rankT3 = sortedT3.indexOf(st.t3Avg);
+        const rankTotal = sortedTotal.indexOf(st.totalAvg);
+        
+        let t1Bg = 'inherit', t2Bg = 'inherit', t3Bg = 'inherit', totalBg = '#f8fafc';
+        
+        if (rankT1 === 0) t1Bg = '#fef08a'; else if (rankT1 === 1) t1Bg = '#e2e8f0'; else if (rankT1 === 2) t1Bg = '#fed7aa';
+        if (rankT2 === 0) t2Bg = '#fef08a'; else if (rankT2 === 1) t2Bg = '#e2e8f0'; else if (rankT2 === 2) t2Bg = '#fed7aa';
+        if (rankT3 === 0) t3Bg = '#fef08a'; else if (rankT3 === 1) t3Bg = '#e2e8f0'; else if (rankT3 === 2) t3Bg = '#fed7aa';
+        if (rankTotal === 0) totalBg = '#fef08a'; else if (rankTotal === 1) totalBg = '#e2e8f0'; else if (rankTotal === 2) totalBg = '#fed7aa';
+
         chunk.forEach(sub => {
           const g = st.gradesBySubject[sub.id] || { t1: 0, t2: 0, t3: 0, total: 0 };
           let partialSum = g.t1;
@@ -1626,36 +1643,34 @@ export default function UE19deAgosto() {
           chunkTotal += partialSum;
           const pc = g.total >= 21 ? '#059669' : '#dc2626';
           
-          if (trimLimit >= 1) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t1.toFixed(2) + '</td>';
-          if (trimLimit >= 2) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t2.toFixed(2) + '</td>';
+          if (trimLimit >= 1) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;background:' + t1Bg + ';">' + g.t1.toFixed(2) + '</td>';
+          if (trimLimit >= 2) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;background:' + t2Bg + ';">' + g.t2.toFixed(2) + '</td>';
           if (trimLimit >= 3) {
-            gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t3.toFixed(2) + '</td>'
+            gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;background:' + t3Bg + ';">' + g.t3.toFixed(2) + '</td>'
               + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:' + pc + ';">' + g.total.toFixed(2) + '</td>';
           }
         });
         const avg = (chunkTotal / (chunk.length || 1)).toFixed(2);
         
-        let nameCellBg = '';
-        let avgCellBg = '#f8fafc';
+        let nameCellBg = 'inherit';
         let medalStr = '';
         
-        const rankCurrent = sortedCurrentAverages.indexOf(st.currentTrimAvg);
-        if (rankCurrent === 0) { nameCellBg = '#fef08a'; medalStr += '🥇(T' + trimLimit + ') '; }
-        else if (rankCurrent === 1) { nameCellBg = '#e2e8f0'; medalStr += '🥈(T' + trimLimit + ') '; }
-        else if (rankCurrent === 2) { nameCellBg = '#fed7aa'; medalStr += '🥉(T' + trimLimit + ') '; }
-
-        if (trimLimit === 3) {
-          const rankTotal = sortedTotalAverages.indexOf(st.totalAvg);
-          if (rankTotal === 0) { avgCellBg = '#fef08a'; medalStr += '🏆(Año) '; }
-          else if (rankTotal === 1) { avgCellBg = '#e2e8f0'; medalStr += '🥈(Año) '; }
-          else if (rankTotal === 2) { avgCellBg = '#fed7aa'; medalStr += '🥉(Año) '; }
-        }
+        // Asignar medallas visuales en el nombre solo del "último" trimestre impreso o total
+        if (trimLimit === 1 && rankT1 === 0) { nameCellBg = t1Bg; medalStr = '🥇(T1) '; }
+        else if (trimLimit === 1 && rankT1 === 1) { nameCellBg = t1Bg; medalStr = '🥈(T1) '; }
+        else if (trimLimit === 1 && rankT1 === 2) { nameCellBg = t1Bg; medalStr = '🥉(T1) '; }
+        else if (trimLimit === 2 && rankT2 === 0) { nameCellBg = t2Bg; medalStr = '🥇(T2) '; }
+        else if (trimLimit === 2 && rankT2 === 1) { nameCellBg = t2Bg; medalStr = '🥈(T2) '; }
+        else if (trimLimit === 2 && rankT2 === 2) { nameCellBg = t2Bg; medalStr = '🥉(T2) '; }
+        else if (trimLimit === 3 && rankTotal === 0) { nameCellBg = totalBg; medalStr = '🏆(Año) '; }
+        else if (trimLimit === 3 && rankTotal === 1) { nameCellBg = totalBg; medalStr = '🥈(Año) '; }
+        else if (trimLimit === 3 && rankTotal === 2) { nameCellBg = totalBg; medalStr = '🥉(Año) '; }
 
         tbody += '<tr style="background:' + rowBg + ';">'
           + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + (i+1) + '</td>'
-          + '<td style="border:1px solid #cbd5e1;padding:4px;font-size:10px;text-align:left;white-space:nowrap;background:' + (nameCellBg || 'inherit') + ';">' + medalStr + st.name + '</td>'
+          + '<td style="border:1px solid #cbd5e1;padding:4px;font-size:10px;text-align:left;white-space:nowrap;background:' + nameCellBg + ';">' + medalStr + st.name + '</td>'
           + gHtml
-          + '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:' + avgCellBg + ';">' + avg + '</td>'
+          + '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:' + totalBg + ';">' + avg + '</td>'
           + '</tr>';
       });
 
