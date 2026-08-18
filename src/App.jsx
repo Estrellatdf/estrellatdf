@@ -908,11 +908,17 @@ export default function UE19deAgosto() {
 
     runSecureAction(`¿Sincronizar con la lista oficial de Administración? Se añadirán nuevos ingresos y se revisarán retiros.`, () => {
       const existingStudentsMap = new Map();
+      const allCodesMap = new Map();
       subjects.forEach(sub => {
         (sub.students || []).forEach(st => {
           const norm = normalizeText(st.name);
-          if (!existingStudentsMap.has(norm)) existingStudentsMap.set(norm, st);
+          if (!allCodesMap.has(norm)) allCodesMap.set(norm, []);
+          allCodesMap.get(norm).push(st);
         });
+      });
+      allCodesMap.forEach((stList, norm) => {
+        const bestSt = stList.find(st => parentProfiles[st.code]) || stList[0];
+        existingStudentsMap.set(norm, bestSt);
       });
 
       // Unificar codes de estudiantes ya existentes en esta materia
@@ -976,13 +982,19 @@ export default function UE19deAgosto() {
     setBulkSyncRunning(true);
     setBulkSyncDone(false);
 
-    // Construir mapa global de estudiantes por nombre normalizado (para reutilizar códigos)
+    // Construir mapa global priorizando los códigos ya registrados por los padres
     const globalStudentsMap = new Map();
+    const allCodesMap = new Map();
     subjects.forEach(sub => {
       (sub.students || []).forEach(st => {
         const norm = normalizeText(st.name);
-        if (!globalStudentsMap.has(norm)) globalStudentsMap.set(norm, st);
+        if (!allCodesMap.has(norm)) allCodesMap.set(norm, []);
+        allCodesMap.get(norm).push(st);
       });
+    });
+    allCodesMap.forEach((stList, norm) => {
+      const bestSt = stList.find(st => parentProfiles[st.code]) || stList[0];
+      globalStudentsMap.set(norm, bestSt);
     });
 
     const results = [];
