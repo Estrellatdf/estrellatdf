@@ -1554,14 +1554,20 @@ export default function UE19deAgosto() {
     });
     const studentsList = Array.from(studentsMap.values()).map(st => {
       let t1Sum = 0, t2Sum = 0, t3Sum = 0, totalSum = 0;
+      let validSubCount = 0;
       tutorSubjects.forEach(sub => {
+        const lowerName = sub.name.toLowerCase();
+        if (lowerName.includes('civica') || lowerName.includes('cívica') || lowerName.includes('acompañamiento')) {
+          return; // Exclude from averages
+        }
+        validSubCount++;
         const g = st.gradesBySubject[sub.id] || { t1: 0, t2: 0, t3: 0, total: 0 };
         t1Sum += g.t1;
         t2Sum += g.t2;
         t3Sum += g.t3;
         totalSum += g.total;
       });
-      const len = tutorSubjects.length || 1;
+      const len = validSubCount || 1;
       st.t1Avg = parseFloat((t1Sum / len).toFixed(2));
       st.t2Avg = parseFloat((t2Sum / len).toFixed(2));
       st.t3Avg = parseFloat((t3Sum / len).toFixed(2));
@@ -1617,7 +1623,12 @@ export default function UE19deAgosto() {
         let colSpan = trimLimit === 3 ? 4 : trimLimit;
         thead += '<th colspan="' + colSpan + '" style="border:1px solid #cbd5e1;padding:6px;background:#334155;color:white;text-align:center;">' + sub.name + '</th>'; 
       });
-      thead += '<th rowspan="2" style="background:#0f172a;color:#fbbf24;width:60px;padding:6px;">PROM.</th></tr><tr>';
+      if (trimLimit === 3) {
+        thead += '<th rowspan="2" style="background:#0f172a;color:#fbbf24;width:50px;padding:6px;">PROM.<br/>T3</th>';
+        thead += '<th rowspan="2" style="background:#0f172a;color:#fbbf24;width:50px;padding:6px;">PROM.<br/>AÑO</th></tr><tr>';
+      } else {
+        thead += '<th rowspan="2" style="background:#0f172a;color:#fbbf24;width:60px;padding:6px;">PROM.</th></tr><tr>';
+      }
       chunk.forEach(() => {
         if (trimLimit >= 1) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T1</th>';
         if (trimLimit >= 2) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T2</th>';
@@ -1649,7 +1660,7 @@ export default function UE19deAgosto() {
           const g = st.gradesBySubject[sub.id] || { t1: 0, t2: 0, t3: 0, total: 0 };
           const pc = g.total >= 21 ? '#059669' : '#dc2626';
           
-          if (trimLimit >= 1) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t1.toFixed(2) + '</td>';
+        if (trimLimit >= 1) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t1.toFixed(2) + '</td>';
           if (trimLimit >= 2) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t2.toFixed(2) + '</td>';
           if (trimLimit >= 3) {
             gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t3.toFixed(2) + '</td>'
@@ -1657,12 +1668,9 @@ export default function UE19deAgosto() {
           }
         });
         
-        let avg = st.cum1;
-        if (trimLimit === 2) avg = st.cum2;
-        if (trimLimit === 3) avg = st.cum3;
-        avg = avg.toFixed(2);
         let nameCellBg = 'inherit';
         let medalStr = '';
+        
         if (trimLimit === 1) {
           if (rankT1 === 0) { medalStr = '🥇(T1) '; nameCellBg = t1Bg; }
           else if (rankT1 === 1) { medalStr = '🥈(T1) '; nameCellBg = t1Bg; }
@@ -1674,16 +1682,35 @@ export default function UE19deAgosto() {
           else if (rankT2 === 2) { medalStr = '🥉(T2) '; nameCellBg = t2Bg; }
         }
         else if (trimLimit === 3) {
-          if (rankT3 === 0) { medalStr = '🥇(T3) '; nameCellBg = t3Bg; }
-          else if (rankT3 === 1) { medalStr = '🥈(T3) '; nameCellBg = t3Bg; }
-          else if (rankT3 === 2) { medalStr = '🥉(T3) '; nameCellBg = t3Bg; }
+          let highestBg = 'inherit';
+          let highestRank = 99;
+          const updateBg = (rank, color) => {
+            if (rank < highestRank) { highestRank = rank; highestBg = color; }
+          };
+          if (rankT3 === 0) { medalStr += '🥇(T3) '; updateBg(0, t3Bg); }
+          else if (rankT3 === 1) { medalStr += '🥈(T3) '; updateBg(1, t3Bg); }
+          else if (rankT3 === 2) { medalStr += '🥉(T3) '; updateBg(2, t3Bg); }
+          
+          if (rankTotal === 0) { medalStr += '🏆(Año) '; updateBg(0, totalBg); }
+          else if (rankTotal === 1) { medalStr += '🥈(Año) '; updateBg(1, totalBg); }
+          else if (rankTotal === 2) { medalStr += '🥉(Año) '; updateBg(2, totalBg); }
+          nameCellBg = highestBg;
+        }
+
+        let avgHtml = '';
+        if (trimLimit === 3) {
+          avgHtml = '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + st.t3Avg.toFixed(2) + '</td>'
+                  + '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + st.cum3.toFixed(2) + '</td>';
+        } else {
+          let avg = trimLimit === 1 ? st.t1Avg : st.t2Avg;
+          avgHtml = '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + avg.toFixed(2) + '</td>';
         }
 
         tbody += '<tr style="background:' + rowBg + ';">'
           + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + (i+1) + '</td>'
           + '<td style="border:1px solid #cbd5e1;padding:4px;font-size:10px;text-align:left;white-space:nowrap;background:' + nameCellBg + ';">' + medalStr + st.name + '</td>'
           + gHtml
-          + '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + avg + '</td>'
+          + avgHtml
           + '</tr>';
       });
 
