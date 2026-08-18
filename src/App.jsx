@@ -1228,7 +1228,14 @@ export default function UE19deAgosto() {
   };
 
   const updateGrade = (sId, aId, val) => {
-    let v = parseFloat(val); if (isNaN(v) || v < 0) v = 0; if (v > 10) v = 10;
+    let v;
+    if (val === '') {
+      v = '';
+    } else {
+      v = parseFloat(val);
+      if (isNaN(v) || v < 0) v = 0;
+      if (v > 10) v = 10;
+    }
     const tri = currentSubject.grades[currentTrimester] || {};
     const stu = tri[sId] || {};
     saveSubject({ ...currentSubject, grades: { ...currentSubject.grades, [currentTrimester]: { ...tri, [sId]: { ...stu, [aId]: v } } } });
