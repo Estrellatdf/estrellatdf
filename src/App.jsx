@@ -1643,10 +1643,10 @@ export default function UE19deAgosto() {
           chunkTotal += partialSum;
           const pc = g.total >= 21 ? '#059669' : '#dc2626';
           
-          if (trimLimit >= 1) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;background:' + t1Bg + ';">' + g.t1.toFixed(2) + '</td>';
-          if (trimLimit >= 2) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;background:' + t2Bg + ';">' + g.t2.toFixed(2) + '</td>';
+          if (trimLimit >= 1) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t1.toFixed(2) + '</td>';
+          if (trimLimit >= 2) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t2.toFixed(2) + '</td>';
           if (trimLimit >= 3) {
-            gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;background:' + t3Bg + ';">' + g.t3.toFixed(2) + '</td>'
+            gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t3.toFixed(2) + '</td>'
               + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:' + pc + ';">' + g.total.toFixed(2) + '</td>';
           }
         });
