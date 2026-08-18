@@ -2627,12 +2627,14 @@ export default function UE19deAgosto() {
                   
                   {!isAdmin && mySubjects.length === 0 && <div className="text-xs text-slate-400 px-3 py-2 italic">No tienes materias asignadas.</div>}
 
-                  {isDocente && otherSubjects.length > 0 && (
+                  {isDocente && (otherSubjects.length > 0 || currentUser?.tutoringCourse) && (
                     <div className="mt-4 border-t border-gray-100 pt-4">
-                      <button onClick={() => setShowOtherSubjects(!showOtherSubjects)} className="w-full flex justify-between items-center px-2 mb-2 group">
-                        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-indigo-600 transition-colors">Materias de Tutoría</h3>
-                        <span className="text-xs text-slate-400 font-bold group-hover:text-indigo-600 px-2 py-0.5 bg-gray-100 rounded-md">{showOtherSubjects ? 'Ocultar ▲' : 'Ver ▼'}</span>
-                      </button>
+                      {otherSubjects.length > 0 && (
+                        <button onClick={() => setShowOtherSubjects(!showOtherSubjects)} className="w-full flex justify-between items-center px-2 mb-2 group">
+                          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-indigo-600 transition-colors">Materias de Tutoría</h3>
+                          <span className="text-xs text-slate-400 font-bold group-hover:text-indigo-600 px-2 py-0.5 bg-gray-100 rounded-md">{showOtherSubjects ? 'Ocultar ▲' : 'Ver ▼'}</span>
+                        </button>
+                      )}
                       
                       {currentUser?.tutoringCourse && (
                         <div className="px-2 mb-4 space-y-2">
@@ -2651,7 +2653,7 @@ export default function UE19deAgosto() {
                         </div>
                       )}
 
-                      {showOtherSubjects && (() => {
+                      {showOtherSubjects && otherSubjects.length > 0 && (() => {
                         const otherGrouped = otherSubjects.reduce((acc, s) => {
                           const c = s.courseName || s.course || 'Sin Curso';
                           if (!acc[c]) acc[c] = [];
