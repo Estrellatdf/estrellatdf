@@ -1566,6 +1566,10 @@ export default function UE19deAgosto() {
       st.t2Avg = parseFloat((t2Sum / len).toFixed(2));
       st.t3Avg = parseFloat((t3Sum / len).toFixed(2));
       st.totalAvg = parseFloat((totalSum / len).toFixed(2));
+      
+      st.cum1 = parseFloat((t1Sum / len).toFixed(2));
+      st.cum2 = parseFloat(((t1Sum + t2Sum) / len).toFixed(2));
+      st.cum3 = parseFloat(((t1Sum + t2Sum + t3Sum) / len).toFixed(2));
       return st;
     }).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -1601,6 +1605,7 @@ export default function UE19deAgosto() {
       if (pi > 0) pagesHtml += '<div style="page-break-before:always;"></div>';
       pagesHtml += '<div class="report-container">';
       pagesHtml += headerBlock + infoBlock;
+        
       if (subjectChunks.length > 1) {
         pagesHtml += '<div style="text-align:right;font-size:10px;color:#64748b;margin-bottom:5px;">Página ' + (pi+1) + ' de ' + subjectChunks.length + ' — Materias ' + (pi*maxSubsPerPage+1) + ' a ' + Math.min((pi+1)*maxSubsPerPage, tutorSubjects.length) + ' de ' + tutorSubjects.length + '</div>';
       }
@@ -1627,7 +1632,6 @@ export default function UE19deAgosto() {
       studentsList.forEach((st, i) => {
         const rowBg = i % 2 === 0 ? '#ffffff' : '#f1f5f9';
         let gHtml = '';
-        let chunkTotal = 0;
         
         const rankT1 = sortedT1.indexOf(st.t1Avg);
         const rankT2 = sortedT2.indexOf(st.t2Avg);
@@ -1643,11 +1647,6 @@ export default function UE19deAgosto() {
 
         chunk.forEach(sub => {
           const g = st.gradesBySubject[sub.id] || { t1: 0, t2: 0, t3: 0, total: 0 };
-          let partialSum = g.t1;
-          if (trimLimit >= 2) partialSum += g.t2;
-          if (trimLimit >= 3) partialSum += g.t3;
-          
-          chunkTotal += partialSum;
           const pc = g.total >= 21 ? '#059669' : '#dc2626';
           
           if (trimLimit >= 1) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t1.toFixed(2) + '</td>';
