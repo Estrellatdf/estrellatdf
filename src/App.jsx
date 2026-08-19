@@ -801,9 +801,17 @@ export default function UE19deAgosto() {
     if (!currentSubject || !newSubjectName) return;
     const teacherId = newSubjectTeacher || currentSubject.teacherId;
     const selectedDoc = staff.find(d => d.id === teacherId);
-    saveSubject({ ...currentSubject, name: newSubjectName, parallel: newParallel, teacherId, teacherName: selectedDoc?.name || '' });
+    saveSubject({ 
+      ...currentSubject, 
+      name: newSubjectName, 
+      courseName: newSubjectCourse,
+      parallelName: newParallel,
+      parallel: `${newSubjectCourse} ${newParallel}`, 
+      teacherId, 
+      teacherName: selectedDoc?.name || '' 
+    });
     setIsAddingSubject(false); setIsEditingSubject(false);
-    setNewSubjectName(''); setNewParallel(''); setNewSubjectTeacher('');
+    setNewSubjectName(''); setNewParallel(''); setNewSubjectCourse(''); setNewSubjectTeacher('');
   };
 
   const addStaffMember = async () => {
@@ -2716,7 +2724,23 @@ export default function UE19deAgosto() {
                     {isAdmin && (
                       <button onClick={() => {
                         setNewSubjectName(currentSubject.name);
-                        setNewParallel(currentSubject.parallel);
+                        
+                        let cName = currentSubject.courseName || '';
+                        let pName = currentSubject.parallelName || '';
+                        
+                        // Fallback for legacy subjects that only have the combined 'parallel' field
+                        if (!cName && currentSubject.parallel) {
+                          const parts = currentSubject.parallel.split(' ');
+                          if (parts.length > 1) {
+                            pName = parts.pop(); // The last part is usually the parallel (e.g. "A")
+                            cName = parts.join(' '); // The rest is the course
+                          } else {
+                            pName = currentSubject.parallel;
+                          }
+                        }
+                        
+                        setNewSubjectCourse(cName);
+                        setNewParallel(pName);
                         setNewSubjectTeacher(currentSubject.teacherId || '');
                         setIsEditingSubject(true);
                         setIsAddingSubject(true);
