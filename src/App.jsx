@@ -181,7 +181,7 @@ export default function UE19deAgosto() {
   const [studentSubjects, setStudentSubjects] = useState([]);
   const [viewingStudentDetails, setViewingStudentDetails] = useState(null);
   const [showOtherSubjects, setShowOtherSubjects] = useState(false);
-
+  const [expandedAdminCourses, setExpandedAdminCourses] = useState({});
 
 
   // Perfil representante
@@ -2553,14 +2553,18 @@ export default function UE19deAgosto() {
               
               return (
                 <div className="space-y-6">
-                  {sortedCourses.map(courseName => (
-                    <div key={courseName}>
-                      <div className="flex items-center gap-2 mb-2 px-1">
-                        <div className="h-px flex-1 bg-indigo-100" />
-                        <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">{courseName}</span>
-                        <div className="h-px flex-1 bg-indigo-100" />
-                      </div>
-                      {subjectsByCourse[courseName].sort((a, b) => {
+                  {sortedCourses.map(courseName => {
+                    const isExpanded = expandedAdminCourses[courseName];
+                    return (
+                    <div key={courseName} className="mb-2">
+                      <button onClick={() => setExpandedAdminCourses(p => ({...p, [courseName]: !p[courseName]}))} className="w-full flex items-center gap-2 mb-2 px-1 group outline-none">
+                        <div className="h-px flex-1 bg-indigo-100 group-hover:bg-indigo-300 transition" />
+                        <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100 group-hover:bg-indigo-100 transition flex items-center gap-2">
+                          {courseName} {isExpanded ? '▼' : '▶'}
+                        </span>
+                        <div className="h-px flex-1 bg-indigo-100 group-hover:bg-indigo-300 transition" />
+                      </button>
+                      {isExpanded && subjectsByCourse[courseName].sort((a, b) => {
                         const p = (a.parallel || "").localeCompare(b.parallel || "");
                         if (p !== 0) return p;
                         return a.name.localeCompare(b.name);
@@ -2575,7 +2579,7 @@ export default function UE19deAgosto() {
                         </button>
                       ))}
                     </div>
-                  ))}
+                  )})}
                   {visibleSubjects.length === 0 && <div className="text-xs text-slate-400 px-3 py-2 italic">No hay materias registradas.</div>}
                 </div>
               );
@@ -2607,14 +2611,27 @@ export default function UE19deAgosto() {
                     </h3>
                   </div>
                   
-                  {sortedCourses.map(courseName => (
-                    <div key={courseName} className="mb-6">
-                      <div className="flex items-center gap-2 mb-2 px-1">
-                        <div className="h-px flex-1 bg-slate-200" />
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">{courseName}</span>
-                        <div className="h-px flex-1 bg-slate-200" />
-                      </div>
-                      {targetGrouped[courseName].sort((a, b) => {
+                  {sortedCourses.map(courseName => {
+                    const isExpanded = isAdmin ? expandedAdminCourses[courseName] : true;
+                    return (
+                    <div key={courseName} className="mb-4">
+                      {isAdmin ? (
+                        <button onClick={() => setExpandedAdminCourses(p => ({...p, [courseName]: !p[courseName]}))} className="w-full flex items-center gap-2 mb-2 px-1 group outline-none">
+                          <div className="h-px flex-1 bg-slate-200 group-hover:bg-slate-300 transition" />
+                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full border border-slate-200 group-hover:bg-slate-200 transition flex items-center gap-2">
+                            {courseName} {isExpanded ? '▼' : '▶'}
+                          </span>
+                          <div className="h-px flex-1 bg-slate-200 group-hover:bg-slate-300 transition" />
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2 mb-2 px-1">
+                          <div className="h-px flex-1 bg-slate-200" />
+                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">{courseName}</span>
+                          <div className="h-px flex-1 bg-slate-200" />
+                        </div>
+                      )}
+                      
+                      {isExpanded && targetGrouped[courseName].sort((a, b) => {
                         const p = (a.parallel || "").localeCompare(b.parallel || "");
                         if (p !== 0) return p;
                         return a.name.localeCompare(b.name);
@@ -2631,7 +2648,7 @@ export default function UE19deAgosto() {
                         </button>
                       ))}
                     </div>
-                  ))}
+                  )})}
                   
                   {!isAdmin && mySubjects.length === 0 && <div className="text-xs text-slate-400 px-3 py-2 italic">No tienes materias asignadas.</div>}
 
