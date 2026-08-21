@@ -1615,6 +1615,31 @@ export default function UE19deAgosto() {
       + '</div>';
 
     let pagesHtml = '';
+    
+    const isQualitativeCourse = (() => {
+      const c = (currentUser.tutoringCourse || '').toLowerCase();
+      return c.includes('inicial') || c.includes('1 egb') || c.includes('2 egb') || c.includes('3 egb') || c.includes('4 egb');
+    })();
+
+    const needsQualitative = (sub) => {
+      const n = sub.name.toLowerCase();
+      if (n.includes('civica') || n.includes('cívica') || n.includes('acompañamiento')) return true;
+      return isQualitativeCourse;
+    };
+
+    const getQualitativeGrade = (num) => {
+      if (num >= 9.5) return 'A+';
+      if (num >= 9.0) return 'A-';
+      if (num >= 8.0) return 'B+';
+      if (num >= 7.0) return 'B-';
+      if (num >= 6.0) return 'C+';
+      if (num >= 5.0) return 'C-';
+      if (num >= 4.0) return 'D+';
+      if (num >= 3.0) return 'D-';
+      if (num >= 2.0) return 'E+';
+      return 'E-';
+    };
+
     subjectChunks.forEach((chunk, pi) => {
       if (pi > 0) pagesHtml += '<div style="page-break-before:always;"></div>';
       pagesHtml += '<div class="report-container">';
@@ -1628,23 +1653,42 @@ export default function UE19deAgosto() {
       let thead = '<tr><th rowspan="2" style="background:#1e293b;color:white;width:30px;padding:6px;">N°</th>'
         + '<th rowspan="2" style="background:#1e293b;color:white;padding:6px;text-align:left;white-space:nowrap;padding-left:4px;min-width:180px;">ESTUDIANTE</th>';
       chunk.forEach(sub => { 
-        let colSpan = trimLimit === 3 ? 4 : trimLimit;
+        const q = needsQualitative(sub);
+        const colsPerTrim = q ? 2 : 1;
+        let colSpan = trimLimit === 3 ? (4 * colsPerTrim) : (trimLimit * colsPerTrim);
         thead += '<th colspan="' + colSpan + '" style="border:1px solid #cbd5e1;padding:6px;background:#334155;color:white;text-align:center;">' + sub.name + '</th>'; 
       });
       if (trimLimit === 3) {
-        thead += '<th rowspan="2" style="background:#0f172a;color:#fbbf24;width:50px;padding:6px;">PROM.<br/>T3</th>';
-        thead += '<th rowspan="2" style="background:#0f172a;color:#fbbf24;width:50px;padding:6px;">PROM.<br/>AÑO</th></tr><tr>';
+        thead += `<th rowspan="${isQualitativeCourse ? 1 : 2}" colspan="${isQualitativeCourse ? 2 : 1}" style="background:#0f172a;color:#fbbf24;width:50px;padding:6px;">PROM. T3</th>`;
+        thead += `<th rowspan="${isQualitativeCourse ? 1 : 2}" colspan="${isQualitativeCourse ? 2 : 1}" style="background:#0f172a;color:#fbbf24;width:50px;padding:6px;">PROM. AÑO</th></tr><tr>`;
       } else {
-        thead += '<th rowspan="2" style="background:#0f172a;color:#fbbf24;width:60px;padding:6px;">PROM.</th></tr><tr>';
+        thead += `<th rowspan="${isQualitativeCourse ? 1 : 2}" colspan="${isQualitativeCourse ? 2 : 1}" style="background:#0f172a;color:#fbbf24;width:60px;padding:6px;">PROM.</th></tr><tr>`;
       }
-      chunk.forEach(() => {
-        if (trimLimit >= 1) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T1</th>';
-        if (trimLimit >= 2) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T2</th>';
+      chunk.forEach(sub => {
+        const q = needsQualitative(sub);
+        if (trimLimit >= 1) {
+          thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T1</th>';
+          if (q) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Cual.</th>';
+        }
+        if (trimLimit >= 2) {
+          thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T2</th>';
+          if (q) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Cual.</th>';
+        }
         if (trimLimit >= 3) {
-          thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T3</th>'
-            + '<th style="border:1px solid #cbd5e1;padding:4px;background:#e2e8f0;font-size:9px;font-weight:bold;width:30px;">SUMA</th>';
+          thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T3</th>';
+          if (q) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Cual.</th>';
+          thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#e2e8f0;font-size:9px;font-weight:bold;width:30px;">SUMA</th>';
+          if (q) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#cbd5e1;font-size:9px;font-weight:bold;width:30px;color:#334155;">Cual.</th>';
         }
       });
+      if (isQualitativeCourse) {
+        if (trimLimit === 3) {
+          thead += '<th style="border:1px solid #0f172a;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Num</th><th style="border:1px solid #0f172a;padding:4px;background:#e2e8f0;font-size:9px;width:30px;color:#0f172a;">Cual</th>';
+          thead += '<th style="border:1px solid #0f172a;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Num</th><th style="border:1px solid #0f172a;padding:4px;background:#e2e8f0;font-size:9px;width:30px;color:#0f172a;">Cual</th>';
+        } else {
+          thead += '<th style="border:1px solid #0f172a;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Num</th><th style="border:1px solid #0f172a;padding:4px;background:#e2e8f0;font-size:9px;width:30px;color:#0f172a;">Cual</th>';
+        }
+      }
       thead += '</tr>';
 
       let tbody = '';
@@ -1667,12 +1711,21 @@ export default function UE19deAgosto() {
         chunk.forEach(sub => {
           const g = st.gradesBySubject[sub.id] || { t1: 0, t2: 0, t3: 0, total: 0 };
           const pc = g.total >= 21 ? '#059669' : '#dc2626';
+          const q = needsQualitative(sub);
           
-        if (trimLimit >= 1) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t1.toFixed(2) + '</td>';
-          if (trimLimit >= 2) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t2.toFixed(2) + '</td>';
+          if (trimLimit >= 1) {
+            gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t1.toFixed(2) + '</td>';
+            if (q) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:#475569;background:#f8fafc;">' + getQualitativeGrade(g.t1) + '</td>';
+          }
+          if (trimLimit >= 2) {
+            gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t2.toFixed(2) + '</td>';
+            if (q) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:#475569;background:#f8fafc;">' + getQualitativeGrade(g.t2) + '</td>';
+          }
           if (trimLimit >= 3) {
-            gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t3.toFixed(2) + '</td>'
-              + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:' + pc + ';">' + g.total.toFixed(2) + '</td>';
+            gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t3.toFixed(2) + '</td>';
+            if (q) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:#475569;background:#f8fafc;">' + getQualitativeGrade(g.t3) + '</td>';
+            gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:' + pc + ';">' + g.total.toFixed(2) + '</td>';
+            if (q) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:#334155;background:#f1f5f9;">' + getQualitativeGrade(g.total / 3) + '</td>';
           }
         });
         
@@ -1707,11 +1760,15 @@ export default function UE19deAgosto() {
 
         let avgHtml = '';
         if (trimLimit === 3) {
-          avgHtml = '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + st.t3Avg.toFixed(2) + '</td>'
-                  + '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + st.cum3.toFixed(2) + '</td>';
+          avgHtml = '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + st.t3Avg.toFixed(2) + '</td>';
+          if (isQualitativeCourse) avgHtml += '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:11px;font-weight:bold;background:#e2e8f0;color:#0f172a;">' + getQualitativeGrade(st.t3Avg) + '</td>';
+          
+          avgHtml += '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + st.cum3.toFixed(2) + '</td>';
+          if (isQualitativeCourse) avgHtml += '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:11px;font-weight:bold;background:#e2e8f0;color:#0f172a;">' + getQualitativeGrade(st.cum3) + '</td>';
         } else {
           let avg = trimLimit === 1 ? st.t1Avg : st.t2Avg;
           avgHtml = '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + avg.toFixed(2) + '</td>';
+          if (isQualitativeCourse) avgHtml += '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:11px;font-weight:bold;background:#e2e8f0;color:#0f172a;">' + getQualitativeGrade(avg) + '</td>';
         }
 
         tbody += '<tr style="background:' + rowBg + ';">'
