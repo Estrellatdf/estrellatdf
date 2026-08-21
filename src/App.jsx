@@ -1333,9 +1333,9 @@ export default function UE19deAgosto() {
       const indivActs = acts.filter(a => (a.type || 'individual') === 'individual');
       const grupalActs = acts.filter(a => (a.type || 'individual') === 'grupal');
       const sortedActs = [...indivActs, ...grupalActs];
-      const totalActCols = Math.max(sortedActs.length, 6);
+      const totalActCols = Math.max(sortedActs.length, 1);
       const indivCount = indivActs.length || Math.ceil(totalActCols / 2);
-      const grupalCount = totalActCols - indivCount;
+      const grupalCount = Math.max(0, totalActCols - indivCount);
       
       // Estadísticas
       let domina = 0, alcanza = 0, proximo = 0, noAlcanza = 0;
@@ -1491,7 +1491,7 @@ export default function UE19deAgosto() {
                 </tr>
                 <tr>
                   <th colspan="${indivCount}" style="background:#eff6ff;color:#1e3a8a;font-size:7px;">Individuales</th>
-                  <th colspan="${grupalCount}" style="background:#f0fdf4;color:#14532d;font-size:7px;">Grupales</th>
+                  ${grupalCount > 0 ? `<th colspan="${grupalCount}" style="background:#f0fdf4;color:#14532d;font-size:7px;">Grupales</th>` : ''}
                 </tr>
                 <tr>
                   ${actHeadersHtml2}
@@ -1528,7 +1528,7 @@ export default function UE19deAgosto() {
                   <td colspan="5" style="text-align:center;background:#334155;color:white;font-size:14px;padding:6px;letter-spacing:1px;">RESUMEN DE CALIFICACIONES — ${currentSubject.name} — TRIMESTRE ${currentTrimester}</td>
                 </tr>
               </table>
-              <table class="main-table" style="border:2px solid #0f172a;table-layout:auto;">
+              <table class="main-table" style="border:2px solid #0f172a;table-layout:auto;width:auto;min-width:60%;margin:0 auto;">
               <thead>
                 <tr>
                   <th style="background:#1e293b;color:white;width:30px;">N°</th>
@@ -1709,7 +1709,7 @@ export default function UE19deAgosto() {
           if (trimLimit >= 3) {
             thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T3</th>';
             if (q) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Cual.</th>';
-            thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#e2e8f0;font-size:9px;font-weight:bold;width:30px;">SUMA</th>';
+            thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#e2e8f0;font-size:9px;font-weight:bold;width:30px;">' + (q ? 'PROM' : 'SUMA') + '</th>';
             if (q) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#cbd5e1;font-size:9px;font-weight:bold;width:30px;color:#334155;">Cual.</th>';
           }
         });
@@ -1756,8 +1756,9 @@ export default function UE19deAgosto() {
             if (trimLimit >= 3) {
               gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t3.toFixed(2) + '</td>';
               if (q) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:#475569;background:#f8fafc;">' + getQualitativeGrade(g.t3) + '</td>';
-              gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:' + pc + ';">' + g.total.toFixed(2) + '</td>';
-              if (q) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:#334155;background:#f1f5f9;">' + getQualitativeGrade(g.total / 3) + '</td>';
+              const finalNum = q ? (g.total / 3) : g.total;
+              gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:' + pc + ';">' + finalNum.toFixed(2) + '</td>';
+              if (q) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:#334155;background:#f1f5f9;">' + getQualitativeGrade(finalNum) + '</td>';
             }
           });
           
@@ -3068,7 +3069,19 @@ export default function UE19deAgosto() {
                                     onChange={e => updateGrade(s.id, 'project_final', e.target.value)} />
                                 </td>
                                 <td className="p-1 text-center font-bold text-indigo-700 bg-indigo-50/50 border-r border-indigo-100 text-sm">{st.wEx}</td>
-                                <td className={`p-1 text-center font-bold text-white text-sm ${parseFloat(st.fin) < 7 ? 'bg-red-500' : 'bg-gray-800'}`}>{st.fin}</td>
+                                <td className={`p-1 text-center font-bold text-white text-sm ${parseFloat(st.fin) < 7 ? 'bg-red-500' : 'bg-gray-800'}`}>
+                                  {st.fin}
+                                  {(() => {
+                                    const c = (currentSubject.courseName || currentSubject.course || '').toLowerCase();
+                                    const isQualCourse = c.includes('inicial') || c.includes('1 egb') || c.includes('2 egb') || c.includes('3 egb') || c.includes('4 egb') || c.includes('1ro') || c.includes('2do') || c.includes('3ro') || c.includes('4to') || c.match(/\b(1|2|3|4)\b.*egb/);
+                                    const isQualSub = isQualCourse || currentSubject.name.toLowerCase().includes('civica') || currentSubject.name.toLowerCase().includes('cívica') || currentSubject.name.toLowerCase().includes('acompañamiento');
+                                    if (!isQualSub) return null;
+                                    const getQ = (num) => {
+                                      if (num >= 9.5) return 'A+'; if (num >= 9.0) return 'A-'; if (num >= 8.0) return 'B+'; if (num >= 7.0) return 'B-'; if (num >= 6.0) return 'C+'; if (num >= 5.0) return 'C-'; if (num >= 4.0) return 'D+'; if (num >= 3.0) return 'D-'; if (num >= 2.0) return 'E+'; return 'E-';
+                                    };
+                                    return <div className="text-[10px] text-gray-300 font-normal leading-none mt-1">{getQ(parseFloat(st.fin) || 0)}</div>;
+                                  })()}
+                                </td>
                               </tr>
                             );
                           })}
