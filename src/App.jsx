@@ -1341,6 +1341,7 @@ export default function UE19deAgosto() {
         + '<td style="background:#059669;color:white;">' + (gr['project_final'] || '') + '</td>'
         + '<td style="font-weight:bold;background:#059669;color:white;">' + st.wEx + '</td>'
         + '<td style="font-weight:900;background:#0f172a;color:#fbbf24;">' + st.fin + '</td>'
+        + (isQualitativeSubject ? '<td style="font-weight:bold;background:#f1f5f9;color:#475569;">' + getQual(parseFloat(st.fin)||0) + '</td>' : '')
         + '</tr>';
     }).join('');
 
@@ -1394,6 +1395,27 @@ export default function UE19deAgosto() {
         </div>
       </div>
     `;
+
+    const isQualitativeCourse = (() => {
+      const c = (currentSubject.courseName || currentSubject.course || '').toLowerCase();
+      return c.includes('inicial') || c.includes('1 egb') || c.includes('2 egb') || c.includes('3 egb') || c.includes('4 egb') ||
+             c.includes('1ro') || c.includes('2do') || c.includes('3ro') || c.includes('4to') ||
+             c.match(/\b(1|2|3|4)\b.*egb/);
+    })();
+    const isQualitativeSubject = isQualitativeCourse || currentSubject.name.toLowerCase().includes('civica') || currentSubject.name.toLowerCase().includes('cívica') || currentSubject.name.toLowerCase().includes('acompañamiento');
+
+    const getQual = (num) => {
+      if (num >= 9.5) return 'A+';
+      if (num >= 9.0) return 'A-';
+      if (num >= 8.0) return 'B+';
+      if (num >= 7.0) return 'B-';
+      if (num >= 6.0) return 'C+';
+      if (num >= 5.0) return 'C-';
+      if (num >= 4.0) return 'D+';
+      if (num >= 3.0) return 'D-';
+      if (num >= 2.0) return 'E+';
+      return 'E-';
+    };
 
     const html = `
       <!DOCTYPE html>
@@ -1463,6 +1485,7 @@ export default function UE19deAgosto() {
                 <th rowspan="3" style="background:#059669;color:white;font-size:7px;">PROY</th>
                 <th rowspan="3" style="background:#059669;color:white;font-size:7px;">30%</th>
                 <th rowspan="3" style="background:#0f172a;color:#fbbf24;font-size:8px;">TOTAL</th>
+                ${isQualitativeSubject ? '<th rowspan="3" style="background:#475569;color:white;font-size:8px;width:30px;">CUAL.</th>' : ''}
               </tr>
               <tr>
                 <th colspan="${indivCount}" style="background:#eff6ff;color:#1e3a8a;font-size:7px;">Individuales</th>
@@ -1618,7 +1641,9 @@ export default function UE19deAgosto() {
     
     const isQualitativeCourse = (() => {
       const c = (currentUser.tutoringCourse || '').toLowerCase();
-      return c.includes('inicial') || c.includes('1 egb') || c.includes('2 egb') || c.includes('3 egb') || c.includes('4 egb');
+      return c.includes('inicial') || c.includes('1 egb') || c.includes('2 egb') || c.includes('3 egb') || c.includes('4 egb') ||
+             c.includes('1ro') || c.includes('2do') || c.includes('3ro') || c.includes('4to') ||
+             c.match(/\b(1|2|3|4)\b.*egb/);
     })();
 
     const needsQualitative = (sub) => {
@@ -2034,6 +2059,32 @@ export default function UE19deAgosto() {
       .sort((a, b) => b.id.localeCompare(a.id));
 
     const handlePrintReportCard = () => {
+      const isQualitativeCourse = (() => {
+        const c = (viewingSubject?.courseName || '').toLowerCase();
+        return c.includes('inicial') || c.includes('1 egb') || c.includes('2 egb') || c.includes('3 egb') || c.includes('4 egb') ||
+               c.includes('1ro') || c.includes('2do') || c.includes('3ro') || c.includes('4to') ||
+               c.match(/\b(1|2|3|4)\b.*egb/);
+      })();
+
+      const needsQualitative = (sub) => {
+        const n = sub.name.toLowerCase();
+        if (n.includes('civica') || n.includes('cívica') || n.includes('acompañamiento')) return true;
+        return isQualitativeCourse;
+      };
+
+      const getQual = (num) => {
+        if (num >= 9.5) return 'A+';
+        if (num >= 9.0) return 'A-';
+        if (num >= 8.0) return 'B+';
+        if (num >= 7.0) return 'B-';
+        if (num >= 6.0) return 'C+';
+        if (num >= 5.0) return 'C-';
+        if (num >= 4.0) return 'D+';
+        if (num >= 3.0) return 'D-';
+        if (num >= 2.0) return 'E+';
+        return 'E-';
+      };
+
       let rowsHtml = '';
       studentSubjects.forEach(m => {
         const s1 = calculateStats(m.subject, 1, m.student.id);
@@ -2041,14 +2092,15 @@ export default function UE19deAgosto() {
         const s3 = calculateStats(m.subject, 3, m.student.id);
         const total = (parseFloat(s1.fin) || 0) + (parseFloat(s2.fin) || 0) + (parseFloat(s3.fin) || 0);
         const pass = total >= 21;
+        const q = needsQualitative(m.subject);
         
         rowsHtml += `
           <tr>
             <td style="padding: 12px 10px; border: 1px solid #cbd5e1; font-weight: bold; color: #334155;">${m.subject.name}</td>
-            <td style="padding: 12px 10px; border: 1px solid #cbd5e1; text-align: center; color: #475569;">${s1.fin}</td>
-            <td style="padding: 12px 10px; border: 1px solid #cbd5e1; text-align: center; color: #475569;">${s2.fin}</td>
-            <td style="padding: 12px 10px; border: 1px solid #cbd5e1; text-align: center; color: #475569;">${s3.fin}</td>
-            <td style="padding: 12px 10px; border: 1px solid #cbd5e1; text-align: center; font-weight: 900; background: #f8fafc; color: #0f172a;">${total.toFixed(2)}</td>
+            <td style="padding: 12px 10px; border: 1px solid #cbd5e1; text-align: center; color: #475569;">${s1.fin} ${q ? '<br/><span style="font-size:10px;font-weight:bold;color:#64748b;">'+getQual(parseFloat(s1.fin)||0)+'</span>' : ''}</td>
+            <td style="padding: 12px 10px; border: 1px solid #cbd5e1; text-align: center; color: #475569;">${s2.fin} ${q ? '<br/><span style="font-size:10px;font-weight:bold;color:#64748b;">'+getQual(parseFloat(s2.fin)||0)+'</span>' : ''}</td>
+            <td style="padding: 12px 10px; border: 1px solid #cbd5e1; text-align: center; color: #475569;">${s3.fin} ${q ? '<br/><span style="font-size:10px;font-weight:bold;color:#64748b;">'+getQual(parseFloat(s3.fin)||0)+'</span>' : ''}</td>
+            <td style="padding: 12px 10px; border: 1px solid #cbd5e1; text-align: center; font-weight: 900; background: #f8fafc; color: #0f172a;">${total.toFixed(2)} ${q ? '<br/><span style="font-size:10px;color:#64748b;">'+getQual(total/3)+'</span>' : ''}</td>
             <td style="padding: 12px 10px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; color: ${pass ? '#059669' : '#dc2626'}; background: ${pass ? '#f0fdf4' : '#fef2f2'}; text-transform: uppercase; font-size: 11px;">${pass ? 'Aprobado' : 'Supletorio'}</td>
           </tr>
         `;
