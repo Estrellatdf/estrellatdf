@@ -2114,12 +2114,12 @@ export default function UE19deAgosto() {
         
         rowsHtml += `
           <tr>
-            <td style="padding: 10px 12px; border: 1px solid #93c5fd; font-weight: 800; color: #1e3a8a;">${m.subject.name}</td>
-            <td style="padding: 10px 8px; border: 1px solid #93c5fd; text-align: center; color: #334155; font-weight: 600;">${s1.fin} ${q ? '<br/><span style="font-size:10px;font-weight:bold;color:#0284c7;">'+getQual(parseFloat(s1.fin)||0)+'</span>' : ''}</td>
-            <td style="padding: 10px 8px; border: 1px solid #93c5fd; text-align: center; color: #334155; font-weight: 600;">${s2.fin} ${q ? '<br/><span style="font-size:10px;font-weight:bold;color:#0284c7;">'+getQual(parseFloat(s2.fin)||0)+'</span>' : ''}</td>
-            <td style="padding: 10px 8px; border: 1px solid #93c5fd; text-align: center; color: #334155; font-weight: 600;">${s3.fin} ${q ? '<br/><span style="font-size:10px;font-weight:bold;color:#0284c7;">'+getQual(parseFloat(s3.fin)||0)+'</span>' : ''}</td>
-            <td style="padding: 10px 8px; border: 1px solid #93c5fd; text-align: center; font-weight: 900; background: #f0f9ff; color: #0f172a;">${total.toFixed(2)} ${q ? '<br/><span style="font-size:10px;color:#0284c7;">'+getQual(total/3)+'</span>' : ''}</td>
-            <td style="padding: 10px 8px; border: 1px solid #93c5fd; text-align: center; font-weight: 900; color: ${pass ? '#059669' : '#dc2626'}; background: ${pass ? '#f0fdf4' : '#fef2f2'}; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">${pass ? 'Aprobado' : 'Supletorio'}</td>
+            <td style="padding: 6px 10px; border: 1px solid #93c5fd; font-weight: 800; color: #1e3a8a; font-size: 12px;">${m.subject.name}</td>
+            <td style="padding: 6px 6px; border: 1px solid #93c5fd; text-align: center; color: #334155; font-weight: 600; font-size: 12px;">${s1.fin} ${q ? '<br/><span style="font-size:9px;font-weight:bold;color:#0284c7;">'+getQual(parseFloat(s1.fin)||0)+'</span>' : ''}</td>
+            <td style="padding: 6px 6px; border: 1px solid #93c5fd; text-align: center; color: #334155; font-weight: 600; font-size: 12px;">${s2.fin} ${q ? '<br/><span style="font-size:9px;font-weight:bold;color:#0284c7;">'+getQual(parseFloat(s2.fin)||0)+'</span>' : ''}</td>
+            <td style="padding: 6px 6px; border: 1px solid #93c5fd; text-align: center; color: #334155; font-weight: 600; font-size: 12px;">${s3.fin} ${q ? '<br/><span style="font-size:9px;font-weight:bold;color:#0284c7;">'+getQual(parseFloat(s3.fin)||0)+'</span>' : ''}</td>
+            <td style="padding: 6px 6px; border: 1px solid #93c5fd; text-align: center; font-weight: 900; background: #f0f9ff; color: #0f172a; font-size: 12px;">${total.toFixed(2)} ${q ? '<br/><span style="font-size:9px;color:#0284c7;">'+getQual(total/3)+'</span>' : ''}</td>
+            <td style="padding: 6px 6px; border: 1px solid #93c5fd; text-align: center; font-weight: 900; color: ${pass ? '#059669' : '#dc2626'}; background: ${pass ? '#f0fdf4' : '#fef2f2'}; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px;">${pass ? 'Aprobado' : 'Supletorio'}</td>
           </tr>
         `;
       });
@@ -2130,25 +2130,26 @@ export default function UE19deAgosto() {
           <head>
             <title>Boletín de Calificaciones - ${viewingStudent.name}</title>
             <style>
-              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; color: #0f172a; margin: 0; background: #ffffff; }
-              .header { border-bottom: 4px solid #fbbf24; padding-bottom: 15px; margin-bottom: 25px; }
-              .header-content { display: flex; align-items: center; justify-content: center; gap: 20px; }
-              .logo { width: 75px; height: 75px; object-fit: contain; }
-              .school-name { font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: 1px; color: #1e3a8a; }
-              .doc-title { font-size: 15px; color: #0284c7; margin-top: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; }
-              .info-box { background: #f8fafc; border-top: 5px solid #1e3a8a; border-bottom: 5px solid #fbbf24; border-radius: 8px; padding: 15px 25px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-              .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; color: #0f172a; margin: 0; background: #ffffff; }
+              .header { border-bottom: 3px solid #fbbf24; padding-bottom: 10px; margin-bottom: 15px; }
+              .header-content { display: flex; align-items: center; justify-content: center; gap: 15px; }
+              .logo { width: 60px; height: 60px; object-fit: contain; }
+              .school-name { font-size: 20px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: 1px; color: #1e3a8a; }
+              .doc-title { font-size: 13px; color: #0284c7; margin-top: 3px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+              .info-box { background: #f8fafc; border-top: 4px solid #1e3a8a; border-bottom: 4px solid #fbbf24; border-radius: 6px; padding: 10px 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+              .info-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
               .info-row:last-child { margin-bottom: 0; }
-              .info-label { font-weight: 900; color: #0284c7; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; display: inline-block; width: 130px; }
-              .info-value { font-weight: 800; color: #1e3a8a; font-size: 14px; text-transform: uppercase; }
-              table { width: 100%; border-collapse: collapse; margin-bottom: 40px; table-layout: auto; }
-              th { background: #1e3a8a; color: white; padding: 12px 10px; text-align: center; border: 1px solid #1e40af; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
-              .footer { margin-top: 50px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 20px; }
-              .signatures { display: flex; justify-content: space-around; margin-top: 90px; page-break-inside: avoid; }
-              .sig-line { border-top: 2px solid #1e3a8a; width: 220px; padding-top: 8px; text-align: center; font-weight: 800; color: #1e3a8a; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+              .info-label { font-weight: 900; color: #0284c7; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; display: inline-block; width: 110px; }
+              .info-value { font-weight: 800; color: #1e3a8a; font-size: 12px; text-transform: uppercase; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 25px; table-layout: auto; }
+              th { background: #1e3a8a; color: white; padding: 8px 6px; text-align: center; border: 1px solid #1e40af; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+              .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 15px; }
+              .signatures { display: flex; justify-content: space-around; margin-top: 50px; page-break-inside: avoid; }
+              .sig-line { border-top: 2px solid #1e3a8a; width: 180px; padding-top: 6px; text-align: center; font-weight: 800; color: #1e3a8a; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
               @media print {
                 body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 .no-print { display: none; }
+                @page { margin: 10mm; }
               }
             </style>
           </head>
