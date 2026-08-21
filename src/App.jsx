@@ -1313,7 +1313,10 @@ export default function UE19deAgosto() {
                c.includes('1ro') || c.includes('2do') || c.includes('3ro') || c.includes('4to') ||
                c.match(/\b(1|2|3|4)\b.*egb/);
       })();
-      const isQualitativeSubject = isQualitativeCourse || currentSubject.name.toLowerCase().includes('civica') || currentSubject.name.toLowerCase().includes('cívica') || currentSubject.name.toLowerCase().includes('acompañamiento');
+      const isQualitativeSubject = isQualitativeCourse || (() => {
+        const n = currentSubject.name.toLowerCase();
+        return n.includes('civica') || n.includes('cívica') || n.includes('acompañamiento') || n.includes('educacion fisica') || n.includes('educación física') || n.includes('educación fisica') || n.includes('orientacion vocacional') || n.includes('orientación vocacional');
+      })();
 
       const getQual = (num) => {
         if (num >= 9.5) return 'A+';
@@ -1380,6 +1383,7 @@ export default function UE19deAgosto() {
           + '<td style="font-size:10px;font-weight:bold;">' + st.wAct + '</td>'
           + '<td style="font-size:10px;font-weight:bold;">' + st.wEx + '</td>'
           + '<td style="font-size:11px;font-weight:900;color:' + finColor + ';">' + st.fin + '</td>'
+          + (isQualitativeSubject ? '<td style="font-size:11px;font-weight:900;color:#475569;background:#f1f5f9;">' + getQual(finNum) + '</td>' : '')
           + '</tr>';
       }).join('');
 
@@ -1536,6 +1540,7 @@ export default function UE19deAgosto() {
                   <th style="background:#334155;color:white;width:80px;">FORMATIVA<br>(70%)</th>
                   <th style="background:#059669;color:white;width:80px;">SUMATIVA<br>(30%)</th>
                   <th style="background:#0f172a;color:#fbbf24;width:80px;">TOTAL<br>(100%)</th>
+                  ${isQualitativeSubject ? '<th style="background:#475569;color:white;width:40px;">CUAL.</th>' : ''}
                 </tr>
               </thead>
               <tbody>
@@ -1655,7 +1660,7 @@ export default function UE19deAgosto() {
 
       const needsQualitative = (sub) => {
         const n = sub.name.toLowerCase();
-        if (n.includes('civica') || n.includes('cívica') || n.includes('acompañamiento')) return true;
+        if (n.includes('civica') || n.includes('cívica') || n.includes('acompañamiento') || n.includes('educacion fisica') || n.includes('educación física') || n.includes('educación fisica') || n.includes('orientacion vocacional') || n.includes('orientación vocacional')) return true;
         return isQualitativeCourse;
       };
 
@@ -2081,7 +2086,7 @@ export default function UE19deAgosto() {
 
       const needsQualitative = (sub) => {
         const n = sub.name.toLowerCase();
-        if (n.includes('civica') || n.includes('cívica') || n.includes('acompañamiento')) return true;
+        if (n.includes('civica') || n.includes('cívica') || n.includes('acompañamiento') || n.includes('educacion fisica') || n.includes('educación física') || n.includes('educación fisica') || n.includes('orientacion vocacional') || n.includes('orientación vocacional')) return true;
         return isQualitativeCourse;
       };
 
@@ -3074,7 +3079,8 @@ export default function UE19deAgosto() {
                                   {(() => {
                                     const c = (currentSubject.courseName || currentSubject.course || '').toLowerCase();
                                     const isQualCourse = c.includes('inicial') || c.includes('1 egb') || c.includes('2 egb') || c.includes('3 egb') || c.includes('4 egb') || c.includes('1ro') || c.includes('2do') || c.includes('3ro') || c.includes('4to') || c.match(/\b(1|2|3|4)\b.*egb/);
-                                    const isQualSub = isQualCourse || currentSubject.name.toLowerCase().includes('civica') || currentSubject.name.toLowerCase().includes('cívica') || currentSubject.name.toLowerCase().includes('acompañamiento');
+                                    const n = currentSubject.name.toLowerCase();
+                                    const isQualSub = isQualCourse || n.includes('civica') || n.includes('cívica') || n.includes('acompañamiento') || n.includes('educacion fisica') || n.includes('educación física') || n.includes('educación fisica') || n.includes('orientacion vocacional') || n.includes('orientación vocacional');
                                     if (!isQualSub) return null;
                                     const getQ = (num) => {
                                       if (num >= 9.5) return 'A+'; if (num >= 9.0) return 'A-'; if (num >= 8.0) return 'B+'; if (num >= 7.0) return 'B-'; if (num >= 6.0) return 'C+'; if (num >= 5.0) return 'C-'; if (num >= 4.0) return 'D+'; if (num >= 3.0) return 'D-'; if (num >= 2.0) return 'E+'; return 'E-';
