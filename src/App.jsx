@@ -1304,193 +1304,152 @@ export default function UE19deAgosto() {
 
   // ── EXPORTAR ──────────────────────────────────────────────────────────────
   const handlePrintTeacherReport = () => {
-    if (!currentSubject || !currentSubject.students) return;
-    const acts = currentSubject.activities[currentTrimester] || [];
-    // Separar actividades por tipo (individual / grupal)
-    const indivActs = acts.filter(a => (a.type || 'individual') === 'individual');
-    const grupalActs = acts.filter(a => (a.type || 'individual') === 'grupal');
-    const sortedActs = [...indivActs, ...grupalActs];
-    const totalActCols = Math.max(sortedActs.length, 6);
-    const indivCount = indivActs.length || Math.ceil(totalActCols / 2);
-    const grupalCount = totalActCols - indivCount;
-    
-    // Estadísticas
-    let domina = 0, alcanza = 0, proximo = 0, noAlcanza = 0;
-    const rowsHtml = currentSubject.students.map((s, i) => {
-      const st = calculateStats(currentSubject, currentTrimester, s.id);
-      const gr = currentSubject.grades[currentTrimester]?.[s.id] || {};
+    try {
+      if (!currentSubject || !currentSubject.students) return;
+
+      const isQualitativeCourse = (() => {
+        const c = (currentSubject.courseName || currentSubject.course || '').toLowerCase();
+        return c.includes('inicial') || c.includes('1 egb') || c.includes('2 egb') || c.includes('3 egb') || c.includes('4 egb') ||
+               c.includes('1ro') || c.includes('2do') || c.includes('3ro') || c.includes('4to') ||
+               c.match(/\b(1|2|3|4)\b.*egb/);
+      })();
+      const isQualitativeSubject = isQualitativeCourse || currentSubject.name.toLowerCase().includes('civica') || currentSubject.name.toLowerCase().includes('cívica') || currentSubject.name.toLowerCase().includes('acompañamiento');
+
+      const getQual = (num) => {
+        if (num >= 9.5) return 'A+';
+        if (num >= 9.0) return 'A-';
+        if (num >= 8.0) return 'B+';
+        if (num >= 7.0) return 'B-';
+        if (num >= 6.0) return 'C+';
+        if (num >= 5.0) return 'C-';
+        if (num >= 4.0) return 'D+';
+        if (num >= 3.0) return 'D-';
+        if (num >= 2.0) return 'E+';
+        return 'E-';
+      };
+
+      const acts = currentSubject.activities[currentTrimester] || [];
+      // Separar actividades por tipo (individual / grupal)
+      const indivActs = acts.filter(a => (a.type || 'individual') === 'individual');
+      const grupalActs = acts.filter(a => (a.type || 'individual') === 'grupal');
+      const sortedActs = [...indivActs, ...grupalActs];
+      const totalActCols = Math.max(sortedActs.length, 6);
+      const indivCount = indivActs.length || Math.ceil(totalActCols / 2);
+      const grupalCount = totalActCols - indivCount;
       
-      const finNum = parseFloat(st.fin) || 0;
-      if (finNum >= 9) domina++;
-      else if (finNum >= 7) alcanza++;
-      else if (finNum >= 5) proximo++;
-      else noAlcanza++;
+      // Estadísticas
+      let domina = 0, alcanza = 0, proximo = 0, noAlcanza = 0;
+      const rowsHtml = currentSubject.students.map((s, i) => {
+        const st = calculateStats(currentSubject, currentTrimester, s.id);
+        const gr = currentSubject.grades[currentTrimester]?.[s.id] || {};
+        
+        const finNum = parseFloat(st.fin) || 0;
+        if (finNum >= 9) domina++;
+        else if (finNum >= 7) alcanza++;
+        else if (finNum >= 5) proximo++;
+        else noAlcanza++;
 
-      const rowBg = i % 2 === 0 ? '#ffffff' : '#f1f5f9';
-      const activitiesCols = sortedActs.map(a => '<td style="background:' + rowBg + ';width:15px;">' + (gr[a.id] || 0) + '</td>').join('');
-      const emptyCols = Array(Math.max(0, totalActCols - sortedActs.length)).fill('<td style="background:' + rowBg + ';width:15px;"></td>').join('');
-      const ced = parentProfiles[s.code]?.formData?.studentCedula || '';
+        const rowBg = i % 2 === 0 ? '#ffffff' : '#f1f5f9';
+        const activitiesCols = sortedActs.map(a => '<td style="background:' + rowBg + ';width:15px;">' + (gr[a.id] || 0) + '</td>').join('');
+        const emptyCols = Array(Math.max(0, totalActCols - sortedActs.length)).fill('<td style="background:' + rowBg + ';width:15px;"></td>').join('');
+        const ced = parentProfiles[s.code]?.formData?.studentCedula || '';
 
-      return '<tr style="background:' + rowBg + ';">'
-        + '<td>' + (i+1) + '</td>'
-        + '<td style="font-size:6px;">' + ced + '</td>'
-        + '<td class="name-cell">' + s.name + '</td>'
-        + activitiesCols + emptyCols
-        + '<td style="font-weight:bold;background:#0f172a;color:white;">' + st.wAct + '</td>'
-        + '<td style="background:#059669;color:white;">' + (gr['exam_final'] || 0) + '</td>'
-        + '<td style="background:#059669;color:white;">' + (gr['project_final'] || '') + '</td>'
-        + '<td style="font-weight:bold;background:#059669;color:white;">' + st.wEx + '</td>'
-        + '<td style="font-weight:900;background:#0f172a;color:#fbbf24;">' + st.fin + '</td>'
-        + (isQualitativeSubject ? '<td style="font-weight:bold;background:#f1f5f9;color:#475569;">' + getQual(parseFloat(st.fin)||0) + '</td>' : '')
-        + '</tr>';
-    }).join('');
+        return '<tr style="background:' + rowBg + ';">'
+          + '<td>' + (i+1) + '</td>'
+          + '<td style="font-size:6px;">' + ced + '</td>'
+          + '<td class="name-cell">' + s.name + '</td>'
+          + activitiesCols + emptyCols
+          + '<td style="font-weight:bold;background:#0f172a;color:white;">' + st.wAct + '</td>'
+          + '<td style="background:#059669;color:white;">' + (gr['exam_final'] || 0) + '</td>'
+          + '<td style="background:#059669;color:white;">' + (gr['project_final'] || '') + '</td>'
+          + '<td style="font-weight:bold;background:#059669;color:white;">' + st.wEx + '</td>'
+          + '<td style="font-weight:900;background:#0f172a;color:#fbbf24;">' + st.fin + '</td>'
+          + (isQualitativeSubject ? '<td style="font-weight:bold;background:#f1f5f9;color:#475569;">' + getQual(parseFloat(st.fin)||0) + '</td>' : '')
+          + '</tr>';
+      }).join('');
 
-    // Segunda hoja - resumen
-    const summaryRows = currentSubject.students.map((s, i) => {
-      const st = calculateStats(currentSubject, currentTrimester, s.id);
-      const rowBg = i % 2 === 0 ? '#ffffff' : '#f1f5f9';
-      const finNum = parseFloat(st.fin) || 0;
-      const finColor = finNum >= 9 ? '#2563eb' : finNum >= 7 ? '#059669' : finNum >= 5 ? '#d97706' : '#dc2626';
-      return '<tr style="background:' + rowBg + ';">'
-        + '<td>' + (i+1) + '</td>'
-        + '<td class="name-cell" style="font-size:9px;white-space:normal;overflow:visible;">' + s.name + '</td>'
-        + '<td style="font-size:10px;font-weight:bold;">' + st.wAct + '</td>'
-        + '<td style="font-size:10px;font-weight:bold;">' + st.wEx + '</td>'
-        + '<td style="font-size:11px;font-weight:900;color:' + finColor + ';">' + st.fin + '</td>'
-        + '</tr>';
-    }).join('');
+      // Segunda hoja - resumen
+      const summaryRows = currentSubject.students.map((s, i) => {
+        const st = calculateStats(currentSubject, currentTrimester, s.id);
+        const rowBg = i % 2 === 0 ? '#ffffff' : '#f1f5f9';
+        const finNum = parseFloat(st.fin) || 0;
+        const finColor = finNum >= 9 ? '#2563eb' : finNum >= 7 ? '#059669' : finNum >= 5 ? '#d97706' : '#dc2626';
+        return '<tr style="background:' + rowBg + ';">'
+          + '<td>' + (i+1) + '</td>'
+          + '<td class="name-cell" style="font-size:9px;white-space:normal;overflow:visible;">' + s.name + '</td>'
+          + '<td style="font-size:10px;font-weight:bold;">' + st.wAct + '</td>'
+          + '<td style="font-size:10px;font-weight:bold;">' + st.wEx + '</td>'
+          + '<td style="font-size:11px;font-weight:900;color:' + finColor + ';">' + st.fin + '</td>'
+          + '</tr>';
+      }).join('');
 
-    // Preparar el encabezado de las actividades
-    let actHeadersHtml2 = '';
-    for (let i = 0; i < totalActCols; i++) {
-      const aName = sortedActs[i] ? sortedActs[i].name : `Insumo ${i+1}`;
-      actHeadersHtml2 += '<th style="border:1px solid #cbd5e1;padding:2px;writing-mode:vertical-rl;transform:rotate(180deg);font-size:7px;background:#f8fafc;color:#334155;height:60px;max-height:60px;white-space:nowrap;overflow:hidden;width:15px;">' + aName + '</th>';
-    }
+      // Preparar el encabezado de las actividades
+      let actHeadersHtml2 = '';
+      for (let i = 0; i < totalActCols; i++) {
+        const aName = sortedActs[i] ? sortedActs[i].name : `Insumo ${i+1}`;
+        actHeadersHtml2 += '<th style="border:1px solid #cbd5e1;padding:2px;writing-mode:vertical-rl;transform:rotate(180deg);font-size:7px;background:#f8fafc;color:#334155;height:60px;max-height:60px;white-space:nowrap;overflow:hidden;width:15px;">' + aName + '</th>';
+      }
 
-    const totalStudents = currentSubject.students.length || 1;
-    const chartHtml = `
-      <div style="display: flex; gap: 40px; margin-top: 30px; page-break-inside: avoid;">
-        <div style="flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; background: white;">
-          <h3 style="margin-top: 0; color: #0f172a; font-size: 12px; text-transform: uppercase;">Estadísticas de Rendimiento</h3>
-          <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
-            <tr><td style="padding: 4px; font-weight: bold; color: #2563eb;">Domina (9-10)</td><td style="text-align: right; font-weight: bold;">${domina}</td></tr>
-            <tr><td style="padding: 4px; font-weight: bold; color: #059669;">Alcanza (7-8.99)</td><td style="text-align: right; font-weight: bold;">${alcanza}</td></tr>
-            <tr><td style="padding: 4px; font-weight: bold; color: #d97706;">Próximo (5-6.99)</td><td style="text-align: right; font-weight: bold;">${proximo}</td></tr>
-            <tr><td style="padding: 4px; font-weight: bold; color: #dc2626;">No Alcanza (< 5)</td><td style="text-align: right; font-weight: bold;">${noAlcanza}</td></tr>
-          </table>
-        </div>
-        <div style="flex: 2; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; background: white; display: flex; align-items: center; gap: 30px;">
-          <div style="width: 120px; height: 120px; border-radius: 50%; background: conic-gradient(
-            #2563eb 0% ${(domina/totalStudents)*100}%, 
-            #059669 ${(domina/totalStudents)*100}% ${((domina+alcanza)/totalStudents)*100}%, 
-            #d97706 ${((domina+alcanza)/totalStudents)*100}% ${((domina+alcanza+proximo)/totalStudents)*100}%, 
-            #dc2626 ${((domina+alcanza+proximo)/totalStudents)*100}% 100%);">
+      const totalStudents = currentSubject.students.length || 1;
+      const chartHtml = `
+        <div style="display: flex; gap: 40px; margin-top: 30px; page-break-inside: avoid;">
+          <div style="flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; background: white;">
+            <h3 style="margin-top: 0; color: #0f172a; font-size: 12px; text-transform: uppercase;">Estadísticas de Rendimiento</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+              <tr><td style="padding: 4px; font-weight: bold; color: #2563eb;">Domina (9-10)</td><td style="text-align: right; font-weight: bold;">${domina}</td></tr>
+              <tr><td style="padding: 4px; font-weight: bold; color: #059669;">Alcanza (7-8.99)</td><td style="text-align: right; font-weight: bold;">${alcanza}</td></tr>
+              <tr><td style="padding: 4px; font-weight: bold; color: #d97706;">Próximo (5-6.99)</td><td style="text-align: right; font-weight: bold;">${proximo}</td></tr>
+              <tr><td style="padding: 4px; font-weight: bold; color: #dc2626;">No Alcanza (< 5)</td><td style="text-align: right; font-weight: bold;">${noAlcanza}</td></tr>
+            </table>
           </div>
-          <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
-             <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 15px; height: 15px; background: #2563eb;"></div><span style="font-size: 11px;">Domina (${((domina/totalStudents)*100).toFixed(1)}%)</span></div>
-             <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 15px; height: 15px; background: #059669;"></div><span style="font-size: 11px;">Alcanza (${((alcanza/totalStudents)*100).toFixed(1)}%)</span></div>
-             <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 15px; height: 15px; background: #d97706;"></div><span style="font-size: 11px;">Próximo (${((proximo/totalStudents)*100).toFixed(1)}%)</span></div>
-             <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 15px; height: 15px; background: #dc2626;"></div><span style="font-size: 11px;">No Alcanza (${((noAlcanza/totalStudents)*100).toFixed(1)}%)</span></div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Reporte Docente - ${currentSubject.name}</title>
-          <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 10px; margin: 0; color: #0f172a; font-size: 9px; }
-            @page { size: portrait; margin: 15mm; }
-            .report-container { width: max-content; max-width: 100%; margin: 0 auto; }
-            .header-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; border: 2px solid #0f172a; }
-            .header-table td { padding: 4px 6px; font-size: 10px; border: 1px solid #cbd5e1; font-weight: bold; text-transform: uppercase; }
-            .header-table .bg-dark { background: #0f172a; color: white; white-space: nowrap; }
-            .main-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; border: 2px solid #0f172a; table-layout: auto; }
-            .main-table th { border: 1px solid #cbd5e1; padding: 2px; font-size: 7px; font-weight: bold; text-transform: uppercase; }
-            .main-table td { border: 1px solid #cbd5e1; padding: 2px 2px; font-size: 8px; text-align: center; }
-            .main-table td.name-cell { text-align: left !important; font-size: 8px; font-weight: bold; white-space: nowrap; padding-left: 4px; }
-            @media print {
-              body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="no-print" style="margin-bottom: 20px; text-align: center; background: #f8fafc; padding: 20px; border-radius: 12px; border: 2px dashed #cbd5e1;">
-            <button onclick="window.print()" style="background: #4f46e5; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px;">🖨️ Imprimir / Guardar PDF</button>
-          </div>
-          
-          <div class="report-container">
-            <table class="header-table">
-              <tr>
-              <td colspan="4" style="background:#0f172a;color:white;text-align:center;padding:6px 10px;">
-                <div style="display:flex;align-items:center;justify-content:center;gap:15px;">
-                   <img src="${window.location.origin}/logo_ministerio.png" height="60" alt="Ministerio" onerror="this.style.display='none'" />
-                   <div style="text-align:center;">
-                     <div style="font-size:10px;font-weight:bold;letter-spacing:1px;">MINISTERIO DE EDUCACIÓN</div>
-                     <div style="font-size:13px;font-weight:900;letter-spacing:1px;margin-top:2px;">UNIDAD EDUCATIVA 19 DE AGOSTO</div>
-                   </div>
-                   <img src="${window.location.origin}/logo_colegio.png" height="60" alt="Colegio" onerror="this.style.display='none'" />
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td class="bg-dark">DOCENTE:</td>
-              <td colspan="3" style="font-size:9px;">${currentUser?.name || ''}</td>
-            </tr>
-            <tr>
-              <td class="bg-dark">GRADO:</td>
-              <td style="font-size:9px;">${currentSubject.courseName || ''}</td>
-              <td class="bg-dark">PARALELO:</td>
-              <td style="font-size:9px;">${currentSubject.parallelName || currentSubject.parallel}</td>
-            </tr>
-            <tr>
-              <td colspan="4" style="text-align:center;background:#0f172a;color:white;font-size:12px;padding:5px;">${currentSubject.name} — TRIMESTRE ${currentTrimester}</td>
-            </tr>
-          </table>
-
-          <table class="main-table">
-            <thead>
-              <tr>
-                <th rowspan="3" style="background:#1e293b;color:white;width:15px;">N°</th>
-                <th rowspan="3" style="background:#1e293b;color:white;width:35px;">CÉDULA</th>
-                <th rowspan="3" style="background:#1e293b;color:white;text-align:left;padding-left:4px;min-width:180px;">ESTUDIANTES</th>
-                <th colspan="${totalActCols}" style="background:#334155;color:white;font-size:10px;">EVALUACIÓN FORMATIVA</th>
-                <th rowspan="3" style="background:#0f172a;color:white;font-size:7px;">70%</th>
-                <th rowspan="3" style="background:#059669;color:white;font-size:7px;">EXAM</th>
-                <th rowspan="3" style="background:#059669;color:white;font-size:7px;">PROY</th>
-                <th rowspan="3" style="background:#059669;color:white;font-size:7px;">30%</th>
-                <th rowspan="3" style="background:#0f172a;color:#fbbf24;font-size:8px;">TOTAL</th>
-                ${isQualitativeSubject ? '<th rowspan="3" style="background:#475569;color:white;font-size:8px;width:30px;">CUAL.</th>' : ''}
-              </tr>
-              <tr>
-                <th colspan="${indivCount}" style="background:#eff6ff;color:#1e3a8a;font-size:7px;">Individuales</th>
-                <th colspan="${grupalCount}" style="background:#f0fdf4;color:#14532d;font-size:7px;">Grupales</th>
-              </tr>
-              <tr>
-                ${actHeadersHtml2}
-              </tr>
-            </thead>
-            <tbody>
-              ${rowsHtml}
-            </tbody>
-          </table>
-
-            <div style="display: flex; justify-content: space-around; margin-top: 60px; page-break-inside: avoid; width: 100%;">
-              <div style="border-top: 1px solid #475569; width: 250px; padding-top: 8px; text-align: center; font-weight: bold; font-size: 11px; text-transform: uppercase;">Docente<br>${currentUser?.name || ''}</div>
-              <div style="border-top: 1px solid #475569; width: 250px; padding-top: 8px; text-align: center; font-weight: bold; font-size: 11px; text-transform: uppercase;">Vicerrectorado</div>
+          <div style="flex: 2; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; background: white; display: flex; align-items: center; gap: 30px;">
+            <div style="width: 120px; height: 120px; border-radius: 50%; background: conic-gradient(
+              #2563eb 0% ${(domina/totalStudents)*100}%, 
+              #059669 ${(domina/totalStudents)*100}% ${((domina+alcanza)/totalStudents)*100}%, 
+              #d97706 ${((domina+alcanza)/totalStudents)*100}% ${((domina+alcanza+proximo)/totalStudents)*100}%, 
+              #dc2626 ${((domina+alcanza+proximo)/totalStudents)*100}% 100%);">
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+               <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 15px; height: 15px; background: #2563eb;"></div><span style="font-size: 11px;">Domina (${((domina/totalStudents)*100).toFixed(1)}%)</span></div>
+               <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 15px; height: 15px; background: #059669;"></div><span style="font-size: 11px;">Alcanza (${((alcanza/totalStudents)*100).toFixed(1)}%)</span></div>
+               <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 15px; height: 15px; background: #d97706;"></div><span style="font-size: 11px;">Próximo (${((proximo/totalStudents)*100).toFixed(1)}%)</span></div>
+               <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 15px; height: 15px; background: #dc2626;"></div><span style="font-size: 11px;">No Alcanza (${((noAlcanza/totalStudents)*100).toFixed(1)}%)</span></div>
             </div>
           </div>
+        </div>
+      `;
 
-          <!-- ═══════ SEGUNDA PÁGINA: RESUMEN ═══════ -->
-          <div style="page-break-before: always;"></div>
-          <div class="report-container">
-            <table class="header-table">
-              <tr>
-                <td colspan="5" style="background:#0f172a;color:white;text-align:center;padding:6px 10px;">
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Reporte Docente - ${currentSubject.name}</title>
+            <style>
+              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 10px; margin: 0; color: #0f172a; font-size: 9px; }
+              @page { size: portrait; margin: 15mm; }
+              .report-container { width: max-content; max-width: 100%; margin: 0 auto; }
+              .header-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; border: 2px solid #0f172a; }
+              .header-table td { padding: 4px 6px; font-size: 10px; border: 1px solid #cbd5e1; font-weight: bold; text-transform: uppercase; }
+              .header-table .bg-dark { background: #0f172a; color: white; white-space: nowrap; }
+              .main-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; border: 2px solid #0f172a; table-layout: auto; }
+              .main-table th { border: 1px solid #cbd5e1; padding: 2px; font-size: 7px; font-weight: bold; text-transform: uppercase; }
+              .main-table td { border: 1px solid #cbd5e1; padding: 2px 2px; font-size: 8px; text-align: center; }
+              .main-table td.name-cell { text-align: left !important; font-size: 8px; font-weight: bold; white-space: nowrap; padding-left: 4px; }
+              @media print {
+                body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                .no-print { display: none; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="no-print" style="margin-bottom: 20px; text-align: center; background: #f8fafc; padding: 20px; border-radius: 12px; border: 2px dashed #cbd5e1;">
+              <button onclick="window.print()" style="background: #4f46e5; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px;">🖨️ Imprimir / Guardar PDF</button>
+            </div>
+            
+            <div class="report-container">
+              <table class="header-table">
+                <tr>
+                <td colspan="4" style="background:#0f172a;color:white;text-align:center;padding:6px 10px;">
                   <div style="display:flex;align-items:center;justify-content:center;gap:15px;">
                      <img src="${window.location.origin}/logo_ministerio.png" height="60" alt="Ministerio" onerror="this.style.display='none'" />
                      <div style="text-align:center;">
@@ -1502,310 +1461,383 @@ export default function UE19deAgosto() {
                 </td>
               </tr>
               <tr>
-                <td colspan="5" style="text-align:center;background:#334155;color:white;font-size:14px;padding:6px;letter-spacing:1px;">RESUMEN DE CALIFICACIONES — ${currentSubject.name} — TRIMESTRE ${currentTrimester}</td>
+                <td class="bg-dark">DOCENTE:</td>
+                <td colspan="3" style="font-size:9px;">${currentUser?.name || ''}</td>
+              </tr>
+              <tr>
+                <td class="bg-dark">GRADO:</td>
+                <td style="font-size:9px;">${currentSubject.courseName || ''}</td>
+                <td class="bg-dark">PARALELO:</td>
+                <td style="font-size:9px;">${currentSubject.parallelName || currentSubject.parallel}</td>
+              </tr>
+              <tr>
+                <td colspan="4" style="text-align:center;background:#0f172a;color:white;font-size:12px;padding:5px;">${currentSubject.name} — TRIMESTRE ${currentTrimester}</td>
               </tr>
             </table>
-            <table class="main-table" style="border:2px solid #0f172a;table-layout:auto;">
-            <thead>
-              <tr>
-                <th style="background:#1e293b;color:white;width:30px;">N°</th>
-                <th style="background:#1e293b;color:white;text-align:left;padding-left:4px;min-width:180px;">ESTUDIANTE</th>
-                <th style="background:#334155;color:white;width:80px;">FORMATIVA<br>(70%)</th>
-                <th style="background:#059669;color:white;width:80px;">SUMATIVA<br>(30%)</th>
-                <th style="background:#0f172a;color:#fbbf24;width:80px;">TOTAL<br>(100%)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${summaryRows}
-            </tbody>
-          </table>
 
-          ${chartHtml}
+            <table class="main-table">
+              <thead>
+                <tr>
+                  <th rowspan="3" style="background:#1e293b;color:white;width:15px;">N°</th>
+                  <th rowspan="3" style="background:#1e293b;color:white;width:35px;">CÉDULA</th>
+                  <th rowspan="3" style="background:#1e293b;color:white;text-align:left;padding-left:4px;min-width:180px;">ESTUDIANTES</th>
+                  <th colspan="${totalActCols}" style="background:#334155;color:white;font-size:10px;">EVALUACIÓN FORMATIVA</th>
+                  <th rowspan="3" style="background:#0f172a;color:white;font-size:7px;">70%</th>
+                  <th rowspan="3" style="background:#059669;color:white;font-size:7px;">EXAM</th>
+                  <th rowspan="3" style="background:#059669;color:white;font-size:7px;">PROY</th>
+                  <th rowspan="3" style="background:#059669;color:white;font-size:7px;">30%</th>
+                  <th rowspan="3" style="background:#0f172a;color:#fbbf24;font-size:8px;">TOTAL</th>
+                  ${isQualitativeSubject ? '<th rowspan="3" style="background:#475569;color:white;font-size:8px;width:30px;">CUAL.</th>' : ''}
+                </tr>
+                <tr>
+                  <th colspan="${indivCount}" style="background:#eff6ff;color:#1e3a8a;font-size:7px;">Individuales</th>
+                  <th colspan="${grupalCount}" style="background:#f0fdf4;color:#14532d;font-size:7px;">Grupales</th>
+                </tr>
+                <tr>
+                  ${actHeadersHtml2}
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
 
-            <div style="display: flex; justify-content: space-around; margin-top: 80px; page-break-inside: avoid; width: 100%;">
-              <div style="border-top: 1px solid #475569; width: 250px; text-align: center; font-weight: bold; font-size: 11px; text-transform: uppercase;">Docente<br>${currentUser?.name || ''}</div>
-              <div style="border-top: 1px solid #475569; width: 250px; text-align: center; font-weight: bold; font-size: 11px; text-transform: uppercase;">Rectorado / Secretaría</div>
+              <div style="display: flex; justify-content: space-around; margin-top: 60px; page-break-inside: avoid; width: 100%;">
+                <div style="border-top: 1px solid #475569; width: 250px; padding-top: 8px; text-align: center; font-weight: bold; font-size: 11px; text-transform: uppercase;">Docente<br>${currentUser?.name || ''}</div>
+                <div style="border-top: 1px solid #475569; width: 250px; padding-top: 8px; text-align: center; font-weight: bold; font-size: 11px; text-transform: uppercase;">Vicerrectorado</div>
+              </div>
             </div>
-          </div>
-        </body>
-      </html>
-    `;
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.open();
-      printWindow.document.write(html);
-      printWindow.document.close();
-    } else {
-      alert("⚠️ Tu navegador bloqueó la ventana emergente.");
+            <!-- ═══════ SEGUNDA PÁGINA: RESUMEN ═══════ -->
+            <div style="page-break-before: always;"></div>
+            <div class="report-container">
+              <table class="header-table">
+                <tr>
+                  <td colspan="5" style="background:#0f172a;color:white;text-align:center;padding:6px 10px;">
+                    <div style="display:flex;align-items:center;justify-content:center;gap:15px;">
+                       <img src="${window.location.origin}/logo_ministerio.png" height="60" alt="Ministerio" onerror="this.style.display='none'" />
+                       <div style="text-align:center;">
+                         <div style="font-size:10px;font-weight:bold;letter-spacing:1px;">MINISTERIO DE EDUCACIÓN</div>
+                         <div style="font-size:13px;font-weight:900;letter-spacing:1px;margin-top:2px;">UNIDAD EDUCATIVA 19 DE AGOSTO</div>
+                       </div>
+                       <img src="${window.location.origin}/logo_colegio.png" height="60" alt="Colegio" onerror="this.style.display='none'" />
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="5" style="text-align:center;background:#334155;color:white;font-size:14px;padding:6px;letter-spacing:1px;">RESUMEN DE CALIFICACIONES — ${currentSubject.name} — TRIMESTRE ${currentTrimester}</td>
+                </tr>
+              </table>
+              <table class="main-table" style="border:2px solid #0f172a;table-layout:auto;">
+              <thead>
+                <tr>
+                  <th style="background:#1e293b;color:white;width:30px;">N°</th>
+                  <th style="background:#1e293b;color:white;text-align:left;padding-left:4px;min-width:180px;">ESTUDIANTE</th>
+                  <th style="background:#334155;color:white;width:80px;">FORMATIVA<br>(70%)</th>
+                  <th style="background:#059669;color:white;width:80px;">SUMATIVA<br>(30%)</th>
+                  <th style="background:#0f172a;color:#fbbf24;width:80px;">TOTAL<br>(100%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${summaryRows}
+              </tbody>
+            </table>
+
+            ${chartHtml}
+
+              <div style="display: flex; justify-content: space-around; margin-top: 80px; page-break-inside: avoid; width: 100%;">
+                <div style="border-top: 1px solid #475569; width: 250px; text-align: center; font-weight: bold; font-size: 11px; text-transform: uppercase;">Docente<br>${currentUser?.name || ''}</div>
+                <div style="border-top: 1px solid #475569; width: 250px; text-align: center; font-weight: bold; font-size: 11px; text-transform: uppercase;">Rectorado / Secretaría</div>
+              </div>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+      } else {
+        alert("⚠️ Tu navegador bloqueó la ventana emergente.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error al generar reporte: " + err.message);
     }
   };
 
   const handlePrintTutorReport = (trimLimit = 3) => {
-    if (!currentUser || !currentUser.tutoringCourse) return;
-    const targetParallel = currentUser.tutoringCourse.trim().toLowerCase();
-    const tutorSubjects = subjects.filter(s => (s.parallel || '').trim().toLowerCase() === targetParallel);
-    if (tutorSubjects.length === 0) return alert("No hay materias registradas para tu curso de tutoría.");
+    try {
+      if (!currentUser || !currentUser.tutoringCourse) return;
+      const targetParallel = currentUser.tutoringCourse.trim().toLowerCase();
+      const tutorSubjects = subjects.filter(s => (s.parallel || '').trim().toLowerCase() === targetParallel);
+      if (tutorSubjects.length === 0) return alert("No hay materias registradas para tu curso de tutoría.");
 
-    const studentsMap = new Map();
-    tutorSubjects.forEach(sub => {
-      (sub.students || []).forEach(st => {
-        const key = normalizeText(st.name);
-        if (!studentsMap.has(key)) studentsMap.set(key, { ...st, gradesBySubject: {} });
-        const sData = studentsMap.get(key);
-        const s1 = calculateStats(sub, 1, st.id).fin;
-        const s2 = calculateStats(sub, 2, st.id).fin;
-        const s3 = calculateStats(sub, 3, st.id).fin;
-        sData.gradesBySubject[sub.id] = {
-          t1: parseFloat(s1) || 0, t2: parseFloat(s2) || 0, t3: parseFloat(s3) || 0,
-          total: (parseFloat(s1) || 0) + (parseFloat(s2) || 0) + (parseFloat(s3) || 0)
-        };
-      });
-    });
-    const studentsList = Array.from(studentsMap.values()).map(st => {
-      let t1Sum = 0, t2Sum = 0, t3Sum = 0, totalSum = 0;
-      let validSubCount = 0;
+      const studentsMap = new Map();
       tutorSubjects.forEach(sub => {
-        const lowerName = sub.name.toLowerCase();
-        if (lowerName.includes('civica') || lowerName.includes('cívica') || lowerName.includes('acompañamiento')) {
-          return; // Exclude from averages
-        }
-        validSubCount++;
-        const g = st.gradesBySubject[sub.id] || { t1: 0, t2: 0, t3: 0, total: 0 };
-        t1Sum += g.t1;
-        t2Sum += g.t2;
-        t3Sum += g.t3;
-        totalSum += g.total;
+        (sub.students || []).forEach(st => {
+          const key = normalizeText(st.name);
+          if (!studentsMap.has(key)) studentsMap.set(key, { ...st, gradesBySubject: {} });
+          const sData = studentsMap.get(key);
+          const s1 = calculateStats(sub, 1, st.id).fin;
+          const s2 = calculateStats(sub, 2, st.id).fin;
+          const s3 = calculateStats(sub, 3, st.id).fin;
+          sData.gradesBySubject[sub.id] = {
+            t1: parseFloat(s1) || 0, t2: parseFloat(s2) || 0, t3: parseFloat(s3) || 0,
+            total: (parseFloat(s1) || 0) + (parseFloat(s2) || 0) + (parseFloat(s3) || 0)
+          };
+        });
       });
-      const len = validSubCount || 1;
-      st.t1Avg = parseFloat((t1Sum / len).toFixed(2));
-      st.t2Avg = parseFloat((t2Sum / len).toFixed(2));
-      st.t3Avg = parseFloat((t3Sum / len).toFixed(2));
-      st.totalAvg = parseFloat((totalSum / len).toFixed(2));
-      
-      st.cum1 = parseFloat((t1Sum / len).toFixed(2));
-      st.cum2 = parseFloat(((t1Sum + t2Sum) / len).toFixed(2));
-      st.cum3 = parseFloat(((t1Sum + t2Sum + t3Sum) / len).toFixed(2));
-      return st;
-    }).sort((a, b) => a.name.localeCompare(b.name));
-
-    // Determinar los 3 mejores promedios únicos para cada columna
-    const sortedT1 = [...new Set(studentsList.map(s => s.t1Avg).filter(v => v > 0))].sort((a, b) => b - a);
-    const sortedT2 = [...new Set(studentsList.map(s => s.t2Avg).filter(v => v > 0))].sort((a, b) => b - a);
-    const sortedT3 = [...new Set(studentsList.map(s => s.t3Avg).filter(v => v > 0))].sort((a, b) => b - a);
-    const sortedTotal = [...new Set(studentsList.map(s => s.totalAvg).filter(v => v > 0))].sort((a, b) => b - a);
-
-    // Incluir todas las materias en la misma hoja (formato horizontal)
-    const maxSubsPerPage = 15;
-    const subjectChunks = [];
-    for (let i = 0; i < tutorSubjects.length; i += maxSubsPerPage) {
-      subjectChunks.push(tutorSubjects.slice(i, i + maxSubsPerPage));
-    }
-
-    const headerBlock = '<div style="background:#0f172a;color:white;text-align:center;padding:6px 10px;border:2px solid #0f172a;border-bottom:none;">'
-      + '<div style="display:flex;align-items:center;justify-content:center;gap:15px;">'
-      + '<img src="' + window.location.origin + '/logo_ministerio.png" height="60" alt="Ministerio" onerror="this.style.display=\'none\'" />'
-      + '<div style="text-align:center;">'
-      + '<div style="font-size:10px;font-weight:bold;letter-spacing:1px;">MINISTERIO DE EDUCACIÓN</div>'
-      + '<div style="font-size:13px;font-weight:900;letter-spacing:1px;margin-top:2px;">UNIDAD EDUCATIVA 19 DE AGOSTO</div>'
-      + '</div>'
-      + '<img src="' + window.location.origin + '/logo_colegio.png" height="60" alt="Colegio" onerror="this.style.display=\'none\'" />'
-      + '</div></div>';
-
-    const infoBlock = '<div style="background:#334155;color:white;text-align:center;padding:6px;font-size:12px;font-weight:bold;border:2px solid #0f172a;border-top:none;margin-bottom:10px;letter-spacing:1px;">'
-      + 'REPORTE GENERAL DE RENDIMIENTO ANUAL — CURSO: ' + currentUser.tutoringCourse.toUpperCase() + ' — TUTOR: ' + currentUser.name
-      + '</div>';
-
-    let pagesHtml = '';
-    
-    const isQualitativeCourse = (() => {
-      const c = (currentUser.tutoringCourse || '').toLowerCase();
-      return c.includes('inicial') || c.includes('1 egb') || c.includes('2 egb') || c.includes('3 egb') || c.includes('4 egb') ||
-             c.includes('1ro') || c.includes('2do') || c.includes('3ro') || c.includes('4to') ||
-             c.match(/\b(1|2|3|4)\b.*egb/);
-    })();
-
-    const needsQualitative = (sub) => {
-      const n = sub.name.toLowerCase();
-      if (n.includes('civica') || n.includes('cívica') || n.includes('acompañamiento')) return true;
-      return isQualitativeCourse;
-    };
-
-    const getQualitativeGrade = (num) => {
-      if (num >= 9.5) return 'A+';
-      if (num >= 9.0) return 'A-';
-      if (num >= 8.0) return 'B+';
-      if (num >= 7.0) return 'B-';
-      if (num >= 6.0) return 'C+';
-      if (num >= 5.0) return 'C-';
-      if (num >= 4.0) return 'D+';
-      if (num >= 3.0) return 'D-';
-      if (num >= 2.0) return 'E+';
-      return 'E-';
-    };
-
-    subjectChunks.forEach((chunk, pi) => {
-      if (pi > 0) pagesHtml += '<div style="page-break-before:always;"></div>';
-      pagesHtml += '<div class="report-container">';
-      pagesHtml += headerBlock + infoBlock;
-        
-      if (subjectChunks.length > 1) {
-        pagesHtml += '<div style="text-align:right;font-size:10px;color:#64748b;margin-bottom:5px;">Página ' + (pi+1) + ' de ' + subjectChunks.length + ' — Materias ' + (pi*maxSubsPerPage+1) + ' a ' + Math.min((pi+1)*maxSubsPerPage, tutorSubjects.length) + ' de ' + tutorSubjects.length + '</div>';
-      }
-
-      // Build table for this chunk
-      let thead = '<tr><th rowspan="2" style="background:#1e293b;color:white;width:30px;padding:6px;">N°</th>'
-        + '<th rowspan="2" style="background:#1e293b;color:white;padding:6px;text-align:left;white-space:nowrap;padding-left:4px;min-width:180px;">ESTUDIANTE</th>';
-      chunk.forEach(sub => { 
-        const q = needsQualitative(sub);
-        const colsPerTrim = q ? 2 : 1;
-        let colSpan = trimLimit === 3 ? (4 * colsPerTrim) : (trimLimit * colsPerTrim);
-        thead += '<th colspan="' + colSpan + '" style="border:1px solid #cbd5e1;padding:6px;background:#334155;color:white;text-align:center;">' + sub.name + '</th>'; 
-      });
-      if (trimLimit === 3) {
-        thead += `<th rowspan="${isQualitativeCourse ? 1 : 2}" colspan="${isQualitativeCourse ? 2 : 1}" style="background:#0f172a;color:#fbbf24;width:50px;padding:6px;">PROM. T3</th>`;
-        thead += `<th rowspan="${isQualitativeCourse ? 1 : 2}" colspan="${isQualitativeCourse ? 2 : 1}" style="background:#0f172a;color:#fbbf24;width:50px;padding:6px;">PROM. AÑO</th></tr><tr>`;
-      } else {
-        thead += `<th rowspan="${isQualitativeCourse ? 1 : 2}" colspan="${isQualitativeCourse ? 2 : 1}" style="background:#0f172a;color:#fbbf24;width:60px;padding:6px;">PROM.</th></tr><tr>`;
-      }
-      chunk.forEach(sub => {
-        const q = needsQualitative(sub);
-        if (trimLimit >= 1) {
-          thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T1</th>';
-          if (q) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Cual.</th>';
-        }
-        if (trimLimit >= 2) {
-          thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T2</th>';
-          if (q) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Cual.</th>';
-        }
-        if (trimLimit >= 3) {
-          thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T3</th>';
-          if (q) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Cual.</th>';
-          thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#e2e8f0;font-size:9px;font-weight:bold;width:30px;">SUMA</th>';
-          if (q) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#cbd5e1;font-size:9px;font-weight:bold;width:30px;color:#334155;">Cual.</th>';
-        }
-      });
-      if (isQualitativeCourse) {
-        if (trimLimit === 3) {
-          thead += '<th style="border:1px solid #0f172a;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Num</th><th style="border:1px solid #0f172a;padding:4px;background:#e2e8f0;font-size:9px;width:30px;color:#0f172a;">Cual</th>';
-          thead += '<th style="border:1px solid #0f172a;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Num</th><th style="border:1px solid #0f172a;padding:4px;background:#e2e8f0;font-size:9px;width:30px;color:#0f172a;">Cual</th>';
-        } else {
-          thead += '<th style="border:1px solid #0f172a;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Num</th><th style="border:1px solid #0f172a;padding:4px;background:#e2e8f0;font-size:9px;width:30px;color:#0f172a;">Cual</th>';
-        }
-      }
-      thead += '</tr>';
-
-      let tbody = '';
-      studentsList.forEach((st, i) => {
-        const rowBg = i % 2 === 0 ? '#ffffff' : '#f1f5f9';
-        let gHtml = '';
-        
-        const rankT1 = sortedT1.indexOf(st.t1Avg);
-        const rankT2 = sortedT2.indexOf(st.t2Avg);
-        const rankT3 = sortedT3.indexOf(st.t3Avg);
-        const rankTotal = sortedTotal.indexOf(st.totalAvg);
-        
-        let t1Bg = 'inherit', t2Bg = 'inherit', t3Bg = 'inherit', totalBg = '#f8fafc';
-        
-        if (rankT1 === 0) t1Bg = '#fef08a'; else if (rankT1 === 1) t1Bg = '#e2e8f0'; else if (rankT1 === 2) t1Bg = '#fed7aa';
-        if (rankT2 === 0) t2Bg = '#fef08a'; else if (rankT2 === 1) t2Bg = '#e2e8f0'; else if (rankT2 === 2) t2Bg = '#fed7aa';
-        if (rankT3 === 0) t3Bg = '#fef08a'; else if (rankT3 === 1) t3Bg = '#e2e8f0'; else if (rankT3 === 2) t3Bg = '#fed7aa';
-        if (rankTotal === 0) totalBg = '#fef08a'; else if (rankTotal === 1) totalBg = '#e2e8f0'; else if (rankTotal === 2) totalBg = '#fed7aa';
-
-        chunk.forEach(sub => {
+      const studentsList = Array.from(studentsMap.values()).map(st => {
+        let t1Sum = 0, t2Sum = 0, t3Sum = 0, totalSum = 0;
+        let validSubCount = 0;
+        tutorSubjects.forEach(sub => {
+          const lowerName = sub.name.toLowerCase();
+          if (lowerName.includes('civica') || lowerName.includes('cívica') || lowerName.includes('acompañamiento')) {
+            return; // Exclude from averages
+          }
+          validSubCount++;
           const g = st.gradesBySubject[sub.id] || { t1: 0, t2: 0, t3: 0, total: 0 };
-          const pc = g.total >= 21 ? '#059669' : '#dc2626';
-          const q = needsQualitative(sub);
+          t1Sum += g.t1;
+          t2Sum += g.t2;
+          t3Sum += g.t3;
+          totalSum += g.total;
+        });
+        const len = validSubCount || 1;
+        st.t1Avg = parseFloat((t1Sum / len).toFixed(2));
+        st.t2Avg = parseFloat((t2Sum / len).toFixed(2));
+        st.t3Avg = parseFloat((t3Sum / len).toFixed(2));
+        st.totalAvg = parseFloat((totalSum / len).toFixed(2));
+        
+        st.cum1 = parseFloat((t1Sum / len).toFixed(2));
+        st.cum2 = parseFloat(((t1Sum + t2Sum) / len).toFixed(2));
+        st.cum3 = parseFloat(((t1Sum + t2Sum + t3Sum) / len).toFixed(2));
+        return st;
+      }).sort((a, b) => a.name.localeCompare(b.name));
+
+      // Determinar los 3 mejores promedios únicos para cada columna
+      const sortedT1 = [...new Set(studentsList.map(s => s.t1Avg).filter(v => v > 0))].sort((a, b) => b - a);
+      const sortedT2 = [...new Set(studentsList.map(s => s.t2Avg).filter(v => v > 0))].sort((a, b) => b - a);
+      const sortedT3 = [...new Set(studentsList.map(s => s.t3Avg).filter(v => v > 0))].sort((a, b) => b - a);
+      const sortedTotal = [...new Set(studentsList.map(s => s.totalAvg).filter(v => v > 0))].sort((a, b) => b - a);
+
+      // Incluir todas las materias en la misma hoja (formato horizontal)
+      const maxSubsPerPage = 15;
+      const subjectChunks = [];
+      for (let i = 0; i < tutorSubjects.length; i += maxSubsPerPage) {
+        subjectChunks.push(tutorSubjects.slice(i, i + maxSubsPerPage));
+      }
+
+      const headerBlock = '<div style="background:#0f172a;color:white;text-align:center;padding:6px 10px;border:2px solid #0f172a;border-bottom:none;">'
+        + '<div style="display:flex;align-items:center;justify-content:center;gap:15px;">'
+        + '<img src="' + window.location.origin + '/logo_ministerio.png" height="60" alt="Ministerio" onerror="this.style.display=\'none\'" />'
+        + '<div style="text-align:center;">'
+        + '<div style="font-size:10px;font-weight:bold;letter-spacing:1px;">MINISTERIO DE EDUCACIÓN</div>'
+        + '<div style="font-size:13px;font-weight:900;letter-spacing:1px;margin-top:2px;">UNIDAD EDUCATIVA 19 DE AGOSTO</div>'
+        + '</div>'
+        + '<img src="' + window.location.origin + '/logo_colegio.png" height="60" alt="Colegio" onerror="this.style.display=\'none\'" />'
+        + '</div></div>';
+
+      const infoBlock = '<div style="background:#334155;color:white;text-align:center;padding:6px;font-size:12px;font-weight:bold;border:2px solid #0f172a;border-top:none;margin-bottom:10px;letter-spacing:1px;">'
+        + 'REPORTE GENERAL DE RENDIMIENTO ANUAL — CURSO: ' + currentUser.tutoringCourse.toUpperCase() + ' — TUTOR: ' + currentUser.name
+        + '</div>';
+
+      let pagesHtml = '';
+      
+      const isQualitativeCourse = (() => {
+        const c = (currentUser.tutoringCourse || '').toLowerCase();
+        return c.includes('inicial') || c.includes('1 egb') || c.includes('2 egb') || c.includes('3 egb') || c.includes('4 egb') ||
+               c.includes('1ro') || c.includes('2do') || c.includes('3ro') || c.includes('4to') ||
+               c.match(/\b(1|2|3|4)\b.*egb/);
+      })();
+
+      const needsQualitative = (sub) => {
+        const n = sub.name.toLowerCase();
+        if (n.includes('civica') || n.includes('cívica') || n.includes('acompañamiento')) return true;
+        return isQualitativeCourse;
+      };
+
+      const getQualitativeGrade = (num) => {
+        if (num >= 9.5) return 'A+';
+        if (num >= 9.0) return 'A-';
+        if (num >= 8.0) return 'B+';
+        if (num >= 7.0) return 'B-';
+        if (num >= 6.0) return 'C+';
+        if (num >= 5.0) return 'C-';
+        if (num >= 4.0) return 'D+';
+        if (num >= 3.0) return 'D-';
+        if (num >= 2.0) return 'E+';
+        return 'E-';
+      };
+
+      subjectChunks.forEach((chunk, pi) => {
+        if (pi > 0) pagesHtml += '<div style="page-break-before:always;"></div>';
+        pagesHtml += '<div class="report-container">';
+        pagesHtml += headerBlock + infoBlock;
           
+        if (subjectChunks.length > 1) {
+          pagesHtml += '<div style="text-align:right;font-size:10px;color:#64748b;margin-bottom:5px;">Página ' + (pi+1) + ' de ' + subjectChunks.length + ' — Materias ' + (pi*maxSubsPerPage+1) + ' a ' + Math.min((pi+1)*maxSubsPerPage, tutorSubjects.length) + ' de ' + tutorSubjects.length + '</div>';
+        }
+
+        // Build table for this chunk
+        let thead = '<tr><th rowspan="2" style="background:#1e293b;color:white;width:30px;padding:6px;">N°</th>'
+          + '<th rowspan="2" style="background:#1e293b;color:white;padding:6px;text-align:left;white-space:nowrap;padding-left:4px;min-width:180px;">ESTUDIANTE</th>';
+        chunk.forEach(sub => { 
+          const q = needsQualitative(sub);
+          const colsPerTrim = q ? 2 : 1;
+          let colSpan = trimLimit === 3 ? (4 * colsPerTrim) : (trimLimit * colsPerTrim);
+          thead += '<th colspan="' + colSpan + '" style="border:1px solid #cbd5e1;padding:6px;background:#334155;color:white;text-align:center;">' + sub.name + '</th>'; 
+        });
+        if (trimLimit === 3) {
+          thead += `<th rowspan="${isQualitativeCourse ? 1 : 2}" colspan="${isQualitativeCourse ? 2 : 1}" style="background:#0f172a;color:#fbbf24;width:50px;padding:6px;">PROM. T3</th>`;
+          thead += `<th rowspan="${isQualitativeCourse ? 1 : 2}" colspan="${isQualitativeCourse ? 2 : 1}" style="background:#0f172a;color:#fbbf24;width:50px;padding:6px;">PROM. AÑO</th></tr><tr>`;
+        } else {
+          thead += `<th rowspan="${isQualitativeCourse ? 1 : 2}" colspan="${isQualitativeCourse ? 2 : 1}" style="background:#0f172a;color:#fbbf24;width:60px;padding:6px;">PROM.</th></tr><tr>`;
+        }
+        chunk.forEach(sub => {
+          const q = needsQualitative(sub);
           if (trimLimit >= 1) {
-            gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t1.toFixed(2) + '</td>';
-            if (q) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:#475569;background:#f8fafc;">' + getQualitativeGrade(g.t1) + '</td>';
+            thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T1</th>';
+            if (q) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Cual.</th>';
           }
           if (trimLimit >= 2) {
-            gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t2.toFixed(2) + '</td>';
-            if (q) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:#475569;background:#f8fafc;">' + getQualitativeGrade(g.t2) + '</td>';
+            thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T2</th>';
+            if (q) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Cual.</th>';
           }
           if (trimLimit >= 3) {
-            gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t3.toFixed(2) + '</td>';
-            if (q) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:#475569;background:#f8fafc;">' + getQualitativeGrade(g.t3) + '</td>';
-            gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:' + pc + ';">' + g.total.toFixed(2) + '</td>';
-            if (q) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:#334155;background:#f1f5f9;">' + getQualitativeGrade(g.total / 3) + '</td>';
+            thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f8fafc;font-size:9px;width:30px;">T3</th>';
+            if (q) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Cual.</th>';
+            thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#e2e8f0;font-size:9px;font-weight:bold;width:30px;">SUMA</th>';
+            if (q) thead += '<th style="border:1px solid #cbd5e1;padding:4px;background:#cbd5e1;font-size:9px;font-weight:bold;width:30px;color:#334155;">Cual.</th>';
           }
         });
-        
-        let nameCellBg = 'inherit';
-        let medalStr = '';
-        
-        if (trimLimit === 1) {
-          if (rankT1 === 0) { medalStr = '🥇(T1) '; nameCellBg = t1Bg; }
-          else if (rankT1 === 1) { medalStr = '🥈(T1) '; nameCellBg = t1Bg; }
-          else if (rankT1 === 2) { medalStr = '🥉(T1) '; nameCellBg = t1Bg; }
+        if (isQualitativeCourse) {
+          if (trimLimit === 3) {
+            thead += '<th style="border:1px solid #0f172a;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Num</th><th style="border:1px solid #0f172a;padding:4px;background:#e2e8f0;font-size:9px;width:30px;color:#0f172a;">Cual</th>';
+            thead += '<th style="border:1px solid #0f172a;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Num</th><th style="border:1px solid #0f172a;padding:4px;background:#e2e8f0;font-size:9px;width:30px;color:#0f172a;">Cual</th>';
+          } else {
+            thead += '<th style="border:1px solid #0f172a;padding:4px;background:#f1f5f9;font-size:9px;width:30px;color:#475569;">Num</th><th style="border:1px solid #0f172a;padding:4px;background:#e2e8f0;font-size:9px;width:30px;color:#0f172a;">Cual</th>';
+          }
         }
-        else if (trimLimit === 2) {
-          if (rankT2 === 0) { medalStr = '🥇(T2) '; nameCellBg = t2Bg; }
-          else if (rankT2 === 1) { medalStr = '🥈(T2) '; nameCellBg = t2Bg; }
-          else if (rankT2 === 2) { medalStr = '🥉(T2) '; nameCellBg = t2Bg; }
-        }
-        else if (trimLimit === 3) {
-          let highestBg = 'inherit';
-          let highestRank = 99;
-          const updateBg = (rank, color) => {
-            if (rank < highestRank) { highestRank = rank; highestBg = color; }
-          };
-          if (rankT3 === 0) { medalStr += '🥇(T3) '; updateBg(0, t3Bg); }
-          else if (rankT3 === 1) { medalStr += '🥈(T3) '; updateBg(1, t3Bg); }
-          else if (rankT3 === 2) { medalStr += '🥉(T3) '; updateBg(2, t3Bg); }
-          
-          if (rankTotal === 0) { medalStr += '🏆(Año) '; updateBg(0, totalBg); }
-          else if (rankTotal === 1) { medalStr += '🥈(Año) '; updateBg(1, totalBg); }
-          else if (rankTotal === 2) { medalStr += '🥉(Año) '; updateBg(2, totalBg); }
-          nameCellBg = highestBg;
-        }
+        thead += '</tr>';
 
-        let avgHtml = '';
-        if (trimLimit === 3) {
-          avgHtml = '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + st.t3Avg.toFixed(2) + '</td>';
-          if (isQualitativeCourse) avgHtml += '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:11px;font-weight:bold;background:#e2e8f0;color:#0f172a;">' + getQualitativeGrade(st.t3Avg) + '</td>';
+        let tbody = '';
+        studentsList.forEach((st, i) => {
+          const rowBg = i % 2 === 0 ? '#ffffff' : '#f1f5f9';
+          let gHtml = '';
           
-          avgHtml += '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + st.cum3.toFixed(2) + '</td>';
-          if (isQualitativeCourse) avgHtml += '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:11px;font-weight:bold;background:#e2e8f0;color:#0f172a;">' + getQualitativeGrade(st.cum3) + '</td>';
-        } else {
-          let avg = trimLimit === 1 ? st.t1Avg : st.t2Avg;
-          avgHtml = '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + avg.toFixed(2) + '</td>';
-          if (isQualitativeCourse) avgHtml += '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:11px;font-weight:bold;background:#e2e8f0;color:#0f172a;">' + getQualitativeGrade(avg) + '</td>';
-        }
+          const rankT1 = sortedT1.indexOf(st.t1Avg);
+          const rankT2 = sortedT2.indexOf(st.t2Avg);
+          const rankT3 = sortedT3.indexOf(st.t3Avg);
+          const rankTotal = sortedTotal.indexOf(st.totalAvg);
+          
+          let t1Bg = 'inherit', t2Bg = 'inherit', t3Bg = 'inherit', totalBg = '#f8fafc';
+          
+          if (rankT1 === 0) t1Bg = '#fef08a'; else if (rankT1 === 1) t1Bg = '#e2e8f0'; else if (rankT1 === 2) t1Bg = '#fed7aa';
+          if (rankT2 === 0) t2Bg = '#fef08a'; else if (rankT2 === 1) t2Bg = '#e2e8f0'; else if (rankT2 === 2) t2Bg = '#fed7aa';
+          if (rankT3 === 0) t3Bg = '#fef08a'; else if (rankT3 === 1) t3Bg = '#e2e8f0'; else if (rankT3 === 2) t3Bg = '#fed7aa';
+          if (rankTotal === 0) totalBg = '#fef08a'; else if (rankTotal === 1) totalBg = '#e2e8f0'; else if (rankTotal === 2) totalBg = '#fed7aa';
 
-        tbody += '<tr style="background:' + rowBg + ';">'
-          + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + (i+1) + '</td>'
-          + '<td style="border:1px solid #cbd5e1;padding:4px;font-size:10px;text-align:left;white-space:nowrap;background:' + nameCellBg + ';">' + medalStr + st.name + '</td>'
-          + gHtml
-          + avgHtml
-          + '</tr>';
+          chunk.forEach(sub => {
+            const g = st.gradesBySubject[sub.id] || { t1: 0, t2: 0, t3: 0, total: 0 };
+            const pc = g.total >= 21 ? '#059669' : '#dc2626';
+            const q = needsQualitative(sub);
+            
+            if (trimLimit >= 1) {
+              gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t1.toFixed(2) + '</td>';
+              if (q) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:#475569;background:#f8fafc;">' + getQualitativeGrade(g.t1) + '</td>';
+            }
+            if (trimLimit >= 2) {
+              gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t2.toFixed(2) + '</td>';
+              if (q) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:#475569;background:#f8fafc;">' + getQualitativeGrade(g.t2) + '</td>';
+            }
+            if (trimLimit >= 3) {
+              gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + g.t3.toFixed(2) + '</td>';
+              if (q) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:#475569;background:#f8fafc;">' + getQualitativeGrade(g.t3) + '</td>';
+              gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:' + pc + ';">' + g.total.toFixed(2) + '</td>';
+              if (q) gHtml += '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;font-weight:bold;color:#334155;background:#f1f5f9;">' + getQualitativeGrade(g.total / 3) + '</td>';
+            }
+          });
+          
+          let nameCellBg = 'inherit';
+          let medalStr = '';
+          
+          if (trimLimit === 1) {
+            if (rankT1 === 0) { medalStr = '🥇(T1) '; nameCellBg = t1Bg; }
+            else if (rankT1 === 1) { medalStr = '🥈(T1) '; nameCellBg = t1Bg; }
+            else if (rankT1 === 2) { medalStr = '🥉(T1) '; nameCellBg = t1Bg; }
+          }
+          else if (trimLimit === 2) {
+            if (rankT2 === 0) { medalStr = '🥇(T2) '; nameCellBg = t2Bg; }
+            else if (rankT2 === 1) { medalStr = '🥈(T2) '; nameCellBg = t2Bg; }
+            else if (rankT2 === 2) { medalStr = '🥉(T2) '; nameCellBg = t2Bg; }
+          }
+          else if (trimLimit === 3) {
+            let highestBg = 'inherit';
+            let highestRank = 99;
+            const updateBg = (rank, color) => {
+              if (rank < highestRank) { highestRank = rank; highestBg = color; }
+            };
+            if (rankT3 === 0) { medalStr += '🥇(T3) '; updateBg(0, t3Bg); }
+            else if (rankT3 === 1) { medalStr += '🥈(T3) '; updateBg(1, t3Bg); }
+            else if (rankT3 === 2) { medalStr += '🥉(T3) '; updateBg(2, t3Bg); }
+            
+            if (rankTotal === 0) { medalStr += '🏆(Año) '; updateBg(0, totalBg); }
+            else if (rankTotal === 1) { medalStr += '🥈(Año) '; updateBg(1, totalBg); }
+            else if (rankTotal === 2) { medalStr += '🥉(Año) '; updateBg(2, totalBg); }
+            nameCellBg = highestBg;
+          }
+
+          let avgHtml = '';
+          if (trimLimit === 3) {
+            avgHtml = '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + st.t3Avg.toFixed(2) + '</td>';
+            if (isQualitativeCourse) avgHtml += '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:11px;font-weight:bold;background:#e2e8f0;color:#0f172a;">' + getQualitativeGrade(st.t3Avg) + '</td>';
+            
+            avgHtml += '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + st.cum3.toFixed(2) + '</td>';
+            if (isQualitativeCourse) avgHtml += '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:11px;font-weight:bold;background:#e2e8f0;color:#0f172a;">' + getQualitativeGrade(st.cum3) + '</td>';
+          } else {
+            let avg = trimLimit === 1 ? st.t1Avg : st.t2Avg;
+            avgHtml = '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:12px;font-weight:bold;background:#f8fafc;">' + avg.toFixed(2) + '</td>';
+            if (isQualitativeCourse) avgHtml += '<td style="border:1px solid #0f172a;text-align:center;padding:4px;font-size:11px;font-weight:bold;background:#e2e8f0;color:#0f172a;">' + getQualitativeGrade(avg) + '</td>';
+          }
+
+          tbody += '<tr style="background:' + rowBg + ';">'
+            + '<td style="border:1px solid #cbd5e1;text-align:center;padding:4px;font-size:10px;">' + (i+1) + '</td>'
+            + '<td style="border:1px solid #cbd5e1;padding:4px;font-size:10px;text-align:left;white-space:nowrap;background:' + nameCellBg + ';">' + medalStr + st.name + '</td>'
+            + gHtml
+            + avgHtml
+            + '</tr>';
+        });
+
+        pagesHtml += '<table style="width:100%;border-collapse:collapse;border:2px solid #0f172a;margin-bottom:20px;table-layout:auto;">'
+          + '<thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>';
+        pagesHtml += '</div>'; // close .report-container
       });
 
-      pagesHtml += '<table style="width:100%;border-collapse:collapse;border:2px solid #0f172a;margin-bottom:20px;table-layout:auto;">'
-        + '<thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>';
-      pagesHtml += '</div>'; // close .report-container
-    });
+      const html = '<!DOCTYPE html><html><head><title>Reporte de Tutoría - ' + currentUser.tutoringCourse + '</title>'
+        + '<style>body{font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;padding:15px;margin:0;color:#0f172a;}'
+        + '@page{size:landscape;margin:20mm;}th{font-size:10px;text-transform:uppercase;}'
+        + '.report-container{width:max-content;max-width:100%;margin:0 auto;}'
+        + '@media print{body{padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.no-print{display:none;}}</style>'
+        + '</head><body>'
+        + '<div class="no-print" style="margin-bottom:20px;text-align:center;background:#f8fafc;padding:20px;border-radius:12px;border:2px dashed #cbd5e1;">'
+        + '<button onclick="window.print()" style="background:#059669;color:white;border:none;padding:12px 24px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:16px;">🖨️ Imprimir Resumen Anual (Tutor)</button></div>'
+        + pagesHtml
+        + '<div style="display:flex;justify-content:space-around;margin-top:60px;page-break-inside:avoid;">'
+        + '<div style="border-top:1px solid #475569;width:250px;padding-top:8px;text-align:center;font-weight:bold;font-size:11px;text-transform:uppercase;">Tutor(a)<br>' + currentUser.name + '</div>'
+        + '<div style="border-top:1px solid #475569;width:250px;padding-top:8px;text-align:center;font-weight:bold;font-size:11px;text-transform:uppercase;">Vicerrectorado</div>'
+        + '</div>'
+        + '</body></html>';
 
-    const html = '<!DOCTYPE html><html><head><title>Reporte de Tutoría - ' + currentUser.tutoringCourse + '</title>'
-      + '<style>body{font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;padding:15px;margin:0;color:#0f172a;}'
-      + '@page{size:landscape;margin:20mm;}th{font-size:10px;text-transform:uppercase;}'
-      + '.report-container{width:max-content;max-width:100%;margin:0 auto;}'
-      + '@media print{body{padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.no-print{display:none;}}</style>'
-      + '</head><body>'
-      + '<div class="no-print" style="margin-bottom:20px;text-align:center;background:#f8fafc;padding:20px;border-radius:12px;border:2px dashed #cbd5e1;">'
-      + '<button onclick="window.print()" style="background:#059669;color:white;border:none;padding:12px 24px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:16px;">🖨️ Imprimir Resumen Anual (Tutor)</button></div>'
-      + pagesHtml
-      + '<div style="display:flex;justify-content:space-around;margin-top:60px;page-break-inside:avoid;">'
-      + '<div style="border-top:1px solid #475569;width:250px;padding-top:8px;text-align:center;font-weight:bold;font-size:11px;text-transform:uppercase;">Tutor(a)<br>' + currentUser.name + '</div>'
-      + '<div style="border-top:1px solid #475569;width:250px;padding-top:8px;text-align:center;font-weight:bold;font-size:11px;text-transform:uppercase;">Vicerrectorado</div>'
-      + '</div>'
-      + '</body></html>';
-
-    const printWindow = window.open('', '_blank');
-    if (printWindow) { printWindow.document.open(); printWindow.document.write(html); printWindow.document.close(); }
-    else { alert("⚠️ Tu navegador bloqueó la ventana emergente."); }
+      const printWindow = window.open('', '_blank');
+      if (printWindow) { printWindow.document.open(); printWindow.document.write(html); printWindow.document.close(); }
+      else { alert("⚠️ Tu navegador bloqueó la ventana emergente."); }
+    } catch (err) {
+      console.error(err);
+      alert("Error al generar reporte de tutoría: " + err.message);
+    }
   };
 
   const exportGradesCSV = () => {
@@ -2038,7 +2070,8 @@ export default function UE19deAgosto() {
       .sort((a, b) => b.id.localeCompare(a.id));
 
     const handlePrintReportCard = () => {
-      const isQualitativeCourse = (() => {
+      try {
+        const isQualitativeCourse = (() => {
         const c = (viewingSubject?.courseName || '').toLowerCase();
         return c.includes('inicial') || c.includes('1 egb') || c.includes('2 egb') || c.includes('3 egb') || c.includes('4 egb') ||
                c.includes('1ro') || c.includes('2do') || c.includes('3ro') || c.includes('4to') ||
@@ -2178,7 +2211,11 @@ export default function UE19deAgosto() {
       } else {
         alert("⚠️ Tu navegador bloqueó la ventana emergente. Por favor, permite las ventanas emergentes para este sitio e intenta de nuevo.");
       }
-    };
+    } catch (error) {
+      console.error(error);
+      alert("Error al generar la Libreta: " + error.message);
+    }
+  };
 
     return (
       <div className="min-h-screen bg-slate-50 font-sans text-gray-800 flex flex-col">
