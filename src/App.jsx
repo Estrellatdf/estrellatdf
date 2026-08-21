@@ -1396,27 +1396,6 @@ export default function UE19deAgosto() {
       </div>
     `;
 
-    const isQualitativeCourse = (() => {
-      const c = (currentSubject.courseName || currentSubject.course || '').toLowerCase();
-      return c.includes('inicial') || c.includes('1 egb') || c.includes('2 egb') || c.includes('3 egb') || c.includes('4 egb') ||
-             c.includes('1ro') || c.includes('2do') || c.includes('3ro') || c.includes('4to') ||
-             c.match(/\b(1|2|3|4)\b.*egb/);
-    })();
-    const isQualitativeSubject = isQualitativeCourse || currentSubject.name.toLowerCase().includes('civica') || currentSubject.name.toLowerCase().includes('cívica') || currentSubject.name.toLowerCase().includes('acompañamiento');
-
-    const getQual = (num) => {
-      if (num >= 9.5) return 'A+';
-      if (num >= 9.0) return 'A-';
-      if (num >= 8.0) return 'B+';
-      if (num >= 7.0) return 'B-';
-      if (num >= 6.0) return 'C+';
-      if (num >= 5.0) return 'C-';
-      if (num >= 4.0) return 'D+';
-      if (num >= 3.0) return 'D-';
-      if (num >= 2.0) return 'E+';
-      return 'E-';
-    };
-
     const html = `
       <!DOCTYPE html>
       <html>
