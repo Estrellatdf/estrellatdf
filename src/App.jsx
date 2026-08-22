@@ -1872,7 +1872,7 @@ export default function UE19deAgosto() {
       const studentsMap = new Map();
       tutorSubjects.forEach(sub => {
         (sub.students || []).forEach(st => {
-          const key = st.id;
+          const key = normalizeText(st.name);
           if (!studentsMap.has(key)) studentsMap.set(key, { student: st, subjectsData: [] });
           studentsMap.get(key).subjectsData.push({ subject: sub, studentId: st.id });
         });
