@@ -1845,6 +1845,164 @@ export default function UE19deAgosto() {
       alert("Error al generar reporte de tutoría: " + err.message);
     }
   };
+  const handlePrintAllTutorReportCards = () => {
+    try {
+      if (!currentUser || !currentUser.tutoringCourse) return;
+      const targetParallel = currentUser.tutoringCourse.trim().toLowerCase();
+      const tutorSubjects = subjects.filter(s => (s.parallel || '').trim().toLowerCase() === targetParallel);
+      if (tutorSubjects.length === 0) return alert("No hay materias registradas para tu curso de tutoría.");
+
+      const isQualitativeCourse = (() => {
+        const c = (currentUser.tutoringCourse || '').toLowerCase();
+        return c.includes('inicial') || c.includes('1 egb') || c.includes('2 egb') || c.includes('3 egb') || c.includes('4 egb') ||
+               c.includes('1ro') || c.includes('2do') || c.includes('3ro') || c.includes('4to') ||
+               c.match(/\b(1|2|3|4)\b.*egb/);
+      })();
+
+      const needsQualitative = (sub) => {
+        const n = sub.name.toLowerCase();
+        if (n.includes('civica') || n.includes('cívica') || n.includes('acompañamiento') || n.includes('educacion fisica') || n.includes('educación física') || n.includes('educación fisica') || n.includes('orientacion vocacional') || n.includes('orientación vocacional')) return true;
+        return isQualitativeCourse;
+      };
+
+      const getQual = (num) => {
+        if (num >= 9.5) return 'A+'; if (num >= 9.0) return 'A-'; if (num >= 8.0) return 'B+'; if (num >= 7.0) return 'B-'; if (num >= 6.0) return 'C+'; if (num >= 5.0) return 'C-'; if (num >= 4.0) return 'D+'; if (num >= 3.0) return 'D-'; if (num >= 2.0) return 'E+'; return 'E-';
+      };
+
+      const studentsMap = new Map();
+      tutorSubjects.forEach(sub => {
+        (sub.students || []).forEach(st => {
+          const key = st.id;
+          if (!studentsMap.has(key)) studentsMap.set(key, { student: st, subjectsData: [] });
+          studentsMap.get(key).subjectsData.push({ subject: sub, studentId: st.id });
+        });
+      });
+
+      const allStudents = Array.from(studentsMap.values()).sort((a, b) => a.student.name.localeCompare(b.student.name));
+      if (allStudents.length === 0) return alert("No hay estudiantes registrados en estas materias.");
+
+      let allHtml = '';
+
+      allStudents.forEach((stObj, idx) => {
+        const viewingStudent = stObj.student;
+        let rowsHtml = '';
+        stObj.subjectsData.forEach(m => {
+          const s1 = calculateStats(m.subject, 1, m.studentId);
+          const s2 = calculateStats(m.subject, 2, m.studentId);
+          const s3 = calculateStats(m.subject, 3, m.studentId);
+          const total = (parseFloat(s1.fin) || 0) + (parseFloat(s2.fin) || 0) + (parseFloat(s3.fin) || 0);
+          const pass = total >= 21;
+          const q = needsQualitative(m.subject);
+          
+          rowsHtml += `
+            <tr>
+              <td style="padding: 6px 10px; border: 1px solid #93c5fd; font-weight: 800; color: #1e3a8a; font-size: 12px;">${m.subject.name}</td>
+              <td style="padding: 6px 6px; border: 1px solid #93c5fd; text-align: center; color: #334155; font-weight: 600; font-size: 12px;">${s1.fin} ${q ? '<br/><span style="font-size:9px;font-weight:bold;color:#0284c7;">'+getQual(parseFloat(s1.fin)||0)+'</span>' : ''}</td>
+              <td style="padding: 6px 6px; border: 1px solid #93c5fd; text-align: center; color: #334155; font-weight: 600; font-size: 12px;">${s2.fin} ${q ? '<br/><span style="font-size:9px;font-weight:bold;color:#0284c7;">'+getQual(parseFloat(s2.fin)||0)+'</span>' : ''}</td>
+              <td style="padding: 6px 6px; border: 1px solid #93c5fd; text-align: center; color: #334155; font-weight: 600; font-size: 12px;">${s3.fin} ${q ? '<br/><span style="font-size:9px;font-weight:bold;color:#0284c7;">'+getQual(parseFloat(s3.fin)||0)+'</span>' : ''}</td>
+              <td style="padding: 6px 6px; border: 1px solid #93c5fd; text-align: center; font-weight: 900; background: #f0f9ff; color: #0f172a; font-size: 12px;">${total.toFixed(2)} ${q ? '<br/><span style="font-size:9px;color:#0284c7;">'+getQual(total/3)+'</span>' : ''}</td>
+              <td style="padding: 6px 6px; border: 1px solid #93c5fd; text-align: center; font-weight: 900; color: ${pass ? '#059669' : '#dc2626'}; background: ${pass ? '#f0fdf4' : '#fef2f2'}; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px;">${pass ? 'Aprobado' : 'Supletorio'}</td>
+            </tr>
+          `;
+        });
+
+        allHtml += `
+          <div class="report-page" style="${idx < allStudents.length - 1 ? 'page-break-after: always;' : ''}">
+            <div class="header">
+              <div class="header-content">
+                <img src="${window.location.origin}/logo_colegio.png" class="logo" alt="Logo" onerror="this.src='${window.location.origin}/vite.svg'" />
+                <div style="text-align: left;">
+                  <h1 class="school-name">Unidad Educativa 19 de Agosto</h1>
+                  <p class="doc-title">Cuadro General de Calificaciones</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="info-box">
+              <div class="info-row">
+                <div><span class="info-label">Estudiante:</span> <span class="info-value">${viewingStudent.name}</span></div>
+                <div><span class="info-label">Código:</span> <span class="info-value">${viewingStudent.code}</span></div>
+              </div>
+              <div class="info-row">
+                <div><span class="info-label">Curso/Paralelo:</span> <span class="info-value">${currentUser.tutoringCourse}</span></div>
+                <div><span class="info-label">Año Lectivo:</span> <span class="info-value">${appSettings.schoolYear || 'Oficial'}</span></div>
+              </div>
+              <div class="info-row">
+                <div><span class="info-label">Fecha Emisión:</span> <span class="info-value">${new Date().toLocaleDateString('es-ES')}</span></div>
+                <div></div>
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th style="text-align: left; width: auto;">Asignatura</th>
+                  <th style="width: 70px;">1º Trim</th>
+                  <th style="width: 70px;">2º Trim</th>
+                  <th style="width: 70px;">3º Trim</th>
+                  <th style="background: #0ea5e9; width: 80px; color: #ffffff;">Suma Final</th>
+                  <th style="width: 90px; background: #0f172a;">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+
+            <div class="signatures">
+              <div class="sig-line">Rector(a)</div>
+              <div class="sig-line">Secretaría / Tutor(a)</div>
+            </div>
+          </div>
+        `;
+      });
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Boletines - ${currentUser.tutoringCourse}</title>
+            <style>
+              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; color: #0f172a; margin: 0; background: #ffffff; }
+              .header { border-bottom: 3px solid #fbbf24; padding-bottom: 10px; margin-bottom: 15px; }
+              .header-content { display: flex; align-items: center; justify-content: center; gap: 15px; }
+              .logo { width: 60px; height: 60px; object-fit: contain; }
+              .school-name { font-size: 20px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: 1px; color: #1e3a8a; }
+              .doc-title { font-size: 13px; color: #0284c7; margin-top: 3px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+              .info-box { background: #f8fafc; border-top: 4px solid #1e3a8a; border-bottom: 4px solid #fbbf24; border-radius: 6px; padding: 10px 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+              .info-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+              .info-row:last-child { margin-bottom: 0; }
+              .info-label { font-weight: 900; color: #0284c7; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; display: inline-block; width: 110px; }
+              .info-value { font-weight: 800; color: #1e3a8a; font-size: 12px; text-transform: uppercase; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 25px; table-layout: auto; }
+              th { background: #1e3a8a; color: white; padding: 8px 6px; text-align: center; border: 1px solid #1e40af; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+              .signatures { display: flex; justify-content: space-around; margin-top: 50px; page-break-inside: avoid; }
+              .sig-line { border-top: 2px solid #1e3a8a; width: 180px; padding-top: 6px; text-align: center; font-weight: 800; color: #1e3a8a; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+              @media print {
+                body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                .no-print { display: none; }
+                @page { margin: 10mm; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="no-print" style="margin-bottom: 20px; text-align: center; background: #f0f9ff; padding: 20px; border-radius: 12px; border: 2px dashed #bae6fd;">
+              <p style="margin-top:0; color: #0369a1; font-size: 14px; font-weight: bold;">Vista previa de impresión - Lote de Boletines (${allStudents.length} estudiantes)</p>
+              <button onclick="window.print()" style="background: #1e3a8a; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(30, 58, 138, 0.3);">🖨️ Imprimir Todos los Boletines</button>
+            </div>
+            ${allHtml}
+          </body>
+        </html>
+      `;
+
+      const printWindow = window.open('', '_blank');
+      if (printWindow) { printWindow.document.open(); printWindow.document.write(html); printWindow.document.close(); }
+      else { alert("⚠️ Tu navegador bloqueó la ventana emergente."); }
+    } catch (err) {
+      console.error(err);
+      alert("Error al generar los boletines: " + err.message);
+    }
+  };
 
   const exportGradesCSV = () => {
     const acts = currentSubject.activities[currentTrimester] || [];
@@ -2811,6 +2969,11 @@ export default function UE19deAgosto() {
                           <button onClick={() => handlePrintTutorReport(3)} className="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 py-2 rounded-xl font-bold text-[11px] flex justify-center items-center transition-all shadow-sm">
                             Año Completo (Medallas)
                           </button>
+                          <div className="pt-2">
+                            <button onClick={handlePrintAllTutorReportCards} className="w-full bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 py-2 rounded-xl font-bold text-[11px] flex justify-center items-center gap-1 transition-all shadow-sm">
+                              <Printer size={14} /> IMPRIMIR BOLETINES (TODOS)
+                            </button>
+                          </div>
                         </div>
                       )}
 
